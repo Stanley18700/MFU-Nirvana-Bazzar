@@ -72,6 +72,21 @@ input,select{font:inherit;color:inherit}
 .arc svg{transform:rotate(-90deg)}
 .arc .mid{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;line-height:1}
 .arc .mid b{font-size:25px;font-weight:700;color:var(--gold);line-height:1;display:block}
+.arc .mid b small{font-size:9px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;
+  opacity:.65;margin-left:2px}
+.tier-track{display:flex;margin-top:18px;padding-top:4px}
+.tier-pip{flex:1;text-align:center;position:relative}
+.tier-pip::before{content:"";position:absolute;top:5px;left:0;right:0;height:1.5px;background:rgba(239,233,220,.16)}
+.tier-pip:first-child::before{left:50%}
+.tier-pip:last-child::before{right:50%}
+.tier-pip i{position:relative;z-index:1;display:block;width:11px;height:11px;margin:0 auto 7px;border-radius:50%;
+  background:#17263F;border:1.5px solid rgba(239,233,220,.3)}
+.tier-pip.hit i{background:var(--gold);border-color:var(--gold)}
+.tier-pip b{display:block;font-size:12px;font-weight:700;color:rgba(239,233,220,.5)}
+.tier-pip span{display:block;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:rgba(239,233,220,.35);margin-top:2px}
+.tier-pip.hit b{color:var(--gold)}
+.tier-pip.hit span{color:rgba(239,233,220,.6)}
 .progress-card .txt{font-size:14px;line-height:1.5}
 .progress-card .txt b{color:var(--gold);font-weight:600}
 .progress-card .txt .sub{font-size:12px;display:block;margin-top:4px;color:rgba(239,233,220,.68)}
@@ -106,6 +121,12 @@ input,select{font:inherit;color:inherit}
 .slot.got .when{font-size:8px;color:var(--navy-soft);font-weight:300}
 .slot .dayflag{position:absolute;top:5px;right:6px;font-size:7.5px;background:var(--navy);color:var(--paper);
   padding:1px 5px;border-radius:99px;letter-spacing:.04em;font-weight:500}
+.slot .worth{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:700;
+  letter-spacing:.02em;padding:1.5px 8px;border-radius:99px;background:var(--navy-soft);color:var(--paper);opacity:.9}
+.slot .worth.mid{background:var(--warn);opacity:1}
+.slot .worth.high{background:var(--gold);color:#17263F;opacity:1}
+.floorhint{font-size:10.5px;color:var(--navy-soft);font-weight:300;line-height:1.55;margin-top:14px;
+  border-left:2px solid var(--gold);padding-left:10px}
 @keyframes stampIn{0%{transform:scale(1.7) rotate(14deg);opacity:0}60%{opacity:1}100%{transform:scale(1) rotate(var(--tilt,-5deg))}}
 
 .legend{display:flex;gap:14px;margin-top:16px;font-size:10.5px;color:var(--navy-soft);font-weight:300}
@@ -127,6 +148,9 @@ input,select{font:inherit;color:inherit}
 .state.locked{background:rgba(23,38,63,.07);color:var(--navy-soft)}
 .state.redeemed{background:rgba(200,162,74,.16);color:#8A6D1F}
 .stock-line{margin-top:10px;font-size:11.5px;color:var(--warn);font-weight:500}
+.ptbar{height:5px;background:rgba(23,38,63,.1);border-radius:99px;overflow:hidden;margin-top:12px}
+.ptbar i{display:block;height:100%;background:var(--stamp-blue);border-radius:99px}
+.ptbar-l{display:flex;justify-content:space-between;font-size:9.5px;color:var(--navy-soft);margin-top:4px;font-weight:500}
 .code-box{margin-top:14px;border-top:1px dashed var(--rule);padding-top:14px;text-align:center}
 .code-box .qr{width:132px;height:132px;margin:0 auto 10px;background:#fff;border-radius:8px;padding:6px;
   box-shadow:0 0 0 1px var(--rule)}
@@ -196,6 +220,8 @@ input,select{font:inherit;color:inherit}
   margin-bottom:24px;position:relative;animation:stampIn .45s cubic-bezier(.2,1.5,.4,1) both}
 .result .big::after{content:"";position:absolute;inset:7px;border:1.5px solid currentColor;border-radius:50%;opacity:.35}
 .result h3{font-size:21px;font-weight:600;line-height:1.3}
+.result .gain{font-size:15px;font-weight:700;color:var(--seal);background:rgba(200,162,74,.22);
+  padding:5px 16px;border-radius:99px;margin-bottom:14px;letter-spacing:.02em}
 .result p{font-size:13px;color:var(--navy-soft);margin-top:12px;line-height:1.55;font-weight:300}
 .result .btn{margin-top:26px;max-width:240px}
 .result.warn .big{color:var(--warn)}
@@ -218,6 +244,9 @@ input,select{font:inherit;color:inherit}
 .qr-card{width:236px;height:236px;background:#fff;border-radius:16px;padding:13px;display:grid;place-items:center}
 .qr-card canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
 .bs-side{flex:1;min-width:230px}
+.worth-badge{display:inline-block;font-size:12px;font-weight:400;color:#17263F;background:var(--gold);
+  padding:5px 13px;border-radius:99px;margin-bottom:18px}
+.worth-badge b{font-weight:700}
 .manual{margin-bottom:22px}
 .manual .lbl{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:rgba(239,233,220,.5);margin-bottom:6px}
 .manual .code{font-size:38px;font-weight:700;letter-spacing:.16em;color:var(--gold);font-variant-numeric:tabular-nums}
@@ -256,7 +285,9 @@ input,select{font:inherit;color:inherit}
 .panel .ph{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px}
 .cols{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;align-items:start}
 .cols2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media(max-width:1000px){.cols,.cols2{grid-template-columns:1fr}}
+.cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:1200px){.cols3{grid-template-columns:1fr 1fr}}
+@media(max-width:1000px){.cols,.cols2,.cols3{grid-template-columns:1fr}}
 
 .figs{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px}
 .fig{background:var(--paper);border-radius:16px;padding:18px 20px;border-top:3px solid var(--navy)}
@@ -279,9 +310,9 @@ input,select{font:inherit;color:inherit}
 .lbrow .bar{grid-column:3/5;height:5px;background:rgba(23,38,63,.09);border-radius:99px;overflow:hidden;margin-top:5px}
 .lbrow .bar i{display:block;height:100%;border-radius:99px;transition:width .6s ease}
 .lbrow .v{font-size:16px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
-.lbrow .tagx{font-size:8.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:1.5px 6px;border-radius:99px;
-  background:var(--gold);color:#17263F;margin-left:6px;vertical-align:1px}
-.lbrow .tagx.warn{background:var(--warn);color:#fff}
+.tagx{display:inline-block;font-size:8.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  padding:1.5px 6px;border-radius:99px;background:var(--gold);color:#17263F;margin-left:6px;vertical-align:1px}
+.tagx.warn{background:var(--warn);color:#fff}
 
 .spark{width:100%;height:150px}
 .spark path.area{opacity:.16}
@@ -345,6 +376,16 @@ select.mini{padding:5px 8px}
 .bcard .acts{display:flex;gap:6px;padding:0 14px 14px}
 .bcard .acts button{flex:1;font-size:10.5px;padding:5px}
 .missing{font-size:10.5px;color:var(--warn);font-weight:500;margin-top:8px}
+.bcard .photo .ptchip{position:absolute;top:9px;right:9px;font-size:10px;font-weight:700;padding:2px 8px;
+  border-radius:99px;background:var(--navy-soft);color:var(--paper)}
+.bcard .photo .ptchip.mid{background:var(--warn)}
+.bcard .photo .ptchip.high{background:var(--gold);color:#17263F}
+.ptedit{display:flex;align-items:center;gap:6px;margin-top:10px}
+.ptedit em{font-style:normal;font-size:9.5px;color:var(--navy-soft);letter-spacing:.05em;text-transform:uppercase}
+.ptedit select{padding:3px 5px;font-size:11px}
+.ptsum{background:rgba(27,82,168,.06);border:1px solid rgba(27,82,168,.2);border-radius:10px;padding:11px 13px;
+  font-size:11.5px;color:var(--seal);font-weight:300;line-height:1.55;margin-bottom:16px}
+.ptsum b{font-weight:700}
 
 .modal{position:fixed;inset:0;background:rgba(8,16,26,.72);z-index:80;display:none;align-items:center;justify-content:center;padding:20px}
 .modal.on{display:flex}
@@ -458,35 +499,43 @@ select.mini{padding:5px 8px}
    Mock data only. No backend. Everything below is illustrative.
    ============================================================ */
 
+/* Badges are not worth the same. Points are set per booth by the admin, and the
+   far/quiet corners of the hall are worth more — that is the lever that pulls
+   visitors past the booths by the entrance. zone is shown for that reasoning. */
 const BOOTHS = [
-  {id:'adt', n:'Applied Digital Technology', unit:'ADT', ico:'🖥', c:'#E0533D', days:[0,1,2]},
-  {id:'la',  n:'Liberal Arts',               unit:'LA',  ico:'📖', c:'#1B52A8', days:[0,1,2]},
-  {id:'mgt', n:'Management',                 unit:'MGT', ico:'📊', c:'#1E8A6E', days:[0,1,2]},
-  {id:'law', n:'Law',                        unit:'LAW', ico:'⚖️', c:'#C8A24A', days:[0,1]},
-  {id:'sci', n:'Science',                    unit:'SCI', ico:'🔬', c:'#7B4EA8', days:[0,1,2]},
-  {id:'hs',  n:'Health Science',             unit:'HS',  ico:'🩺', c:'#D4762A', days:[0,1,2]},
-  {id:'med', n:'Medicine',                   unit:'MED', ico:'🏥', c:'#2A7FB8', days:[1,2]},
-  {id:'nur', n:'Nursing',                    unit:'NUR', ico:'💉', c:'#B23A63', days:[0,2]},
-  {id:'agr', n:'Agro-Industry',              unit:'AGR', ico:'🌾', c:'#4E8B32', days:[0,1,2]},
-  {id:'sin', n:'Sinology',                   unit:'SIN', ico:'🀄', c:'#C0392B', days:[0,1,2]},
-  {id:'oia', n:'International Affairs',      unit:'OIA', ico:'🌏', c:'#0F2E6E', days:[0,1,2]},
-  {id:'lib', n:'Library & Learning',         unit:'LIB', ico:'📚', c:'#1E7F86', days:[0,1,2]},
+  {id:'adt', n:'Applied Digital Technology', unit:'ADT', ico:'🖥', c:'#E0533D', days:[0,1,2], pts:10, zone:'Entrance'},
+  {id:'la',  n:'Liberal Arts',               unit:'LA',  ico:'📖', c:'#1B52A8', days:[0,1,2], pts:10, zone:'Entrance'},
+  {id:'mgt', n:'Management',                 unit:'MGT', ico:'📊', c:'#1E8A6E', days:[0,1,2], pts:10, zone:'Entrance'},
+  {id:'law', n:'Law',                        unit:'LAW', ico:'⚖️', c:'#C8A24A', days:[0,1],   pts:10, zone:'Entrance'},
+  {id:'sci', n:'Science',                    unit:'SCI', ico:'🔬', c:'#7B4EA8', days:[0,1,2], pts:10, zone:'Entrance'},
+  {id:'hs',  n:'Health Science',             unit:'HS',  ico:'🩺', c:'#D4762A', days:[0,1,2], pts:15, zone:'Middle hall'},
+  {id:'agr', n:'Agro-Industry',              unit:'AGR', ico:'🌾', c:'#4E8B32', days:[0,1,2], pts:15, zone:'Middle hall'},
+  {id:'sin', n:'Sinology',                   unit:'SIN', ico:'🀄', c:'#C0392B', days:[0,1,2], pts:15, zone:'Middle hall'},
+  {id:'lib', n:'Library & Learning',         unit:'LIB', ico:'📚', c:'#1E7F86', days:[0,1,2], pts:15, zone:'Middle hall'},
+  {id:'med', n:'Medicine',                   unit:'MED', ico:'🏥', c:'#2A7FB8', days:[1,2],   pts:20, zone:'Far corner'},
+  {id:'nur', n:'Nursing',                    unit:'NUR', ico:'💉', c:'#B23A63', days:[0,2],   pts:20, zone:'Far corner'},
+  {id:'oia', n:'International Affairs',      unit:'OIA', ico:'🌏', c:'#0F2E6E', days:[0,1,2], pts:20, zone:'Far corner'},
 ];
 BOOTHS.forEach((b,i)=>{ b.no = String(i+1).padStart(2,'0'); b.badge = i<9; });
+const MAX_POINTS = BOOTHS.reduce((s,b)=>s+b.pts,0);
 
 const state = {
   role:'visitor', page:'cover', day:0, atab:'dash', otab:'screen', solo:false,
   visitor:{
     name:'Yanisa Preechawit', passport:'MFU-GG-0417', country:'Thailand',
     inst:'Mae Fah Luang University', school:'Applied Digital Technology',
-    stamps:{ adt:'16 Sep 09:42', la:'16 Sep 10:15', mgt:'16 Sep 10:51',
-             sci:'16 Sep 11:20', oia:'16 Sep 13:05', lib:'16 Sep 13:44', agr:'17 Sep 09:58' }
+    stamps:{ adt:{when:'16 Sep 09:42',pts:10}, la:{when:'16 Sep 10:15',pts:10},
+             mgt:{when:'16 Sep 10:51',pts:10}, sci:{when:'16 Sep 11:20',pts:10},
+             oia:{when:'16 Sep 13:05',pts:20}, lib:{when:'16 Sep 13:44',pts:15},
+             agr:{when:'17 Sep 09:58',pts:15} }
   },
   counts:{}, eventTotal:1204,
   tiers:[
-    {id:'t1', n:'Five booths', need:5, total:600, left:412, redeemed:false,
+    {id:'t1', n:'Explorer',     need:50,  total:600, left:412, redeemed:false, draw:false,
      reward:'A souvenir on the spot at the prize desk'},
-    {id:'t2', n:'Every booth', need:12, total:150, left:24, redeemed:false,
+    {id:'t2', n:'Voyager',      need:100, total:250, left:118, redeemed:false, draw:false,
+     reward:'A larger souvenir — a Go Global tote and enamel pin'},
+    {id:'t3', n:'Globetrotter', need:150, total:120, left:24,  redeemed:false, draw:true,
      reward:'A special souvenir plus entry to the closing stage draw'},
   ],
   users:[
@@ -555,6 +604,11 @@ document.querySelectorAll('.roles button').forEach(b=>b.onclick=()=>setRole(b.da
 
 /* ================= VISITOR ================= */
 const stampCount = () => Object.keys(state.visitor.stamps).length;
+/* Points are frozen at scan time, so an admin re-pricing a booth mid-event
+   never moves a visitor's total backwards. The prototype stores the awarded
+   value on the stamp for exactly that reason. */
+const points = () => Object.values(state.visitor.stamps).reduce((s,x)=>s+x.pts,0);
+const nextTier = () => state.tiers.find(t=>points()<t.need);
 
 function renderVisitor(){
   const s=$('#vscreen'); s.innerHTML='';
@@ -567,7 +621,10 @@ function renderVisitor(){
 }
 
 function coverPage(){
-  const got=stampCount(), total=BOOTHS.length, next=Math.max(0,5-got), pct=got/total;
+  const got=stampCount(), pts=points(), nt=nextTier();
+  const prev = state.tiers.filter(t=>t.need<=pts).slice(-1)[0];
+  const base = prev?prev.need:0;
+  const pct  = nt ? Math.min(1,(pts-base)/(nt.need-base)) : 1;
   const d=el('div','cover');
   d.innerHTML=`
     <div class="foil">
@@ -582,14 +639,18 @@ function coverPage(){
           <circle cx="43" cy="43" r="37" fill="none" stroke="#C8A24A" stroke-width="6" stroke-linecap="round"
                   stroke-dasharray="${(2*Math.PI*37).toFixed(1)}" stroke-dashoffset="${(2*Math.PI*37*(1-pct)).toFixed(1)}"/>
         </svg>
-        <div class="mid"><b>${got}<span style="font-size:13px;opacity:.6">/${total}</span></b></div>
+        <div class="mid"><b>${pts}<small>pts</small></b></div>
       </div>
       <div class="txt">
-        ${next>0 ? `<b>${next} more ${next===1?'booth':'booths'}</b> for a souvenir
-                    <span class="sub">${got} of ${total} stamps collected</span>`
-                 : `<b>Threshold reached</b>
-                    <span class="sub">${got} of ${total} stamps — collect your souvenir at the prize desk</span>`}
+        ${nt ? `<b>${nt.need-pts} more points</b> to ${nt.n}
+                <span class="sub">${pts} points from ${got} of ${BOOTHS.length} booths · ${MAX_POINTS} available in the hall</span>`
+             : `<b>Top tier reached</b>
+                <span class="sub">${pts} points from ${got} booths — collect your prize at the desk</span>`}
       </div>
+    </div>
+    <div class="tier-track">
+      ${state.tiers.map(t=>`<div class="tier-pip ${pts>=t.need?'hit':''}">
+          <i></i><b>${t.need}</b><span>${t.n}</span></div>`).join('')}
     </div>
     <div class="days">
       <div class="day-chip done"><b>16</b>Sep</div>
@@ -611,46 +672,63 @@ function coverPage(){
 }
 
 function stampsPage(){
-  const d=el('div','page'), got=stampCount();
-  d.innerHTML=`<div class="page-head"><h2>Stamps<span class="sub">One stamp per booth, all three days</span></h2>
-    <span class="count tnum">${got} / ${BOOTHS.length}</span></div>`;
+  const d=el('div','page'), got=stampCount(), pts=points();
+  const remaining=BOOTHS.filter(b=>!state.visitor.stamps[b.id]).reduce((s,b)=>s+b.pts,0);
+  d.innerHTML=`<div class="page-head"><h2>Stamps<span class="sub">${got} of ${BOOTHS.length} booths · ${remaining} points still on the floor</span></h2>
+    <span class="count tnum" style="font-size:15px;font-weight:700;color:var(--seal)">${pts} pts</span></div>`;
   const g=el('div','grid');
-  BOOTHS.forEach(b=>{
-    const when=state.visitor.stamps[b.id], hereToday=b.days.includes(1);
-    const c=el('div', when?'slot got':(hereToday?'slot empty':'slot upcoming'));
+  /* Uncollected booths are sorted by points, high first — the whole mechanism only
+     works if a visitor can see that the far corner is worth double before walking there. */
+  const order=[...BOOTHS].sort((a,b)=>{
+    const ga=!!state.visitor.stamps[a.id], gb=!!state.visitor.stamps[b.id];
+    if(ga!==gb) return ga?1:-1;
+    return ga ? 0 : b.pts-a.pts;
+  });
+  order.forEach(b=>{
+    const st=state.visitor.stamps[b.id], hereToday=b.days.includes(1);
+    const c=el('div', st?'slot got':(hereToday?'slot empty':'slot upcoming'));
     c.style.setProperty('--tilt',(Math.random()*10-5).toFixed(1)+'deg');
-    if(when){
-      const p=when.split(' ');
+    if(st){
+      const p=st.when.split(' ');
       c.innerHTML=`<div class="badge" style="color:${b.c}">${b.ico}</div>
-                   <div class="nm" style="color:${b.c}">${b.unit}</div><div class="when">${p[0]} ${p[1]} · ${p[2]}</div>`;
+                   <div class="nm" style="color:${b.c}">${b.unit}</div>
+                   <div class="when">${p[0]} ${p[1]} · ${st.pts} pts</div>`;
     } else {
-      c.innerHTML=`<div class="ico">${b.ico}</div><div class="nm">${b.n}</div>`;
+      c.innerHTML=`<div class="ico">${b.ico}</div><div class="nm">${b.n}</div>
+                   <div class="worth ${b.pts>=20?'high':(b.pts>=15?'mid':'')}">+${b.pts}</div>`;
       if(!hereToday) c.innerHTML+=`<div class="dayflag">${b.days.map(x=>16+x).join('·')} Sep</div>`;
     }
-    c.onclick=()=>toast(`Booth ${b.no} · ${b.n}`);
+    c.onclick=()=>toast(st ? `Booth ${b.no} · ${b.n} — ${st.pts} points earned`
+                           : `Booth ${b.no} · ${b.n} · ${b.zone} — worth ${b.pts} points`);
     g.appendChild(c);
   });
   d.appendChild(g);
   d.appendChild(el('div','legend',
     `<span><i style="background:#fff;box-shadow:0 0 0 1px var(--rule)"></i>Collected</span>
-     <span><i style="border:1.5px dashed rgba(23,38,63,.3)"></i>Still to visit</span>
-     <span><i style="background:var(--navy)"></i>Open another day</span>`));
+     <span><i style="background:var(--gold)"></i>Worth 20</span>
+     <span><i style="background:var(--warn)"></i>Worth 15</span>
+     <span><i style="background:var(--navy-soft)"></i>Worth 10</span>`));
+  d.appendChild(el('div','floorhint',
+    `Booths deeper in the hall are worth more. The three at the far end are worth 20 points each —
+     twice a booth by the entrance.`));
   return d;
 }
 
 function prizePage(){
-  const got=stampCount(), d=el('div','page');
-  d.innerHTML=`<div class="page-head"><h2>Prizes<span class="sub">Redeem at the prize desk</span></h2>
-    <span class="count tnum">${got} / ${BOOTHS.length}</span></div>`;
+  const pts=points(), d=el('div','page');
+  d.innerHTML=`<div class="page-head"><h2>Prizes<span class="sub">Earned by points, not by booth count</span></h2>
+    <span class="count tnum" style="font-size:15px;font-weight:700;color:var(--seal)">${pts} pts</span></div>`;
   state.tiers.forEach(t=>{
-    const unlocked=got>=t.need, out=t.left<=0;
+    const unlocked=pts>=t.need, out=t.left<=0;
     const v=el('div', unlocked?'visa':'visa locked');
     const cls = t.redeemed?'redeemed':(unlocked?'unlocked':'locked');
-    const txt = t.redeemed?'Redeemed':(unlocked?(out?'Out of stock':'Unlocked'):`${t.need-got} more to go`);
+    const txt = t.redeemed?'Redeemed':(unlocked?(out?'Out of stock':'Unlocked'):`${t.need-pts} points to go`);
     v.innerHTML=`
       <div class="seal">MFU<br>GO GLOBAL<br>${unlocked?'ADMITTED':'PENDING'}</div>
-      <h3>${t.n}<span class="sub">Collect a stamp at ${t.need===BOOTHS.length?'every booth':t.need+' booths'}</span></h3>
+      <h3>${t.n}<span class="sub">${t.need} points${t.draw?' · includes the closing stage draw':''}</span></h3>
       <div class="reward">${t.reward}</div>
+      ${!unlocked?`<div class="ptbar"><i style="width:${Math.min(100,pts/t.need*100)}%"></i></div>
+        <div class="ptbar-l"><span>${pts} pts</span><span>${t.need} pts</span></div>`:''}
       <span class="state ${cls}">${txt}</span>
       ${unlocked && t.left/t.total<0.2 ? `<div class="stock-line">Only ${t.left} left</div>`:''}`;
     if(unlocked && !t.redeemed && !out){
@@ -665,8 +743,9 @@ function prizePage(){
   });
   d.insertAdjacentHTML('beforeend',
     `<p style="font-size:11px;color:var(--navy-soft);font-weight:300;line-height:1.6;margin-top:6px">
-     The redemption code rotates every 30 seconds, so a screenshot cannot be forwarded to someone
-     who has not collected the stamps.</p>`);
+     ${MAX_POINTS} points are available across all ${BOOTHS.length} booths, so every tier is reachable
+     without visiting every single one. The redemption code rotates every 30 seconds, so a screenshot
+     cannot be forwarded to someone who has not earned the points.</p>`);
   setTimeout(()=>d.querySelectorAll('canvas.rcode').forEach(c=>drawPseudoQR(c,'redeem-'+Date.now())),0);
   return d;
 }
@@ -771,11 +850,15 @@ function showResult(kind){
   if(kind==='new'){
     const left=BOOTHS.filter(b=>!state.visitor.stamps[b.id]);
     const b=left[Math.floor(Math.random()*left.length)] || BOOTHS[0];
-    state.visitor.stamps[b.id]='17 Sep '+new Date().toTimeString().slice(0,5);
+    state.visitor.stamps[b.id]={when:'17 Sep '+new Date().toTimeString().slice(0,5), pts:b.pts};
+    const pts=points(), nt=nextTier();
     r.classList.add('ok');
     r.innerHTML=`<div class="big" style="color:${b.c}">${b.ico}</div>
+      <div class="gain">+${b.pts} points</div>
       <h3>Stamp collected</h3>
-      <p>Booth ${b.no} · ${b.n}<br>You now have <b>${stampCount()}</b> of ${BOOTHS.length} stamps.</p>
+      <p>Booth ${b.no} · ${b.n} · ${b.zone}<br>
+      You now have <b>${pts} points</b> from ${stampCount()} booths.<br>
+      ${nt?`${nt.need-pts} more to reach ${nt.n}.`:'You have reached the top tier.'}</p>
       <button class="btn" data-close>View passport</button>`;
     if(navigator.vibrate) navigator.vibrate(18);
     state.eventTotal++; state.counts[b.id]++;
@@ -852,6 +935,7 @@ function paneBoothScreen(){
           <div class="qr-card"><canvas id="qrCanvas" width="210" height="210"></canvas></div>
         </div>
         <div class="bs-side">
+          <div class="worth-badge">This badge is worth <b>${MY_BOOTH.pts} points</b> · ${MY_BOOTH.zone}</div>
           <div class="manual">
             <div class="lbl">Manual code</div>
             <div class="code" id="manualCode">— — — — — —</div>
@@ -968,10 +1052,10 @@ function paneDesk(){
   const log=el('div','panel');
   log.innerHTML=`<div class="ph"><h3>Handed over today <span class="sub">Most recent first</span></h3></div>`;
   const t=el('table');
-  t.innerHTML=`<thead><tr><th>Time</th><th>Visitor</th><th>Tier</th><th>Stamps</th><th>Confirmed by</th><th></th></tr></thead>`;
+  t.innerHTML=`<thead><tr><th>Time</th><th>Visitor</th><th>Tier</th><th>Points</th><th>Confirmed by</th><th></th></tr></thead>`;
   const tb=el('tbody');
-  [['14:12','Aung Ko Latt','Every booth',12],['14:08','Li Wei','Five booths',9],
-   ['13:57','Bishal Thapa','Five booths',6],['13:44','Nanthana Kaewkham','Five booths',5]]
+  [['14:12','Aung Ko Latt','Globetrotter',165],['14:08','Li Wei','Voyager',120],
+   ['13:57','Bishal Thapa','Explorer',65],['13:44','Nanthana Kaewkham','Explorer',50]]
    .forEach(r=>{
     const tr=el('tr');
     tr.innerHTML=`<td class="tnum" style="color:var(--navy-soft)">${r[0]}</td><td><b>${r[1]}</b></td>
@@ -994,13 +1078,14 @@ function paneDesk(){
             <div style="font-size:11.5px;color:var(--navy-soft);margin-top:4px">
               MFU · Applied Digital Technology · Thailand · MFU-GG-0417</div>
             <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-              <span class="pill s-accepted">Five booths — unlocked</span>
-              <span class="pill s-sent">Every booth — 5 more to go</span>
+              ${state.tiers.map(t=>points()>=t.need
+                ? `<span class="pill s-accepted">${t.n} — unlocked</span>`
+                : `<span class="pill s-sent">${t.n} — ${t.need-points()} pts to go</span>`).join('')}
             </div>
           </div>
           <div style="text-align:center;flex:none">
-            <div style="font-size:36px;font-weight:700;line-height:1" class="tnum">7</div>
-            <div style="font-size:10px;color:var(--navy-soft);letter-spacing:.06em;text-transform:uppercase">stamps</div>
+            <div style="font-size:36px;font-weight:700;line-height:1" class="tnum">${points()}</div>
+            <div style="font-size:10px;color:var(--navy-soft);letter-spacing:.06em;text-transform:uppercase">points · ${stampCount()} booths</div>
           </div>
           <div style="display:flex;gap:8px;flex:none">
             <button class="mini solid" id="handOver">Hand over prize</button>
@@ -1088,8 +1173,9 @@ function paneDash(){
     <div class="fig gold"><div class="n tnum">${fmt(redeemed)}</div>
       <div class="l">Prizes redeemed</div>
       <div class="delta" style="color:var(--warn)">${fmt(state.tiers[0].left+state.tiers[1].left)} left in stock</div></div>
-    <div class="fig ok"><div class="n tnum">${fmt(180+Math.floor(Math.random()*40))}</div>
-      <div class="l">Active in the last 15 min</div><div class="delta">Updating live</div></div>`;
+    <div class="fig ok"><div class="n tnum">${Math.round(state.eventTotal*13.4/visitors)}</div>
+      <div class="l">Average points per visitor</div>
+      <div class="delta" style="color:var(--navy-soft)">of ${MAX_POINTS} available</div></div>`;
   wrap.appendChild(figs);
 
   const cols=el('div','cols');
@@ -1105,13 +1191,13 @@ function paneDash(){
     row.innerHTML=`<div class="r">${i+1}</div>
       <div class="ic" style="color:${b.c}">${b.ico}</div>
       <div class="nm">${b.n}${i===0?'<span class="tagx">Top booth</span>':''}${low?'<span class="tagx warn">Needs traffic</span>':''}
-        <span class="sub">Booth ${b.no} · ${b.unit}</span></div>
+        <span class="sub">Booth ${b.no} · ${b.zone} · worth ${b.pts} pts</span></div>
       <div class="v">${fmt(state.counts[b.id])}</div>
       <div class="bar"><i style="width:${state.counts[b.id]/max*100}%;background:${b.c}"></i></div>`;
     list.appendChild(row);
   });
   lb.appendChild(list);
-  lb.appendChild(el('div','note','The three quietest booths are flagged so the team can react during the event — an announcement, or moving an activity — rather than discovering it in the report afterwards.'));
+  lb.appendChild(el('div','note','Ranked by visitors, not by points — points are the incentive offered to visitors, so ranking by them would just restate what the admin already set. If a 20-point booth is still in the bottom three, its points are not the problem and something else needs fixing.'));
   cols.appendChild(lb);
 
   const right=el('div');
@@ -1160,16 +1246,32 @@ function paneDash(){
   wrap.appendChild(cols);
 
   /* bottom row */
-  const c2=el('div','cols2');
+  const c2=el('div','cols3');
 
   const fn=el('div','panel');
-  fn.innerHTML=`<div class="ph"><h3>Visitor funnel <span class="sub">Registration through to redemption</span></h3></div>`;
+  fn.innerHTML=`<div class="ph"><h3>Visitor funnel <span class="sub">Registration through the point tiers</span></h3></div>`;
   [['Registered',573,'#1B52A8'],['Collected 1+ stamp',548,'#2A7FB8'],
-   ['Reached tier 1 (5 booths)',312,'#1E8A6E'],['Reached tier 2 (all booths)',126,'#C8A24A']]
+   ['Explorer · 50 pts',312,'#1E8A6E'],['Voyager · 100 pts',186,'#D4762A'],
+   ['Globetrotter · 150 pts',94,'#C8A24A']]
    .forEach(x=>fn.appendChild(el('div','rankrow',
      `<span class="nm">${x[0]}</span><span class="track"><i style="width:${x[1]/573*100}%;background:${x[2]}"></i></span><span class="v">${x[1]}</span>`)));
   fn.appendChild(el('div','note','25 people registered and then collected no stamps at all. That number answers a specific question: is the registration point too far from the first booth?'));
   c2.appendChild(fn);
+
+  const dist=el('div','panel');
+  dist.innerHTML=`<div class="ph"><h3>Points distribution <span class="sub">How far visitors actually get</span></h3></div>`;
+  const buckets=[['1–24 pts',96],['25–49',140],['50–74',121],['75–99',35],
+                 ['100–124',58],['125–149',34],['150+',94]];
+  const bmax=Math.max(...buckets.map(b=>b[1]));
+  buckets.forEach(b=>{
+    const atTier=[50,100,150].some(t=>b[0].startsWith(String(t)));
+    dist.appendChild(el('div','rankrow',
+      `<span class="nm">${b[0]}${atTier?'<span class="tagx" style="margin-left:6px">tier</span>':''}</span>
+       <span class="track"><i style="width:${b[1]/bmax*100}%;background:${atTier?'#C8A24A':'#1B52A8'}"></i></span>
+       <span class="v">${b[1]}</span>`));
+  });
+  dist.appendChild(el('div','note','The pile-up at 75–99 is the number to watch: 35 visitors are one far-corner booth short of Voyager. That is exactly who a floor announcement should be aimed at.'));
+  c2.appendChild(dist);
 
   const st=el('div','panel');
   st.innerHTML=`<div class="ph"><h3>Prize stock <span class="sub">Live · tracked in the app only</span></h3></div>`;
@@ -1263,47 +1365,82 @@ $('#modal').onclick=e=>{ if(e.target.id==='modal') $('#modal').classList.remove(
 function paneBooths(){
   const w=el('div'), p=el('div','panel');
   const missing=BOOTHS.filter(b=>!b.badge).length;
-  p.innerHTML=`<div class="ph"><h3>Booths <span class="sub">Artwork, days present, secret rotation</span></h3>
+  p.innerHTML=`<div class="ph"><h3>Booths <span class="sub">Badge points, artwork, days present, secret rotation</span></h3>
     <div style="text-align:right"><button class="mini solid">+ Add booth</button>
-      <div class="missing">${missing} booths still have no badge artwork</div></div></div>`;
+      <div class="missing">${missing} booths still have no badge artwork</div></div></div>
+    <div class="ptsum">
+      <b>${MAX_POINTS} points</b> available across ${BOOTHS.length} booths ·
+      top tier is ${state.tiers[state.tiers.length-1].need} pts, so a visitor can reach it
+      without every booth — ${MAX_POINTS-state.tiers[state.tiers.length-1].need} points of slack.
+    </div>`;
   const g=el('div','booth-cards');
   BOOTHS.forEach(b=>{
     const c=el('div','bcard');
+    const cls = b.pts>=20?'high':(b.pts>=15?'mid':'');
     c.innerHTML=`
       <div class="photo" style="background:${b.c}22;color:${b.c}">
         ${b.badge?b.ico:'<span class="ph-empty">No booth photo</span>'}
-        <div class="badge" style="color:${b.c}">${b.badge?b.ico:'◌'}</div></div>
-      <div class="meta"><b>${b.n}</b><span class="sub">Booth ${b.no} · ${b.unit}</span>
+        <div class="badge" style="color:${b.c}">${b.badge?b.ico:'◌'}</div>
+        <span class="ptchip ${cls}">${b.pts} pts</span></div>
+      <div class="meta"><b>${b.n}</b><span class="sub">Booth ${b.no} · ${b.zone}</span>
+        <div class="ptedit"><em>Badge worth</em>
+          <select class="mini" data-pts>
+            ${[5,10,15,20,25].map(v=>`<option${v===b.pts?' selected':''}>${v}</option>`).join('')}
+          </select><em>points</em></div>
         <div class="dd"><em>Days</em>${[0,1,2].map(d=>`<span class="${b.days.includes(d)?'on':''}">${16+d}</span>`).join('')}</div>
         ${b.badge?'':'<div class="missing">Using the generated fallback stamp</div>'}</div>
       <div class="acts"><button class="mini" data-up>Upload artwork</button><button class="mini" data-rot>Rotate secret</button></div>`;
+    c.querySelector('[data-pts]').onchange=e=>{
+      b.pts=+e.target.value;
+      toast(`${b.n} is now worth ${b.pts} points — applies to new scans only, nobody's total drops`);
+      renderAdmin();
+    };
     c.querySelector('[data-up]').onclick=()=>toast(`Upload a badge for ${b.n} — the preview shows it as a stamp on the visitor's grid`);
     c.querySelector('[data-rot]').onclick=()=>toast(`Secret rotated for booth ${b.no} — any photographed QR is dead immediately`);
     g.appendChild(c);
   });
   p.appendChild(g);
-  p.appendChild(el('div','note','A booth with no uploaded badge gets a generated ink stamp from its accent color and short name. That is the default, not an error — no booth blocks the activity by failing to send artwork.'));
+  p.appendChild(el('div','note','Re-pricing a badge applies to scans from that moment on. Points already collected are frozen at the value awarded at scan time, so nobody who has already walked to the far corner loses what they earned.'));
+  p.appendChild(el('div','note','Badges are priced by how hard the booth is to reach, not by how important the unit is. Booths at the far end are worth 20 and the entrance row is worth 10 — that difference is the entire reason a visitor walks the length of the hall.'));
   w.appendChild(p);
   return w;
 }
 
 function panePrizes(){
   const w=el('div'), p=el('div','panel');
-  p.innerHTML=`<div class="ph"><h3>Prize policy <span class="sub">Editable during the event</span></h3>
-    <button class="mini solid">+ Add tier</button></div>`;
+  p.innerHTML=`<div class="ph"><h3>Prize policy <span class="sub">Point thresholds · editable during the event</span></h3>
+    <button class="mini solid">+ Add tier</button></div>
+    <div class="ptsum"><b>${MAX_POINTS} points</b> are available in the hall today.
+      Thresholds must stay below that or a tier becomes unreachable — the editor blocks a threshold
+      above ${MAX_POINTS} and warns within 10 points of it.</div>`;
   state.tiers.forEach(t=>{
     const pct=t.left/t.total, cls=pct<0.05?'bad':(pct<0.2?'warn':'');
     const row=el('div','stockrow '+cls);
-    row.innerHTML=`<div class="info"><b>${t.n} <span style="font-weight:400;color:var(--navy-soft)">— ${t.need} booths required</span></b>
-        <span class="sub">${t.reward}</span></div>
+    row.innerHTML=`<div class="info">
+        <b>${t.n}${t.draw?'<span class="tagx" style="margin-left:7px">stage draw</span>':''}</b>
+        <span class="sub">${t.reward}</span>
+        <div class="ptedit"><em>Threshold</em>
+          <select class="mini" data-need>
+            ${[25,50,75,100,125,150,170].map(v=>`<option${v===t.need?' selected':''}>${v}</option>`).join('')}
+          </select><em>points · ${Math.round(t.need/MAX_POINTS*100)}% of the hall</em></div>
+      </div>
       <span class="track"><i style="width:${pct*100}%"></i></span>
       <span class="n tnum">${t.left}<small>of ${t.total}</small></span>
       <button class="mini" data-add>Restock</button>`;
+    row.querySelector('[data-need]').onchange=e=>{
+      const v=+e.target.value;
+      if(v>MAX_POINTS){ toast(`Rejected: ${v} points is more than the ${MAX_POINTS} available`); renderAdmin(); return; }
+      t.need=v;
+      toast(v<t.need ? `${t.n} lowered to ${v} pts — unlocks immediately for everyone who qualifies`
+                     : `${t.n} set to ${v} pts — nobody already unlocked loses their tier`);
+      state.tiers.sort((a,b)=>a.need-b.need);
+      renderAdmin(); renderVisitor();
+    };
     row.querySelector('[data-add]').onclick=()=>{ t.left+=50; t.total+=50;
       toast(`${t.n}: +50 added (reason and actor recorded in the audit log)`); renderAdmin(); };
     p.appendChild(row);
   });
-  p.appendChild(el('div','note','Raising a threshold mid-event never revokes a tier someone has already unlocked. Unlocks are recorded as facts at the moment they happen, not recomputed from the current policy.'));
+  p.appendChild(el('div','note','Raising a threshold mid-event never revokes a tier someone has already unlocked. Unlocks are recorded as facts at the moment they happen, not recomputed from the current policy — and the same rule applies to the points themselves, which are frozen at the value the badge was worth when it was scanned.'));
   w.appendChild(p);
 
   const d=el('div','panel');

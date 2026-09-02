@@ -32,9 +32,9 @@ re-litigated during the build:
   device's stored credential, with the stamps from day 1 already in it.
 - One stamp per booth **for the whole event**, not per day. Re-scanning a booth on a
   later day shows "already stamped here".
-- A booth may not be present all three days. Each booth carries `activeDays`, and the
-  "every booth" prize tier counts only booths active at some point during the event, so
-  a visitor is never asked for a stamp from a booth that was never there.
+- A booth may not be present all three days. Each booth carries `activeDays`, and the top
+  prize threshold sits below the total points available, so nobody is locked out of the top
+  tier by a booth that was not there on the day they came.
 - The stamp grid shows every booth for the whole event, not just today's, so a visitor
   can see what is still missing and come back for it. Booths not present today are
   labelled with the day they appear.
@@ -288,12 +288,14 @@ existing visitor document).
 
 Bottom tab bar with three pages, plus a persistent floating **Scan** button:
 
-1. **Cover / Home** — name, passport number (`MFU-GG-0000`), stamp counter
-   (`7 / 12`), a progress arc, and the next reward in plain language
-   ("2 more booths for a souvenir").
-2. **Stamps** — a grid of every booth in the event. Each slot shows the booth's short
-   name; collected slots show the colored stamp plus the collection time. Tapping a
-   slot opens a card with the booth's full name, host unit, location, and description.
+1. **Cover / Home** — name, passport number (`MFU-GG-0000`), **points total**, a progress
+   arc toward the next tier, a three-pip tier track, and the next reward in plain language
+   ("10 more points to Voyager").
+2. **Stamps** — a grid of every booth in the event. Collected slots show the colored stamp,
+   the collection time and the points earned. **Uncollected slots show what the booth is
+   worth**, and are sorted by value so the 20-point booths lead — this is what turns the
+   points into a route. Tapping a slot opens a card with the booth's full name, host unit,
+   location, zone and description.
 3. **Prize** — current tier status, what is unlocked, and the redemption code when a
    tier is reached.
 
@@ -311,7 +313,7 @@ Bottom tab bar with three pages, plus a persistent floating **Scan** button:
 
 | State | Message (TH / EN) | Visual |
 |---|---|---|
-| Success | Stamp collected | Stamp animation, booth accent, haptic |
+| Success | Stamp collected · **+N points** | Stamp animation, booth accent, haptic |
 | Already collected | Already stamped here | Existing stamp pulses once, no error tone |
 | Expired token | Code expired, scan again | Amber notice, retry button |
 | Invalid token | Invalid code | Red notice |
@@ -408,6 +410,8 @@ The organizer sees, for their own booth only:
 - Live visitor count, updating without refresh.
 - Visitors per hour, as a small bar chart across event hours.
 - Split by visitor type (Thai / International / Staff / Guest).
+- What this badge is worth in points, shown on the booth screen — visitors ask, and staff
+  should not have to guess.
 - Their booth's rank among all booths — shown as "Rank 4 of 12" — plus the event
   total, so a quiet booth can see it is quiet and react.
 
@@ -440,6 +444,7 @@ Below:
 | **Ethnic groups** | Aggregate only, groups under 5 folded into "Other", with the response rate shown alongside so the reader knows what share chose not to answer. Hidden entirely if fewer than 20 visitors consented. |
 | **Institutions** | Visitors by university/institution, and within MFU by school. |
 | **Cross-school** | Matrix of visitor school/institution x booth host unit, showing whether visitors leave their own school's booth. |
+| **Points distribution** | How many visitors sit in each point band, with the tier thresholds marked. The band just below a threshold is the actionable number — those visitors are one far-corner booth away, and a floor announcement can be aimed at them. |
 | **Completion** | Distribution of stamp counts (how many visitors have 1, 2, 3 … stamps). |
 | **Prize stock** | Per tier: remaining out of total, used today vs. the whole event, and burn rate per hour with a projected run-out time. Amber below 20%, red below 5 items. |
 | **Returning visitors** | How many of today's visitors also attended an earlier day — only meaningful from day 2, so the panel hides itself on day 1. |
@@ -549,22 +554,68 @@ A policy is an ordered list of tiers:
 
 | Field | Meaning |
 |---|---|
-| `name_th` / `name_en` | Tier label |
-| `threshold_type` | `count` (N booths), `all` (every active booth), or `set` (a named required set of booths) |
-| `threshold_value` | N, for `count` |
-| `required_booth_ids` | for `set` |
-| `reward_th` / `reward_en` | What the visitor receives |
+| `name` | Tier label |
+| `thresholdPoints` | **Points** required to unlock the tier |
+| `reward` | What the visitor receives |
 | `stockTotal` | Inventory loaded in, per tier. **Required** — inventory is tracked in the app only, there is no paper tally |
 | `stockRemaining` | Decremented atomically on each confirmed redemption |
-| `grants_draw_entry` | Boolean — enters the visitor in the closing stage draw |
+| `grantsDrawEntry` | Boolean — enters the visitor in the closing stage draw |
 | `active` | Toggle without deleting |
 
-Default policy, from the concept deck:
+Default policy:
 
-1. **Five booths** — souvenir on the spot.
-2. **Every booth** — souvenir plus entry to the closing stage draw.
+1. **Explorer — 50 points** — a souvenir on the spot.
+2. **Voyager — 100 points** — a larger souvenir.
+3. **Globetrotter — 150 points** — a special souvenir plus entry to the closing stage draw.
 
-Editing rules:
+Against the 170 points on the floor (see 6.6), the top tier leaves 20 points of slack, so a
+visitor can reach it without a clean sweep — which matters, because two booths are absent on
+some days and nobody should be locked out of the top prize by the timetable.
+
+### 6.6 Badge points — `/admin/booths`
+
+**Badges are not worth the same.** Each booth carries a `points` value the admin sets, and
+prize tiers are thresholds on the *sum of points*, not on a count of booths.
+
+This is the mechanism that fixes the problem the concept deck opens with — "visitors never
+reach the whole hall", because they stop at the booths near the entrance. A count-based
+threshold treats a booth by the door and a booth in the far corner as interchangeable, so a
+visitor rationally collects the five easiest and leaves. Pricing the far corner at double
+makes the walk worth taking, without asking anyone to visit every booth.
+
+**Pricing is by reach, not by importance.** This distinction needs stating plainly to the
+booth hosts, because the natural reading of "your badge is worth 10 and theirs is worth 20"
+is a judgement about the unit. It is not: it is a judgement about the walk. The default:
+
+| Zone | Points | Rationale |
+|---|---|---|
+| Entrance row | 10 | Visitors arrive here anyway |
+| Middle hall | 15 | A short detour |
+| Far corner | 20 | The booths that were empty last year |
+
+With 12 booths that gives **170 points** on the floor. Points are also the right lever for a
+booth whose activity genuinely takes longer — a 15-minute workshop can be priced above a
+30-second demo, so visitors are not penalised for choosing the substantial activity.
+
+**Rules that follow from this:**
+
+- **Points are frozen at scan time.** Each scan records `pointsAwarded`, and a visitor's
+  total is the sum of those. Re-pricing a booth mid-event changes what *future* scans are
+  worth and never moves anyone's total, in either direction. Recomputing from the booth's
+  current value would silently take points away from a visitor who has already made the walk
+  — the same principle as never revoking an unlocked tier.
+- **Points must be visible before the visit, not after.** The stamp grid shows what each
+  uncollected booth is worth, and sorts uncollected booths by value. A points system the
+  visitor only discovers on arrival changes nobody's route and is therefore pointless.
+- **The top threshold must stay reachable.** The tier editor blocks any threshold above the
+  total points available and warns within 10 of it. With booths absent on some days, a
+  threshold set at exactly the maximum is unreachable for anyone who attends one day.
+- **The booth leaderboard still ranks by visitors, not points.** Ranking by points would
+  restate what the admin set. If a 20-point booth is still in the bottom three, the points
+  are not the problem and something else needs fixing.
+- Changing a booth's points is audit-logged like any other admin mutation.
+
+### 6.7 Prize policy editing rules
 
 - Lowering a threshold immediately unlocks the tier for everyone who now qualifies.
 - Raising a threshold **never revokes** an already-unlocked or redeemed tier. Unlocks
@@ -629,6 +680,7 @@ users/{uid}                                  # uid = Firebase Auth uid
   boothId                                    # organizers only
   passportNo                                 # 'MFU-GG-0000'
   stampCount                                 # denormalized, incremented on scan
+  points                                     # denormalized sum of scans.pointsAwarded
   stampedBoothIds: string[]                  # denormalized, for the stamp grid
   daysAttended: string[]                     # ['2026-09-16', ...]
   consentAt, createdAt, lastSeenAt, deletedAt
@@ -636,6 +688,8 @@ users/{uid}                                  # uid = Firebase Auth uid
 booths/{boothId}
   eventId, nameTh, nameEn, hostUnit, location,
   descriptionTh, descriptionEn, accentColor,
+  points                                     # what this badge is worth, set by the admin
+  zone                                       # 'entrance' | 'middle' | 'far' — why it is worth that
   badgeUrl, badgeThumbUrl, photoUrl, photoThumbUrl,
   activeDays: string[]                       # ['2026-09-16','2026-09-17','2026-09-18']
   isPrizeDesk, active, sortOrder, organizerUid, createdAt
@@ -655,14 +709,14 @@ boothSecrets/{boothId}                       # rules: deny all client access
 
 scans/{visitorId}_{boothId}                  # deterministic ID = one stamp per booth
   visitorId, boothId, eventId, scannedAt, day ('2026-09-16'),
+  pointsAwarded                              # frozen at scan time, never recomputed
   counter, uaHash, ipPrefix,
   visitorType, institution, school, countryCode, isInternational
                                              # copied for aggregation without a join
                                              # NOTE: ethnicGroup is deliberately NOT copied here
 
 prizeTiers/{tierId}
-  eventId, nameTh, nameEn, thresholdType, thresholdValue,
-  requiredBoothIds: string[], rewardTh, rewardEn,
+  eventId, name, thresholdPoints, reward,
   stockTotal, stockRemaining, outOfStockNoteTh, outOfStockNoteEn,
   grantsDrawEntry, active, sortOrder
 
@@ -671,7 +725,7 @@ stockAdjustments/{autoId}                     # every stock change, never an ove
   kind: 'load-in'|'restock'|'redeem'|'void'|'correction'
 
 tierUnlocks/{visitorId}_{tierId}             # deterministic ID = unlock once
-  visitorId, tierId, unlockedAt, stampCountAtUnlock,
+  visitorId, tierId, unlockedAt, pointsAtUnlock, stampCountAtUnlock,
   redeemedAt, redeemedBy, redemptionNote,
   voidedAt, voidedBy, voidReason
 
@@ -679,7 +733,8 @@ auditLog/{autoId}
   actorUid, action, targetType, targetId, before, after, createdAt
 
 stats/event                                  # single live document, see 7.2
-  visitors, stamps, redeemed, activeLast15m,
+  visitors, stamps, points, redeemed, activeLast15m,
+  pointsBuckets: { '0-24': n, '25-49': n, ... },   # how far visitors actually get
   byVisitorType: { student, staff, alumni, guest },
   byCountry: { [countryCode]: count },
   byInstitution: { [key]: count },
@@ -705,7 +760,7 @@ in a single batched write:
 - `stats/event` — total stamps, visitor-type breakdown (atomic `FieldValue.increment`)
 - `stats/booths/{boothId}` — that booth's count
 - `stats/buckets/...` — the 5-minute timeline bucket
-- `users/{visitorId}` — `stampCount` and `stampedBoothIds`
+- `users/{visitorId}` — `stampCount`, `points` and `stampedBoothIds`
 - `tierUnlocks/...` — creates an unlock document if a threshold is now met
 
 The dashboard and the booth screen then read **a handful of small documents**, live,
@@ -785,9 +840,9 @@ There is no REST layer. Reads that need to be live come straight from Firestore 
 | `inviteOrganizer` | Creates the invite, sends the email (single, or bulk from a CSV) |
 | `resendInvite`, `revokeInvite` | Re-sends or kills an outstanding invite token |
 | `acceptInvite` | Public-with-token: validates, signs in, sets the organizer claim and booth |
-| `createBooth`, `updateBooth`, `deleteBooth` | Booth CRUD, including badge and photo URLs and `activeDays` |
+| `createBooth`, `updateBooth`, `deleteBooth` | Booth CRUD, including badge points, artwork URLs and `activeDays` |
 | `rotateBoothSecret` | New 32 random bytes; every photographed code dies immediately |
-| `savePrizePolicy` | Writes tiers, returns the "this unlocks tier X for N visitors" preview |
+| `savePrizePolicy` | Writes point thresholds, rejects any above the points available, returns the "this unlocks tier X for N visitors" preview |
 | `adjustStock` | Load-in, restock or correction, with a reason; writes `stockAdjustments` |
 | `confirmRedemption` | Prize desk: marks a tier redeemed and decrements stock in one transaction |
 | `voidRedemption` | Returns an item to stock and reopens the tier, with a mandatory reason |
@@ -981,7 +1036,8 @@ native camera app rather than opening our scanner first.
    leaderboard without reading the numbers.
 8. An admin changes a user's role and the change takes effect within 15 minutes without
    the user re-registering.
-9. Raising a prize threshold mid-event does not revoke any unlocked or redeemed tier.
+9. Raising a prize threshold mid-event does not revoke any unlocked or redeemed tier, and
+   re-pricing a booth's badge does not change any visitor's existing points total.
 10. Every admin mutation appears in the audit log with actor and timestamp.
 11. All visitor-facing screens pass WCAG 2.1 AA contrast and work at 320 px width.
 12. The system sustains 1,500 visitors and 12 booths, with p95 `scan` callable latency
@@ -1022,22 +1078,26 @@ native camera app rather than opening our scanner first.
 1. **Booth count** — the stamp grid and the "every booth" tier both depend on the final
    number. Assumed 12 for layout; the grid is written to handle 6–20. Also needed: which
    booths are present on which of the three days.
-2. **Prize quantities** — how many souvenirs are loaded in for tier 1, and how many for
-   tier 2? `stockTotal` is required, so these numbers are needed before the doors open,
-   and ideally split by day.
+2. **Prize quantities** — how many souvenirs for each of the three tiers? `stockTotal` is
+   required, so these numbers are needed before the doors open, ideally split by day.
+   The prototype assumes 600 / 250 / 120.
 3. **Restore code delivery** — SMS costs money, email is free. Assumed email.
 4. **Firebase project ownership and billing** — the project must be on the Blaze plan
    (Cloud Functions require it) under a university-owned Google account with a budget
    alert, not a student's personal account. Who owns it? (The domain is settled: see
    below.)
-5. **Ethnic group lists** — the seeded suggestions in 4.1 are a starting point written
+5. **Badge point values** — the entrance/middle/far pricing in 6.6 is a starting point drawn
+   from the hall layout, not from data. It should be sanity-checked against the actual floor
+   plan once booth positions are fixed, and the booth hosts should be told the pricing is
+   about walking distance, not about the unit's importance, before they see the numbers.
+6. **Ethnic group lists** — the seeded suggestions in 4.1 are a starting point written
    from general knowledge, not an authoritative list, and naming here is genuinely
    contested (Karen/Kayin, Ta'ang/Palaung, and the Rohingya entry in particular). These
    should be reviewed by the Office of International Affairs, and ideally by students
    from the communities named, before the event. The list is Firestore data precisely so
    it can be corrected without a deploy.
-6. **Institution list** — how wide? MFU plus the Chiang Rai institutions, or every Thai
+7. **Institution list** — how wide? MFU plus the Chiang Rai institutions, or every Thai
    university? Free-text `Other` covers the tail either way.
-7. **EmailJS account** — who owns it, and can the sending address be an `mfu.ac.th`
+8. **EmailJS account** — who owns it, and can the sending address be an `mfu.ac.th`
    domain? If IT can supply SMTP credentials instead, the Trigger Email extension is the
    better long-run choice for deliverability (6.4).
