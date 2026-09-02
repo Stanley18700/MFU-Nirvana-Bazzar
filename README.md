@@ -16,6 +16,20 @@ Built by the School of Applied Digital Technology, Mae Fah Luang University.
 | `demo/organizer.html` | Opens the prototype straight into the booth organizer's screens |
 | `demo/admin.html` | Opens the prototype straight into the admin dashboard |
 
+## Live prototype
+
+**https://cnacha-mfu.github.io/mfupassport/** — visitor, organizer and admin, no install.
+
+> **This URL is public.** A GitHub Pages site is readable by anyone with the link even though this
+> repository is private, so Pages is published from the **`gh-pages`** branch, which holds only the
+> three prototype pages. The specification stays on `main` and is not served. After changing
+> anything under `demo/`, copy it across or the live site will be stale:
+>
+> ```bash
+> git checkout gh-pages && git checkout main -- demo && mv demo/*.html . && rmdir demo
+> git commit -am "Update prototype" && git push && git checkout main
+> ```
+
 ## The prototype
 
 `demo/index.html` is a single self-contained file with mock data and no backend. Open it directly,
@@ -49,6 +63,13 @@ their own screens. There is one copy of the code, not three.
 Firebase throughout: Cloud Firestore, Firebase Hosting (`mfupassport.web.app`), Cloud Functions v2,
 Firebase Auth with custom claims, Cloud Storage for booth artwork. Client is a Vite + React SPA.
 See `spec/spec.md` §9 for the reasoning.
+
+## Badge points
+
+Badges are not worth the same. Each booth carries a points value, and prize tiers are thresholds
+on the **sum of points** — Explorer 50, Voyager 100, Globetrotter 150, against 170 available in the
+hall. Points are priced by how far into the hall a booth sits (entrance 10, middle 15, far corner
+20), which is what makes a visitor walk past the entrance row. See `spec/spec.md` §6.6.
 
 ## Two things to know before building
 
