@@ -12,7 +12,9 @@ Built by the School of Applied Digital Technology, Mae Fah Luang University.
 |---|---|
 | `spec/spec.md` | Product and technical specification — the working document |
 | `spec/concept.html` | The 5-slide proposal deck (bilingual, for university committees) |
-| `demo/index.html` | Clickable prototype — open it in a browser, no build step |
+| `demo/index.html` | Clickable prototype, all three roles — open it in a browser, no build step |
+| `demo/organizer.html` | Opens the prototype straight into the booth organizer's screens |
+| `demo/admin.html` | Opens the prototype straight into the admin dashboard |
 
 ## The prototype
 
@@ -23,12 +25,18 @@ or serve the folder:
 cd demo && python -m http.server 8000   # then open http://localhost:8000
 ```
 
-Use the role switcher in the top bar:
+Use the role switcher in the top bar, or open one role directly:
 
-- **Visitor** — passport cover, stamp grid, prize page, registration form, and a scanner with three
-  simulated outcomes (new stamp, already stamped, expired code).
-- **Organizer** — the booth screen, with a QR that genuinely rotates every 20 seconds.
-- **Admin** — live dashboard, user and invitation tables, booth artwork, prize policy and stock.
+- **Visitor** (`index.html`) — passport cover, stamp grid, prize page, registration form, and a
+  scanner with three simulated outcomes (new stamp, already stamped, expired code).
+- **Organizer** (`organizer.html`) — three screens: the booth QR screen with a code that genuinely
+  rotates every 20 seconds, the booth's own statistics, and the prize desk (scan, confirm, void).
+- **Admin** (`admin.html`) — live dashboard with day selector, user and invitation tables, booth
+  artwork, prize policy and stock.
+
+`organizer.html` and `admin.html` are thin entry points into the same prototype
+(`index.html?role=…&solo=1`), which hides the role switcher — useful when showing one audience only
+their own screens. There is one copy of the code, not three.
 
 ## The three roles
 

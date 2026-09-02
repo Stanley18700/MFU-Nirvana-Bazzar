@@ -412,45 +412,17 @@ select.mini{padding:5px 8px}
 
   <!-- ============ ORGANIZER ============ -->
   <section class="view" id="v-organizer">
-    <div class="center" style="flex-direction:column;align-items:center">
-      <div class="booth-screen">
-        <div class="bs-head">
-          <div>
-            <div class="unit">Booth 01 · Hall A</div>
-            <h2>Applied Digital Technology
-              <span class="sub">School of Applied Digital Technology, Mae Fah Luang University</span></h2>
-          </div>
-          <div class="conn"><i></i> Live</div>
-        </div>
-        <div class="bs-body">
-          <div class="qr-wrap">
-            <svg class="ring" viewBox="0 0 288 288">
-              <circle cx="144" cy="144" r="139" stroke="rgba(239,233,220,.14)"/>
-              <circle cx="144" cy="144" r="139" stroke="#C8A24A" id="ringArc"
-                      stroke-linecap="round" transform="rotate(-90 144 144)"/>
-            </svg>
-            <div class="qr-card"><canvas id="qrCanvas" width="210" height="210"></canvas></div>
-          </div>
-          <div class="bs-side">
-            <div class="manual">
-              <div class="lbl">Manual code</div>
-              <div class="code" id="manualCode">— — — — — —</div>
-              <div class="note2" id="rotNote">Rotates every 20 seconds</div>
-            </div>
-            <div class="bs-figs">
-              <div><div class="n accent tnum" id="boothCount">148</div><div class="l">Visitors here</div></div>
-              <div><div class="n tnum" id="eventCount">1,204</div><div class="l">Event total</div></div>
-            </div>
-            <div class="rank-line">Rank <b>4</b> of 12 booths</div>
-          </div>
+    <div class="adminwrap">
+      <div class="admin-bar">
+        <h2>Booth 01 · Applied Digital Technology
+          <span class="sub">Signed in as Somchai Thongdee · organizer</span></h2>
+        <div class="subnav" role="tablist" id="osub">
+          <button role="tab" data-tab="screen" aria-selected="true">Booth screen</button>
+          <button role="tab" data-tab="stats" aria-selected="false">My statistics</button>
+          <button role="tab" data-tab="desk" aria-selected="false">Prize desk</button>
         </div>
       </div>
-
-      <div class="org-stats">
-        <h3>Visitors per hour <span class="sub">· 16 September</span></h3>
-        <div class="hours-wrap"><div class="hours" id="hours"></div></div>
-      </div>
-      <p class="frame-label">Booth screen — the code rotates on its own, staff operate nothing</p>
+      <div id="opanes"></div>
     </div>
   </section>
 
@@ -503,14 +475,14 @@ const BOOTHS = [
 BOOTHS.forEach((b,i)=>{ b.no = String(i+1).padStart(2,'0'); b.badge = i<9; });
 
 const state = {
-  role:'visitor', page:'cover', day:0, atab:'dash',
+  role:'visitor', page:'cover', day:0, atab:'dash', otab:'screen', solo:false,
   visitor:{
     name:'Yanisa Preechawit', passport:'MFU-GG-0417', country:'Thailand',
     inst:'Mae Fah Luang University', school:'Applied Digital Technology',
     stamps:{ adt:'16 Sep 09:42', la:'16 Sep 10:15', mgt:'16 Sep 10:51',
              sci:'16 Sep 11:20', oia:'16 Sep 13:05', lib:'16 Sep 13:44', agr:'17 Sep 09:58' }
   },
-  counts:{}, eventTotal:1204, boothCount:148,
+  counts:{}, eventTotal:1204,
   tiers:[
     {id:'t1', n:'Five booths', need:5, total:600, left:412, redeemed:false,
      reward:'A souvenir on the spot at the prize desk'},
@@ -552,12 +524,34 @@ const fmt = n => n.toLocaleString('en-US');
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on');
   clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),2400); }
 
-/* ---------------- role switching ---------------- */
-document.querySelectorAll('.roles button').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('.roles button').forEach(x=>x.setAttribute('aria-selected', x===b));
-  state.role=b.dataset.role;
-  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on', v.id==='v-'+state.role));
-});
+/* ---------------- role switching ----------------
+   ?role=visitor|organizer|admin opens straight into one role.
+   &solo=1 hides the role switcher, for showing a single audience their own screen. */
+function setRole(role){
+  state.role=role;
+  document.querySelectorAll('.roles button').forEach(x=>x.setAttribute('aria-selected', x.dataset.role===role));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on', v.id==='v-'+role));
+  if(!state.solo){
+    const u=new URL(location.href); u.searchParams.set('role',role);
+    history.replaceState(null,'',u);
+  }
+}
+document.querySelectorAll('.roles button').forEach(b=>b.onclick=()=>setRole(b.dataset.role));
+
+(function applyUrl(){
+  const q=new URLSearchParams(location.search);
+  const role=q.get('role');
+  state.solo = q.get('solo')==='1';
+  if(state.solo){
+    document.querySelector('.roles').style.display='none';
+    const back=el('a','tag','← all roles');
+    back.href='index.html'; back.style.textDecoration='none'; back.style.cursor='pointer';
+    document.querySelector('.chrome').appendChild(back);
+    document.querySelector('.chrome').style.paddingRight='16px';
+    back.style.marginLeft='auto';
+  }
+  if(['visitor','organizer','admin'].includes(role)) setRole(role);
+})();
 
 /* ================= VISITOR ================= */
 const stampCount = () => Object.keys(state.visitor.stamps).length;
@@ -784,7 +778,7 @@ function showResult(kind){
       <p>Booth ${b.no} · ${b.n}<br>You now have <b>${stampCount()}</b> of ${BOOTHS.length} stamps.</p>
       <button class="btn" data-close>View passport</button>`;
     if(navigator.vibrate) navigator.vibrate(18);
-    state.eventTotal++; state.boothCount++;
+    state.eventTotal++; state.counts[b.id]++;
   } else if(kind==='dupe'){
     r.classList.add('warn');
     r.innerHTML=`<div class="big">⊘</div><h3>Already stamped here</h3>
@@ -820,38 +814,243 @@ function drawPseudoQR(canvas, seed){
 }
 
 const PERIOD=20;
+const MY_BOOTH=BOOTHS[0];
+
+document.querySelectorAll('#osub button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#osub button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  state.otab=b.dataset.tab; renderOrganizer();
+});
+
+function renderOrganizer(){
+  const p=$('#opanes'); p.innerHTML='';
+  if(state.otab==='screen') p.appendChild(paneBoothScreen());
+  if(state.otab==='stats')  p.appendChild(paneBoothStats());
+  if(state.otab==='desk')   p.appendChild(paneDesk());
+  boothTick();
+}
+
+function paneBoothScreen(){
+  const w=el('div','center');
+  w.style.flexDirection='column'; w.style.alignItems='center';
+  w.innerHTML=`
+    <div class="booth-screen">
+      <div class="bs-head">
+        <div>
+          <div class="unit">Booth ${MY_BOOTH.no} · Hall A</div>
+          <h2>${MY_BOOTH.n}
+            <span class="sub">School of ${MY_BOOTH.n}, Mae Fah Luang University</span></h2>
+        </div>
+        <div class="conn"><i></i> Live</div>
+      </div>
+      <div class="bs-body">
+        <div class="qr-wrap">
+          <svg class="ring" viewBox="0 0 288 288">
+            <circle cx="144" cy="144" r="139" stroke="rgba(239,233,220,.14)"/>
+            <circle cx="144" cy="144" r="139" stroke="#C8A24A" id="ringArc"
+                    stroke-linecap="round" transform="rotate(-90 144 144)"/>
+          </svg>
+          <div class="qr-card"><canvas id="qrCanvas" width="210" height="210"></canvas></div>
+        </div>
+        <div class="bs-side">
+          <div class="manual">
+            <div class="lbl">Manual code</div>
+            <div class="code" id="manualCode">— — — — — —</div>
+            <div class="note2" id="rotNote">Rotates every 20 seconds</div>
+          </div>
+          <div class="bs-figs">
+            <div><div class="n accent tnum" id="boothCount">148</div><div class="l">Visitors here</div></div>
+            <div><div class="n tnum" id="eventCount">1,204</div><div class="l">Event total</div></div>
+          </div>
+          <div class="rank-line">Rank <b id="boothRank">4</b> of ${BOOTHS.length} booths</div>
+        </div>
+      </div>
+    </div>
+    <p class="frame-label">Put this on a tablet or laptop facing the visitors. It runs all day with nothing to press —
+      no button, no refresh, and it keeps working if the wi-fi drops.</p>`;
+  return w;
+}
+
+function paneBoothStats(){
+  const w=el('div');
+  const rank=[...BOOTHS].sort((a,b)=>state.counts[b.id]-state.counts[a.id])
+                        .findIndex(b=>b.id===MY_BOOTH.id)+1;
+  const mine=state.counts[MY_BOOTH.id];
+
+  const figs=el('div','figs');
+  figs.innerHTML=`
+    <div class="fig blue"><div class="n tnum">${fmt(mine)}</div>
+      <div class="l">Visitors at this booth</div><div class="delta">▲ 12 this hour</div></div>
+    <div class="fig gold"><div class="n tnum">${rank}<span style="font-size:20px;opacity:.5">/${BOOTHS.length}</span></div>
+      <div class="l">Rank among all booths</div>
+      <div class="delta" style="color:${rank<=3?'var(--ok)':'var(--warn)'}">${rank<=3?'Ahead of the pack':'Room to climb'}</div></div>
+    <div class="fig"><div class="n tnum">${fmt(state.eventTotal)}</div>
+      <div class="l">Stamps across the whole event</div><div class="delta">Updating live</div></div>
+    <div class="fig ok"><div class="n tnum">${Math.round(mine/state.eventTotal*100)}%</div>
+      <div class="l">Share of all stamps</div><div class="delta">Even share would be ${Math.round(100/BOOTHS.length)}%</div></div>`;
+  w.appendChild(figs);
+
+  const cols=el('div','cols');
+
+  const hrs=el('div','panel');
+  hrs.innerHTML=`<div class="ph"><h3>Visitors per hour <span class="sub">Today · 09:00–16:00</span></h3></div>
+    <div class="hours-wrap"><div class="hours" id="hours"></div></div>`;
+  cols.appendChild(hrs);
+
+  const right=el('div');
+
+  const who=el('div','panel');
+  who.innerHTML=`<div class="ph"><h3>Who came to this booth <span class="sub">By visitor type and origin</span></h3></div>`;
+  const wl=el('div','ranklist');
+  [['Thai students',86,'#1B52A8'],['International students',41,'#1E8A6E'],
+   ['Staff',14,'#D4762A'],['External guests',7,'#7B4EA8']].forEach(x=>
+    wl.appendChild(el('div','rankrow',
+      `<span class="nm">${x[0]}</span><span class="track"><i style="width:${x[1]/86*100}%;background:${x[2]}"></i></span>
+       <span class="v">${x[1]}</span>`)));
+  who.appendChild(wl);
+  who.appendChild(el('div','note','28% of the visitors to this booth were international students — worth knowing before you write the unit report, and worth knowing today if you want to change how the activity is introduced.'));
+  right.appendChild(who);
+
+  const days=el('div','panel');
+  days.innerHTML=`<div class="ph"><h3>Across the three days <span class="sub">This booth</span></h3></div>`;
+  [['Day 1 · 16 Sep',148],['Day 2 · 17 Sep',mine-148>0?mine-148:0],['Day 3 · 18 Sep',0]].forEach(x=>
+    days.appendChild(el('div','rankrow',
+      `<span class="nm">${x[0]}</span><span class="track"><i style="width:${Math.min(100,x[1]/2)}%"></i></span>
+       <span class="v">${x[1]||'—'}</span>`)));
+  days.appendChild(el('div','note','Day 3 has not happened yet. The passport carries stamps across all three days, so a visitor who missed you on day 1 can still come back.'));
+  right.appendChild(days);
+
+  cols.appendChild(right);
+  w.appendChild(cols);
+
+  setTimeout(()=>{
+    const data=[6,14,29,41,33,22,38,45], labels=['09','10','11','12','13','14','15','16'];
+    const h=$('#hours'); if(!h) return;
+    const max=Math.max(...data);
+    data.forEach((v,i)=>{ const d=el('div'); d.style.height=(v/max*100)+'%';
+      d.innerHTML=`<span>${labels[i]}</span>`; h.appendChild(d); });
+  },0);
+  return w;
+}
+
+function paneDesk(){
+  const w=el('div');
+
+  const strip=el('div','panel');
+  strip.innerHTML=`<div class="ph"><h3>Stock on hand <span class="sub">Live · so you can tell the queue before they reach the front</span></h3></div>`;
+  state.tiers.forEach(t=>{
+    const pct=t.left/t.total, cls=pct<0.05?'bad':(pct<0.2?'warn':'');
+    strip.appendChild(el('div','stockrow '+cls,
+      `<div class="info"><b>${t.n}</b><span class="sub">${t.reward}</span></div>
+       <span class="track"><i style="width:${pct*100}%"></i></span>
+       <span class="n tnum">${t.left}<small>of ${t.total}</small></span>`));
+  });
+  w.appendChild(strip);
+
+  const scan=el('div','panel');
+  scan.innerHTML=`<div class="ph"><h3>Scan a visitor's code <span class="sub">Their code rotates every 30 seconds</span></h3></div>
+    <div style="display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap">
+      <div style="width:150px;height:150px;background:#fff;border-radius:14px;display:grid;place-items:center;
+        box-shadow:0 0 0 1px var(--rule);font-size:38px;color:var(--navy-soft);flex:none">⌗</div>
+      <div style="flex:1;min-width:260px">
+        <div style="font-size:12.5px;color:var(--navy-soft);line-height:1.6;margin-bottom:14px">
+          Point the desk camera at the visitor's screen, or type their 8-character code.
+          Their details appear below before you hand anything over.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input class="mini" placeholder="7KQ2M4XB" style="width:150px;letter-spacing:.12em">
+          <button class="mini" id="lookupBtn">Look up</button>
+          <button class="mini solid" id="simScanBtn">Simulate a scan</button>
+        </div>
+      </div>
+    </div>
+    <div id="deskResult"></div>`;
+  w.appendChild(scan);
+
+  const log=el('div','panel');
+  log.innerHTML=`<div class="ph"><h3>Handed over today <span class="sub">Most recent first</span></h3></div>`;
+  const t=el('table');
+  t.innerHTML=`<thead><tr><th>Time</th><th>Visitor</th><th>Tier</th><th>Stamps</th><th>Confirmed by</th><th></th></tr></thead>`;
+  const tb=el('tbody');
+  [['14:12','Aung Ko Latt','Every booth',12],['14:08','Li Wei','Five booths',9],
+   ['13:57','Bishal Thapa','Five booths',6],['13:44','Nanthana Kaewkham','Five booths',5]]
+   .forEach(r=>{
+    const tr=el('tr');
+    tr.innerHTML=`<td class="tnum" style="color:var(--navy-soft)">${r[0]}</td><td><b>${r[1]}</b></td>
+      <td>${r[2]}</td><td class="tnum">${r[3]}</td><td style="color:var(--navy-soft)">Somchai Thongdee</td>
+      <td style="text-align:right"><button class="mini" data-void>Void</button></td>`;
+    tb.appendChild(tr);
+  });
+  t.appendChild(tb); log.appendChild(t);
+  log.appendChild(el('div','note','Voiding returns the item to stock, reopens the tier for that visitor and asks for a reason. One wrong hand-over at a busy desk should not be permanent.'));
+  w.appendChild(log);
+
+  setTimeout(()=>{
+    const show=()=>{
+      const r=$('#deskResult');
+      r.innerHTML=`
+        <div style="margin-top:18px;border-top:1px solid var(--rule);padding-top:18px;
+          display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+          <div style="flex:1;min-width:220px">
+            <div style="font-size:17px;font-weight:600">Yanisa Preechawit</div>
+            <div style="font-size:11.5px;color:var(--navy-soft);margin-top:4px">
+              MFU · Applied Digital Technology · Thailand · MFU-GG-0417</div>
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+              <span class="pill s-accepted">Five booths — unlocked</span>
+              <span class="pill s-sent">Every booth — 5 more to go</span>
+            </div>
+          </div>
+          <div style="text-align:center;flex:none">
+            <div style="font-size:36px;font-weight:700;line-height:1" class="tnum">7</div>
+            <div style="font-size:10px;color:var(--navy-soft);letter-spacing:.06em;text-transform:uppercase">stamps</div>
+          </div>
+          <div style="display:flex;gap:8px;flex:none">
+            <button class="mini solid" id="handOver">Hand over prize</button>
+            <button class="mini" id="cancelHand">Cancel</button>
+          </div>
+        </div>`;
+      $('#handOver').onclick=()=>{
+        const t=state.tiers[0];
+        if(t.left<=0){ toast('Out of stock — nothing handed over'); return; }
+        t.left--; toast('Prize handed over · stock decremented in the same transaction');
+        renderOrganizer();
+      };
+      $('#cancelHand').onclick=()=>{ $('#deskResult').innerHTML=''; };
+    };
+    $('#simScanBtn').onclick=show; $('#lookupBtn').onclick=show;
+    w.querySelectorAll('[data-void]').forEach(b=>b.onclick=()=>
+      toast('Void requires a reason — returned to stock and logged against your account'));
+  },0);
+  return w;
+}
+
 function boothTick(){
+  const codeEl=$('#manualCode'); if(!codeEl) return;   // booth screen not on show
   const now=Date.now()/1000, counter=Math.floor(now/PERIOD), frac=(now%PERIOD)/PERIOD;
-  const token=hash('adt:'+counter).toString(36).toUpperCase().padStart(6,'X').slice(0,6);
+  const token=hash(MY_BOOTH.id+':'+counter).toString(36).toUpperCase().padStart(6,'X').slice(0,6);
   const code=token.slice(0,3)+' '+token.slice(3);
-  if($('#manualCode').textContent!==code){
-    $('#manualCode').textContent=code;
-    drawPseudoQR($('#qrCanvas'),'adt:'+counter);
+  if(codeEl.textContent!==code){
+    codeEl.textContent=code;
+    drawPseudoQR($('#qrCanvas'),MY_BOOTH.id+':'+counter);
   }
   const arc=$('#ringArc'), C=2*Math.PI*139;
   arc.setAttribute('stroke-dasharray',C);
   arc.setAttribute('stroke-dashoffset',(C*frac).toFixed(1));
   const secs=Math.ceil(PERIOD-(now%PERIOD));
   $('#rotNote').textContent=`Rotates in ${secs} second${secs===1?'':'s'}`;
-  $('#boothCount').textContent=fmt(state.boothCount);
+  $('#boothCount').textContent=fmt(state.counts[MY_BOOTH.id]);
   $('#eventCount').textContent=fmt(state.eventTotal);
+  const rank=[...BOOTHS].sort((a,b)=>state.counts[b.id]-state.counts[a.id])
+                        .findIndex(b=>b.id===MY_BOOTH.id)+1;
+  $('#boothRank').textContent=rank;
 }
-setInterval(boothTick,250); boothTick();
-
-(function hoursChart(){
-  const data=[6,14,29,41,33,22,38,45], labels=['09','10','11','12','13','14','15','16'];
-  const h=$('#hours'), max=Math.max(...data);
-  data.forEach((v,i)=>{ const d=el('div'); d.style.height=(v/max*100)+'%';
-    d.innerHTML=`<span>${labels[i]}</span>`; h.appendChild(d); });
-})();
+setInterval(boothTick,250);
 
 /* live simulation */
 setInterval(()=>{
   if(Math.random()<0.75){
     const b=BOOTHS[Math.floor(Math.random()*BOOTHS.length)];
     state.counts[b.id]++; state.eventTotal++;
-    if(b.id==='adt') state.boothCount++;
     if(state.role==='admin' && state.atab==='dash') renderAdmin();
+    if(state.role==='organizer' && state.otab==='stats') renderOrganizer();
   }
 },2600);
 
@@ -1127,6 +1326,7 @@ function panePrizes(){
 
 /* ---------------- boot ---------------- */
 renderVisitor();
+renderOrganizer();
 renderAdmin();
 </script>
 </body>
