@@ -1,0 +1,15 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# tooling output
+.playwright-mcp/
+*.png
+
+# node (for when the app build lands here)
+node_modules/
+dist/
+.env
+.env.local
