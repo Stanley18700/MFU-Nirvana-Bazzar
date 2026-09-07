@@ -1,28 +1,42 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState, type FormEvent } from 'react'
 import { collection, limit, orderBy, query, where } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
-import { api, errorMessage } from '../../lib/api'
-import { useBooths, useCollection } from '../../lib/data'
-import { Notice } from '../../components/ui'
-import { countryName } from '../../lib/countries'
-import type { InviteDoc, Role, ScanDoc, UserDoc } from '../../../shared/model'
+import { api, errorMessage, type CreateUserInput, type UpdateUserInput } from '../../lib/api'
+import { useBooths, useCollection, useRefList } from '../../lib/data'
+import { CopyButton, Notice } from '../../components/ui'
+import { COUNTRIES, countryName } from '../../lib/countries'
+import type { InviteDoc, Role, ScanDoc, UserDoc, VisitorType } from '../../../shared/model'
 
 type Row = UserDoc & { id: string }
-const ts = (v: unknown) => (v && typeof (v as { toMillis?: () => number }).toMillis === 'function' ? new Date((v as { toMillis(): number }).toMillis()).toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' }) : '–')
+type BoothOpt = { id: string; nameEn: string }
+type ErasureRequest = { uid: string; displayName: string | null; passportNo: string | null; contact: string | null; requestedAt: unknown; status: string }
+type Msg = { tone: 'green' | 'red' | 'amber'; text: string }
 
-/** §6.2 users, §6.4 invitations. */
+const ts = (v: unknown) => (v && typeof (v as { toMillis?: () => number }).toMillis === 'function' ? new Date((v as { toMillis(): number }).toMillis()).toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' }) : '–')
+const VISITOR_TYPES: VisitorType[] = ['student', 'staff', 'alumni', 'guest']
+const PAGE = 50
+/** Firestore has no substring search; while a search is typed the page widens to the whole list (1,500 expected) and filters here. */
+const SEARCH_ALL = 2000
+
+/** §6.2 users, §6.4 invitations, §10 erasure requests. */
 export default function Users() {
   const booths = useBooths(true)
   const [roleFilter, setRoleFilter] = useState<Role | 'all'>('all')
   const [q, setQ] = useState('')
-  const [pageSize, setPageSize] = useState(50)
+  const [pageSize, setPageSize] = useState(PAGE)
+  const searching = q.trim().length >= 2
+  const fetchLimit = searching ? SEARCH_ALL : pageSize
   const users = useCollection<UserDoc>(
-    roleFilter === 'all' ? query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(pageSize)) : query(collection(db, 'users'), where('role', '==', roleFilter), orderBy('createdAt', 'desc'), limit(pageSize)),
-    [roleFilter, pageSize],
+    roleFilter === 'all' ? query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(fetchLimit)) : query(collection(db, 'users'), where('role', '==', roleFilter), orderBy('createdAt', 'desc'), limit(fetchLimit)),
+    [roleFilter, fetchLimit], 'the user list',
   ).data
-  const invites = useCollection<InviteDoc>(query(collection(db, 'invites'), orderBy('sentAt', 'desc'), limit(100)), []).data
-  const [open, setOpen] = useState<Row | null>(null)
-  const [msg, setMsg] = useState<{ tone: 'green' | 'red' | 'amber'; text: string } | null>(null)
+  const invites = useCollection<InviteDoc>(query(collection(db, 'invites'), orderBy('sentAt', 'desc'), limit(100)), [], 'the invitations').data
+  const erasures = useCollection<ErasureRequest>(query(collection(db, 'erasureRequests'), orderBy('requestedAt', 'desc'), limit(100)), [], 'the erasure requests').data
+    .filter((r) => r.status === 'open')
+  // The drawer follows the live row, so an edit or a role change shows at once and a hard delete closes it.
+  const [openId, setOpenId] = useState<string | null>(null)
+  const open = openId ? users.find((u) => u.id === openId) ?? null : null
+  const [msg, setMsg] = useState<Msg | null>(null)
   const [inv, setInv] = useState({ name: '', email: '', boothId: '', role: 'organizer' as Role, bulk: '' })
   const [links, setLinks] = useState<Array<{ email: string; link?: string; mailed: boolean }>>([])
 
@@ -31,13 +45,25 @@ export default function Users() {
     return s ? users.filter((u) => [u.displayName, u.contact, u.studentId, u.passportNo].some((v) => v?.toLowerCase().includes(s))) : users
   }, [users, q])
 
+  const fail = (e: unknown) => setMsg({ tone: 'red', text: errorMessage(e) })
+
   async function changeRole(u: Row, role: Role, boothId?: string) {
     if (role === 'admin' && !window.confirm(`Make ${u.displayName} an admin? They will be able to change every setting.`)) return
-    try { await api.setUserRole({ uid: u.id, role, boothId }); setMsg({ tone: 'green', text: `${u.displayName} is now ${role}. Takes effect on their device within 15 minutes.` }) } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) }
+    try { await api.setUserRole({ uid: u.id, role, boothId }); setMsg({ tone: 'green', text: `${u.displayName} is now ${role}. Takes effect on their device within 15 minutes.` }) } catch (e) { fail(e) }
+  }
+  async function updateUser(u: Row, patch: Omit<UpdateUserInput, 'uid'>) {
+    try { await api.updateUser({ uid: u.id, ...patch }); setMsg({ tone: 'green', text: `${u.displayName} updated.` }) } catch (e) { fail(e); throw e }
   }
   async function softDelete(u: Row) {
-    if (!window.confirm(`Delete ${u.displayName}? Contact details are anonymised; scan rows are kept for statistics.`)) return
-    try { await api.deleteUser({ uid: u.id }); setMsg({ tone: 'green', text: 'Deleted (soft).' }); setOpen(null) } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) }
+    if (!window.confirm(`Delete ${u.displayName}? Contact details are anonymised and the account is disabled; scan rows are kept for statistics.`)) return
+    try { await api.deleteUser({ uid: u.id }); setMsg({ tone: 'green', text: 'Deleted (soft): anonymised and disabled.' }); setOpenId(null) } catch (e) { fail(e) }
+  }
+  /** PDPA erasure (§10): the account, passport, stamps and unlocks all go. Callers gate it behind a typed confirmation. */
+  async function hardDelete(uid: string, label: string) {
+    try { await api.deleteUser({ uid, hard: true }); setMsg({ tone: 'green', text: `${label} erased permanently.` }); setOpenId(null) } catch (e) { fail(e) }
+  }
+  async function dismissErasure(uid: string, reason: string) {
+    try { await api.dismissErasureRequest({ uid, reason }); setMsg({ tone: 'green', text: 'Request dismissed and logged.' }) } catch (e) { fail(e) }
   }
   async function sendInvites() {
     setMsg(null)
@@ -49,7 +75,17 @@ export default function Users() {
       setLinks(r.results)
       setMsg({ tone: r.mailConfigured ? 'green' : 'amber', text: r.mailConfigured ? `${r.results.filter((x) => x.mailed).length} invitation(s) emailed.` : 'Email is not configured yet — copy each link below and send it to the organizer yourself.' })
       setInv({ ...inv, name: '', email: '', bulk: '' })
-    } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) }
+    } catch (e) { fail(e) }
+  }
+  async function resend(i: InviteDoc & { id: string }) {
+    try {
+      const r = await api.resendInvite({ inviteId: i.id })
+      setLinks([{ email: i.email, link: r.link, mailed: r.mailed }])
+      setMsg({ tone: r.mailed ? 'green' : 'amber', text: r.mailed ? `Re-sent to ${i.email}.` : 'New link ready below — copy it. The old link no longer works.' })
+    } catch (e) { fail(e) }
+  }
+  async function revoke(i: InviteDoc & { id: string }) {
+    try { await api.revokeInvite({ inviteId: i.id }); setMsg({ tone: 'green', text: `Invitation to ${i.email} revoked — its link no longer works.` }) } catch (e) { fail(e) }
   }
 
   return (
@@ -57,11 +93,11 @@ export default function Users() {
       <h1 className="text-2xl font-bold">Users & invitations</h1>
       {msg && <div className="mt-3"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
 
-      {/* Only renders while the signed-in admin is still an anonymous /setup account. */}
+      <ErasureInbox requests={erasures} onErase={hardDelete} onDismiss={dismissErasure} />
 
       <section className="card mt-4">
         <h2 className="stamp-text text-navy-soft">Invite booth organizers</h2>
-        <p className="mt-1 text-xs text-navy-soft">They never register or set a password: the emailed link signs them in on the booth device and opens their screen. Single-use, expires in 14 days or at the end of the event.</p>
+        <p className="mt-1 text-xs text-navy-soft">The link signs them in on the booth device with their own account and opens their screen. Single-use, expires in 14 days or at the end of the event.</p>
         <div className="mt-3 grid gap-2 md:grid-cols-4">
           <input className="field" placeholder="Name" value={inv.name} onChange={(e) => setInv({ ...inv, name: e.target.value })} />
           <input className="field" placeholder="Email" type="email" value={inv.email} onChange={(e) => setInv({ ...inv, email: e.target.value })} />
@@ -76,7 +112,7 @@ export default function Users() {
         <button className="btn-primary mt-3" onClick={sendInvites} disabled={!inv.bulk.trim() && (!inv.name || !inv.email || (inv.role === 'organizer' && !inv.boothId))}>Send invitation{inv.bulk.trim() ? 's' : ''}</button>
         {links.some((l) => l.link) && (
           <ul className="mt-3 flex flex-col gap-1 text-xs">
-            {links.filter((l) => l.link).map((l) => <li key={l.email} className="flex items-center gap-2"><span className="w-48 truncate">{l.email}</span><input readOnly className="field flex-1 font-mono text-[11px]" value={l.link} onFocus={(e) => e.currentTarget.select()} /><button className="underline" onClick={() => navigator.clipboard.writeText(l.link!)}>Copy</button></li>)}
+            {links.filter((l) => l.link).map((l) => <LinkRow key={l.email} email={l.email} link={l.link!} />)}
           </ul>
         )}
         {invites.length > 0 && (
@@ -90,8 +126,8 @@ export default function Users() {
                   <td className="text-xs text-navy-soft">{ts(i.sentAt)}</td>
                   <td className="text-right text-xs">
                     {i.status !== 'accepted' && i.status !== 'revoked' && <>
-                      <button className="underline" onClick={async () => { try { const r = await api.resendInvite({ inviteId: i.id }); setLinks([{ email: i.email, link: r.link, mailed: r.mailed }]); setMsg({ tone: r.mailed ? 'green' : 'amber', text: r.mailed ? 'Re-sent.' : 'New link ready below — copy it.' }) } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } }}>Resend</button>{' · '}
-                      <button className="underline text-vermilion" onClick={async () => { try { await api.revokeInvite({ inviteId: i.id }) } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } }}>Revoke</button>
+                      <button className="underline" onClick={() => resend(i)}>Resend</button>{' · '}
+                      <button className="underline text-vermilion" onClick={() => revoke(i)}>Revoke</button>
                     </>}
                   </td>
                 </tr>
@@ -101,18 +137,21 @@ export default function Users() {
         )}
       </section>
 
+      <CreateUser booths={booths} onCreated={(text, uid) => { setMsg({ tone: 'green', text }); setOpenId(uid) }} onError={fail} />
+
       <section className="card mt-4">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="stamp-text mr-auto text-navy-soft">Users</h2>
-          <input className="field w-56" placeholder="Search name, ID, contact" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="field w-56" placeholder="Search name, ID, passport, contact" value={q} onChange={(e) => setQ(e.target.value)} />
           <select className="field w-40" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | 'all')}><option value="all">All roles</option><option value="visitor">Visitors</option><option value="organizer">Organizers</option><option value="admin">Admins</option></select>
         </div>
+        <p className="mt-1 text-xs text-navy-soft">{searching ? `Searching all ${users.length.toLocaleString('en-US')} users` : `Showing the latest ${Math.min(users.length, pageSize)}`}</p>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="text-left text-xs text-navy-soft"><th className="py-1">Name</th><th>Role</th><th>Affiliation</th><th>Country</th><th>Stamps</th><th>Points</th><th>Registered</th></tr></thead>
             <tbody>
               {filtered.map((u) => (
-                <tr key={u.id} className={`cursor-pointer border-t rule hover:bg-white/50 ${u.deletedAt ? 'opacity-50' : ''}`} onClick={() => setOpen(u)}>
+                <tr key={u.id} className={`cursor-pointer border-t rule hover:bg-white/50 ${u.deletedAt ? 'opacity-50' : ''}`} onClick={() => setOpenId(u.id)}>
                   <td className="py-1.5 font-medium">{u.displayName}<div className="text-xs text-navy-soft">{u.passportNo ?? u.contact}</div></td>
                   <td>{u.role}{u.boothId ? <div className="text-xs text-navy-soft">{booths.find((b) => b.id === u.boothId)?.nameEn}</div> : null}</td>
                   <td className="text-xs">{u.institution}{u.school ? ` · ${u.school}` : ''}</td>
@@ -121,35 +160,207 @@ export default function Users() {
                   <td className="text-xs text-navy-soft">{ts(u.createdAt)}</td>
                 </tr>
               ))}
+              {filtered.length === 0 && <tr><td colSpan={7} className="py-4 text-center text-navy-soft">{users.length ? 'Nothing matches' : 'No users yet'}</td></tr>}
             </tbody>
           </table>
         </div>
-        {users.length >= pageSize && <button className="btn-ghost mt-3" onClick={() => setPageSize(pageSize + 50)}>Load more</button>}
+        {!searching && users.length >= pageSize && <button className="btn-ghost mt-3" onClick={() => setPageSize(pageSize + PAGE)}>Load more</button>}
       </section>
 
-      {open && <UserDrawer u={open} booths={booths} onClose={() => setOpen(null)} onRole={changeRole} onDelete={softDelete} />}
+      {open && <UserDrawer u={open} booths={booths} onClose={() => setOpenId(null)} onRole={changeRole} onUpdate={updateUser} onSoftDelete={softDelete} onHardDelete={hardDelete} />}
     </div>
   )
 }
 
-function UserDrawer({ u, booths, onClose, onRole, onDelete }: { u: Row; booths: Array<{ id: string; nameEn: string }>; onClose: () => void; onRole: (u: Row, r: Role, b?: string) => void; onDelete: (u: Row) => void }) {
-  const scans = useCollection<ScanDoc>(query(collection(db, 'scans'), where('visitorId', '==', u.id), orderBy('scannedAt', 'asc')), [u.id]).data
+/** One copyable invite link. The input is the fallback when the clipboard API refuses. */
+function LinkRow({ email, link }: { email: string; link: string }) {
+  const ref = useRef<HTMLInputElement>(null)
+  return (
+    <li className="flex items-center gap-2">
+      <span className="w-48 truncate">{email}</span>
+      <input ref={ref} readOnly className="field flex-1 font-mono text-[11px]" value={link} onFocus={(e) => e.currentTarget.select()} />
+      <CopyButton text={link} inputRef={ref} className="underline" />
+    </li>
+  )
+}
+
+/** §10 — visitors who asked from their account page for their data to be deleted. Rendered only when there is something to do. */
+function ErasureInbox({ requests, onErase, onDismiss }: { requests: Array<ErasureRequest & { id: string }>; onErase: (uid: string, label: string) => Promise<void>; onDismiss: (uid: string, reason: string) => Promise<void> }) {
+  if (!requests.length) return null
+  return (
+    <section className="mt-4 rounded-2xl border-2 border-vermilion/40 p-4">
+      <h2 className="stamp-text text-vermilion">Erasure requests · {requests.length}</h2>
+      <p className="mt-1 text-xs text-navy-soft">Erasing removes the account, passport, stamps and prize unlocks; booth counters stay. Dismiss a duplicate or test request with a reason — both actions are audited.</p>
+      <ul className="mt-3 flex flex-col gap-3">
+        {requests.map((r) => <ErasureRow key={r.id} r={r} onErase={onErase} onDismiss={onDismiss} />)}
+      </ul>
+    </section>
+  )
+}
+
+function ErasureRow({ r, onErase, onDismiss }: { r: ErasureRequest; onErase: (uid: string, label: string) => Promise<void>; onDismiss: (uid: string, reason: string) => Promise<void> }) {
+  const [mode, setMode] = useState<'idle' | 'erase' | 'dismiss'>('idle')
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const label = r.displayName ?? r.contact ?? r.uid
+  const expect = r.passportNo ?? r.displayName ?? r.uid
+  return (
+    <li className="rounded-xl bg-white/50 p-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <b>{r.displayName ?? 'Unknown name'}</b>{' '}
+          <span className="text-navy-soft">{[r.passportNo, r.contact ?? r.uid].filter(Boolean).join(' · ')}</span>
+          <div className="text-xs text-navy-soft">Requested {ts(r.requestedAt)}</div>
+        </div>
+        {mode === 'idle' && (
+          <div className="flex gap-2">
+            <button className="btn-danger" onClick={() => setMode('erase')}>Erase now</button>
+            <button className="btn-ghost" onClick={() => setMode('dismiss')}>Dismiss</button>
+          </div>
+        )}
+      </div>
+      {mode === 'erase' && (
+        <TypedConfirm expect={expect} busy={busy} onCancel={() => setMode('idle')}
+          onConfirm={async () => { setBusy(true); try { await onErase(r.uid, label) } finally { setBusy(false) } }} />
+      )}
+      {mode === 'dismiss' && (
+        <form className="mt-2 flex flex-wrap gap-2" onSubmit={async (e) => { e.preventDefault(); setBusy(true); try { await onDismiss(r.uid, reason.trim()) } finally { setBusy(false) } }}>
+          <input className="field flex-1" placeholder="Reason (kept in the audit log)" value={reason} onChange={(e) => setReason(e.target.value)} required />
+          <button className="btn-primary" disabled={busy || !reason.trim()}>Dismiss</button>
+          <button type="button" className="btn-ghost" onClick={() => setMode('idle')}>Cancel</button>
+        </form>
+      )}
+    </li>
+  )
+}
+
+/** Type the passport number (or name) before an irreversible erase. */
+function TypedConfirm({ expect, busy, onConfirm, onCancel }: { expect: string; busy?: boolean; onConfirm: () => void; onCancel: () => void }) {
+  const [typed, setTyped] = useState('')
+  const ok = typed.trim().toLowerCase() === expect.trim().toLowerCase()
+  return (
+    <div className="mt-2 flex flex-col gap-2 rounded-xl bg-vermilion/10 p-3 text-sm">
+      <p>This removes the account, passport, stamps and prize unlocks. Booth counters stay. It cannot be undone.</p>
+      <label className="text-xs text-navy-soft">Type <b className="font-mono">{expect}</b> to confirm
+        <input className="field mt-1" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus autoComplete="off" />
+      </label>
+      <div className="flex gap-2">
+        <button className="btn-danger" disabled={!ok || busy} onClick={onConfirm}>{busy ? 'Erasing…' : 'Erase permanently'}</button>
+        <button className="btn-ghost" disabled={busy} onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+
+const BLANK: CreateUserInput = { displayName: '', contact: '', role: 'visitor', boothId: '', password: '', visitorType: 'guest', countryCode: 'TH', institution: 'MFU', school: '', studentId: '' }
+
+/** §6.2 — an account made at the desk: a walk-up visitor without a working phone, or a staff account with a set password. */
+function CreateUser({ booths, onCreated, onError }: { booths: BoothOpt[]; onCreated: (text: string, uid: string) => void; onError: (e: unknown) => void }) {
+  const institutions = useRefList('institutions')
+  const schools = useRefList('mfuSchools')
+  const [f, setF] = useState<CreateUserInput>(BLANK)
+  const [busy, setBusy] = useState(false)
+  const set = <K extends keyof CreateUserInput>(k: K, v: CreateUserInput[K]) => setF({ ...f, [k]: v })
+  const isEmail = f.contact.includes('@')
+  const passwordOk = !f.password || (f.password.length >= 10 && isEmail)
+  const canSubmit = !!f.displayName.trim() && !!f.contact.trim() && (f.role !== 'organizer' || !!f.boothId) && passwordOk
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      // Empty optional strings are left out so the server applies its defaults.
+      const input = Object.fromEntries(Object.entries(f).filter(([, v]) => v !== '')) as unknown as CreateUserInput
+      if (input.role !== 'visitor') { delete input.visitorType; delete input.countryCode; delete input.school; delete input.studentId }
+      const r = await api.createUser(input)
+      onCreated(r.passportNo ? `${f.displayName} created — passport ${r.passportNo}.` : `${f.displayName} created as ${f.role}.`, r.uid)
+      setF(BLANK)
+    } catch (err) { onError(err) } finally { setBusy(false) }
+  }
+
+  return (
+    <details className="card mt-4">
+      <summary className="cursor-pointer"><span className="stamp-text text-navy-soft">Create a user at the desk</span></summary>
+      <p className="mt-2 text-xs text-navy-soft">
+        Staff normally arrive through an invitation above. Use this for a walk-up visitor who cannot sign up on their own phone, or a
+        staff account with a set password. An email contact counts as confirmed — you are vouching for it.
+      </p>
+      <form onSubmit={submit} className="mt-3 grid gap-2 md:grid-cols-4">
+        <input className="field" placeholder="Name" required maxLength={80} value={f.displayName} onChange={(e) => set('displayName', e.target.value)} />
+        <input className="field" placeholder="Email (or phone for a visitor)" required value={f.contact} onChange={(e) => set('contact', e.target.value)} />
+        <select className="field" value={f.role} onChange={(e) => set('role', e.target.value as Role)}>
+          <option value="visitor">Visitor</option><option value="organizer">Booth organizer</option><option value="admin">Admin</option>
+        </select>
+        {f.role === 'organizer' ? (
+          <select className="field" value={f.boothId} onChange={(e) => set('boothId', e.target.value)} required>
+            <option value="">— booth —</option>{booths.map((b) => <option key={b.id} value={b.id}>{b.nameEn}</option>)}
+          </select>
+        ) : <span className="hidden md:block" />}
+        {f.role === 'visitor' && (
+          <>
+            <select className="field" value={f.visitorType} onChange={(e) => set('visitorType', e.target.value as VisitorType)}>
+              {VISITOR_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <select className="field" value={f.countryCode} onChange={(e) => set('countryCode', e.target.value)}>
+              {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+            </select>
+            <input className="field" list="create-institutions" placeholder="Institution" value={f.institution} onChange={(e) => set('institution', e.target.value)} />
+            <datalist id="create-institutions">{institutions.map((i) => <option key={i} value={i} />)}</datalist>
+            {f.institution === 'MFU' ? (
+              <>
+                <input className="field" list="create-schools" placeholder="School (MFU)" value={f.school} onChange={(e) => set('school', e.target.value)} />
+                <datalist id="create-schools">{schools.map((s) => <option key={s} value={s} />)}</datalist>
+              </>
+            ) : <span className="hidden md:block" />}
+            <input className="field" placeholder="Student ID (optional)" maxLength={40} value={f.studentId} onChange={(e) => set('studentId', e.target.value)} />
+          </>
+        )}
+        <input className={`field md:col-span-2 ${f.password && !passwordOk ? 'border-vermilion' : ''}`} type="text" autoComplete="off" placeholder="Password (optional · 10+ characters · needs an email contact)" value={f.password} onChange={(e) => set('password', e.target.value)} />
+        <div className="md:col-span-4">
+          <button className="btn-primary" disabled={busy || !canSubmit}>{busy ? 'Creating…' : 'Create account'}</button>
+          {!f.password && <span className="ml-3 text-xs text-navy-soft">Without a password the person signs in with Google on that address, or uses “Forgot your password?” to set one.</span>}
+        </div>
+      </form>
+    </details>
+  )
+}
+
+function UserDrawer({ u, booths, onClose, onRole, onUpdate, onSoftDelete, onHardDelete }: {
+  u: Row; booths: BoothOpt[]; onClose: () => void
+  onRole: (u: Row, r: Role, b?: string) => void
+  onUpdate: (u: Row, patch: Omit<UpdateUserInput, 'uid'>) => Promise<void>
+  onSoftDelete: (u: Row) => void
+  onHardDelete: (uid: string, label: string) => Promise<void>
+}) {
+  const scans = useCollection<ScanDoc>(query(collection(db, 'scans'), where('visitorId', '==', u.id), orderBy('scannedAt', 'asc')), [u.id], 'this visitor’s stamps').data
   const [role, setRole] = useState<Role>(u.role)
   const [boothId, setBoothId] = useState(u.boothId ?? '')
+  const [editing, setEditing] = useState(false)
+  const [erasing, setErasing] = useState(false)
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-navy-deep/40" onClick={onClose}>
       <aside className="h-full w-full max-w-md overflow-y-auto bg-paper p-5 shadow-2xl page-in" onClick={(e) => e.stopPropagation()}>
-        <button className="text-sm text-navy-soft" onClick={onClose}>Close ✕</button>
+        <div className="flex items-center justify-between">
+          <button className="text-sm text-navy-soft" onClick={onClose}>Close ✕</button>
+          {!editing && !u.deletedAt && <button className="text-sm underline" onClick={() => setEditing(true)}>Edit details</button>}
+        </div>
         <h2 className="mt-2 text-xl font-bold">{u.displayName}</h2>
-        <div className="text-sm text-navy-soft">{u.passportNo} · {u.contact}</div>
-        <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
-          <dt className="text-navy-soft">Type</dt><dd>{u.visitorType}</dd>
-          <dt className="text-navy-soft">Institution</dt><dd>{u.institution}{u.school ? ` · ${u.school}` : ''}</dd>
-          <dt className="text-navy-soft">Country</dt><dd>{u.countryCode ? countryName(u.countryCode) : '–'}</dd>
-          <dt className="text-navy-soft">Points</dt><dd className="fig">{u.points} · {u.stampCount} stamps</dd>
-          <dt className="text-navy-soft">Days</dt><dd>{u.daysAttended?.join(', ')}</dd>
-          <dt className="text-navy-soft">Last seen</dt><dd>{ts(u.lastSeenAt)}</dd>
-        </dl>
+        <div className="text-sm text-navy-soft">{[u.passportNo, u.contact].filter(Boolean).join(' · ')}</div>
+        {!!u.deletedAt && <div className="mt-2"><Notice tone="amber">Soft-deleted {ts(u.deletedAt)}: anonymised and disabled. Stamps kept for statistics.</Notice></div>}
+
+        {editing ? (
+          <EditForm u={u} onCancel={() => setEditing(false)} onSave={async (patch) => { await onUpdate(u, patch); setEditing(false) }} />
+        ) : (
+          <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+            <dt className="text-navy-soft">Type</dt><dd>{u.visitorType}</dd>
+            <dt className="text-navy-soft">Institution</dt><dd>{u.institution}{u.school ? ` · ${u.school}` : ''}</dd>
+            <dt className="text-navy-soft">Student ID</dt><dd>{u.studentId || '–'}</dd>
+            <dt className="text-navy-soft">Country</dt><dd>{u.countryCode ? countryName(u.countryCode) : '–'}</dd>
+            <dt className="text-navy-soft">Points</dt><dd className="fig">{u.points} · {u.stampCount} stamps</dd>
+            <dt className="text-navy-soft">Days</dt><dd>{u.daysAttended?.join(', ') || '–'}</dd>
+            <dt className="text-navy-soft">Last seen</dt><dd>{ts(u.lastSeenAt)}</dd>
+          </dl>
+        )}
         <p className="mt-2 text-xs text-navy-soft">Ethnic group is never shown per person (§4.1).</p>
 
         <h3 className="stamp-text mt-5 text-navy-soft">Route walked</h3>
@@ -164,8 +375,46 @@ function UserDrawer({ u, booths, onClose, onRole, onDelete }: { u: Row; booths: 
           {role === 'organizer' && <select className="field" value={boothId} onChange={(e) => setBoothId(e.target.value)}><option value="">— booth —</option>{booths.map((b) => <option key={b.id} value={b.id}>{b.nameEn}</option>)}</select>}
           <button className="btn-primary" disabled={role === u.role && boothId === (u.boothId ?? '')} onClick={() => onRole(u, role, boothId || undefined)}>Apply</button>
         </div>
-        <button className="btn-danger mt-6" onClick={() => onDelete(u)}>Delete user</button>
+
+        <h3 className="stamp-text mt-6 text-navy-soft">Remove</h3>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {!u.deletedAt && <button className="btn-ghost" onClick={() => onSoftDelete(u)}>Delete (soft)</button>}
+          {!erasing && <button className="btn-danger" onClick={() => setErasing(true)}>Erase permanently (PDPA)</button>}
+        </div>
+        <p className="mt-1 text-xs text-navy-soft">Soft delete anonymises the contact and disables sign-in; stamps stay in the statistics. Erase is the §10 right to be forgotten.</p>
+        {erasing && <TypedConfirm expect={u.passportNo ?? u.displayName} onCancel={() => setErasing(false)} onConfirm={() => onHardDelete(u.id, u.displayName)} />}
       </aside>
     </div>
+  )
+}
+
+/** Edit the profile fields updateUser accepts; only changed keys are sent. */
+function EditForm({ u, onSave, onCancel }: { u: Row; onSave: (patch: Omit<UpdateUserInput, 'uid'>) => Promise<void>; onCancel: () => void }) {
+  const institutions = useRefList('institutions')
+  const schools = useRefList('mfuSchools')
+  const initial = { displayName: u.displayName, contact: u.contact ?? '', studentId: u.studentId ?? '', institution: u.institution ?? '', school: u.school ?? '', visitorType: u.visitorType ?? 'guest', countryCode: u.countryCode ?? 'TH' }
+  const [f, setF] = useState(initial)
+  const [busy, setBusy] = useState(false)
+  const set = <K extends keyof typeof initial>(k: K, v: (typeof initial)[K]) => setF({ ...f, [k]: v })
+  const patch = Object.fromEntries((Object.keys(initial) as Array<keyof typeof initial>).filter((k) => f[k] !== initial[k]).map((k) => [k, f[k]])) as Omit<UpdateUserInput, 'uid'>
+  const changed = Object.keys(patch).length > 0
+
+  return (
+    <form className="mt-3 grid grid-cols-2 gap-2 text-sm" onSubmit={async (e) => { e.preventDefault(); setBusy(true); try { await onSave(patch) } catch { /* reported by the parent */ } finally { setBusy(false) } }}>
+      <label className="col-span-2">Name<input className="field mt-1" required maxLength={80} value={f.displayName} onChange={(e) => set('displayName', e.target.value)} /></label>
+      <label className="col-span-2">Contact <span className="text-xs text-navy-soft">(an email here also becomes the sign-in address)</span>
+        <input className="field mt-1" required value={f.contact} onChange={(e) => set('contact', e.target.value)} /></label>
+      <label>Type<select className="field mt-1" value={f.visitorType} onChange={(e) => set('visitorType', e.target.value as VisitorType)}>{VISITOR_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></label>
+      <label>Country<select className="field mt-1" value={f.countryCode} onChange={(e) => set('countryCode', e.target.value)}>{COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></label>
+      <label>Institution<input className="field mt-1" list="edit-institutions" required value={f.institution} onChange={(e) => set('institution', e.target.value)} /></label>
+      <datalist id="edit-institutions">{institutions.map((i) => <option key={i} value={i} />)}</datalist>
+      <label>School<input className="field mt-1" list="edit-schools" value={f.school} onChange={(e) => set('school', e.target.value)} placeholder="(MFU only)" /></label>
+      <datalist id="edit-schools">{schools.map((s) => <option key={s} value={s} />)}</datalist>
+      <label className="col-span-2">Student ID<input className="field mt-1" maxLength={40} value={f.studentId} onChange={(e) => set('studentId', e.target.value)} /></label>
+      <div className="col-span-2 flex gap-2">
+        <button className="btn-primary" disabled={busy || !changed}>{busy ? 'Saving…' : 'Save changes'}</button>
+        <button type="button" className="btn-ghost" onClick={onCancel} disabled={busy}>Cancel</button>
+      </div>
+    </form>
   )
 }

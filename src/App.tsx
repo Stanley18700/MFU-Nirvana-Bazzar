@@ -35,6 +35,7 @@ import Prizes from './pages/admin/Prizes'
 import Draw from './pages/admin/Draw'
 import Audit from './pages/admin/Audit'
 import Wall from './pages/admin/Wall'
+import Print from './pages/admin/Print'
 import Setup from './pages/admin/Setup'
 
 /**
@@ -108,6 +109,8 @@ export default function App() {
 
       <Route element={<Guard roles={['admin']} />}>
         <Route path="/admin/wall" element={<Wall />} />
+        {/* Print view lives outside AdminLayout so no sidebar or day tabs reach the paper. */}
+        <Route path="/admin/print" element={<Print />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="users" element={<Users />} />
