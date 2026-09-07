@@ -10,6 +10,7 @@
     "serve": "npm run build && firebase emulators:start --only functions",
     "seed": "npm run build && node lib/seed.js",
     "seed:emulator": "npm run build && node lib/seed.js --emulator",
+    "rescue:admin": "npm run build && node lib/rescueAdmin.js",
     "logs": "firebase functions:log"
   },
   "dependencies": {

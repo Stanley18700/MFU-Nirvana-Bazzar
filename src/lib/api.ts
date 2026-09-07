@@ -35,7 +35,8 @@ export const api = {
   voidRedemption: call<{ visitorId: string; tierId: string; reason: string }, { ok: true }>('voidRedemption'),
   // admin
   setUserRole: call<{ uid: string; role: Role; boothId?: string }, { ok: true }>('setUserRole'),
-  createUser: call<{ displayName: string; contact: string; role: Role; boothId?: string; institution?: string }, { uid: string }>('createUser'),
+  /** `password` is optional; without one the account exists but cannot sign in. */
+  createUser: call<{ displayName: string; contact: string; role: Role; boothId?: string; institution?: string; password?: string }, { uid: string }>('createUser'),
   updateUser: call<Record<string, unknown> & { uid: string }, { ok: true }>('updateUser'),
   deleteUser: call<{ uid: string; hard?: boolean }, { ok: true }>('deleteUser'),
   createBooth: call<BoothInput, { id: string }>('createBooth'),
@@ -44,6 +45,11 @@ export const api = {
   rotateBoothSecret: call<{ id: string }, { ok: true }>('rotateBoothSecret'),
   savePrizePolicy: call<{ tiers: TierInput[]; dryRun?: boolean }, { ok?: true; preview: Record<string, number>; available: number }>('savePrizePolicy'),
   adjustStock: call<{ tierId: string; delta: number; reason: string; kind?: 'load-in' | 'restock' | 'correction' }, { ok: true }>('adjustStock'),
+  saveRefData: call<
+    { name: 'institutions' | 'mfuSchools' } & { list: string[] }
+    | { name: 'ethnicGroups'; byCountry: Record<string, string[]> },
+    { ok: true; count?: number; countries?: number }
+  >('saveRefData'),
   runDraw: call<{ count: number }, { winners: Array<{ uid: string; displayName: string; passportNo: string }>; poolSize: number }>('runDraw'),
   inviteOrganizer: call<{ invites: Array<{ name: string; email: string; boothId?: string; role?: Role }> }, { results: Array<{ inviteId: string; email: string; mailed: boolean; link?: string }>; mailConfigured: boolean }>('inviteOrganizer'),
   resendInvite: call<{ inviteId: string }, { mailed: boolean; link?: string }>('resendInvite'),

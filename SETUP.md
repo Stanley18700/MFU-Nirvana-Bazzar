@@ -67,32 +67,80 @@ Firebase's free tier sends these from `noreply@mfu-passport.firebaseapp.com`, wh
 university mail filters treat harshly. If delivery is poor, point *Templates → SMTP settings*
 at an MFU SMTP account and the sender becomes an mfu.ac.th address.
 
+## 1b. Migrating a project that already ran on anonymous accounts
+
+Skip this on a fresh project. It matters on `mfu-passport`, where every existing account is
+anonymous — the admin among them, because `/setup` promoted the anonymous account of whichever
+browser used the one-shot bootstrap key.
+
+Turning Anonymous off does not delete those accounts; it stops anyone signing back into one.
+They have no email and no password, so:
+
+- **Existing visitor passports cannot be recovered.** The stamps stay in Firestore, but nobody
+  can prove they own the uid. On a pre-event project that is test data; if it is not, export
+  `users` and `scans` before you start.
+- **The admin would be locked out**, and `bootstrapAdmin` will not help — it refuses once an
+  admin exists.
+
+So give the admin a real credential first. This runs through the Admin SDK, so it needs
+application-default credentials (§7), not `firebase login`, and works no matter which client
+build is currently deployed:
+
+```bash
+npm run rescue:admin -- --list          # who holds the admin claim, and how they sign in
+npm run rescue:admin -- --email you@mfu.ac.th --password '<at least 10 characters>'
+```
+
+It attaches the address and password to the account that already holds the claim and marks it
+verified — the uid, the custom claim and `users/{uid}` are untouched, so the admin simply gains
+a way in. Add `--uid` when more than one admin exists. Other sessions on that account are
+signed out, because they still carry the pre-change token.
+
+Order of operations:
+
+1. `firebase deploy` (functions and hosting).
+2. `npm run rescue:admin -- --email … --password …`
+3. Sign in at `/signin` and check the admin panel opens.
+4. Only then switch **Anonymous** off in the console.
+
 ## 2. Point the repo at the project
 
 ```bash
 firebase use --add            # pick the project, alias "default" — updates .firebaserc
 ```
 
-Copy `.env.local.example` to `.env.local` — it is already filled in for project `mfu-passport`:
+Copy `.env.local.example` to `.env.local` (gitignored) and paste the values from the console —
+**Project settings → General → Your apps → Web app → SDK setup and configuration**:
 
 ```ini
-VITE_FIREBASE_API_KEY=AIzaSyDSSW4Dex46vD-RpFhGBs06qj4TmxYsgfA
-VITE_FIREBASE_AUTH_DOMAIN=mfu-passport.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=mfu-passport
-VITE_FIREBASE_STORAGE_BUCKET=mfu-passport.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=451027884644
-VITE_FIREBASE_APP_ID=1:451027884644:web:c7ac084bafe1a7572d1d71
-VITE_APP_ORIGIN=https://mfu-passport.web.app
+VITE_FIREBASE_API_KEY=AIza...
+VITE_FIREBASE_AUTH_DOMAIN=<project-id>.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=<project-id>
+VITE_FIREBASE_STORAGE_BUCKET=<project-id>.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=<project number>
+VITE_FIREBASE_APP_ID=1:...:web:...
+VITE_APP_ORIGIN=https://<project-id>.web.app
 ```
+
+> Real values belong only in `.env.local`, never in `.env.local.example` or in this file — both
+> are committed. `VITE_APP_ORIGIN` must match the Hosting domain exactly, because booth QR
+> payloads embed it.
 
 Functions read their parameters from `functions/.env` (copy `functions/.env.example`; also not committed):
 
 ```ini
-APP_ORIGIN=https://mfu-passport.web.app
-EMAILJS_SERVICE_ID=service_glzv23b        # EmailJS account: Stanley's (Nyan Sint Zaw)
-EMAILJS_TEMPLATE_INVITE=template_yuoog5d  # "Booth invitation" template — the only mail EmailJS sends
-EMAILJS_PUBLIC_KEY=2mRZJpDrdwx4TIsjo
+APP_ORIGIN=https://<project-id>.web.app
+# From the EmailJS dashboard, for the booth invitation — the only mail EmailJS still sends.
+# Optional: leave blank and invites fall back to a copyable link. Keep the real ids in
+# functions/.env only, never in the committed example.
+EMAILJS_SERVICE_ID=
+EMAILJS_TEMPLATE_INVITE=
+EMAILJS_PUBLIC_KEY=
 ```
+
+> The EmailJS **public key** is not as harmless as the name suggests: with the service and
+> template ids it can send mail from the account if browser requests are enabled, which is
+> exactly why `spec/spec.md` §6.4 chose the server-side path. Keep all four out of git.
 
 Secrets go in Secret Manager, not in files:
 

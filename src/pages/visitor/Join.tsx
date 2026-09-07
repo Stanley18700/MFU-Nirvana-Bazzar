@@ -61,6 +61,8 @@ export default function Join() {
         ethnicGroup: f.ethnicGroup || undefined, ethnicConsent: f.ethnicConsent,
         consent: true,
       })
+      // §4.1 — give the passport a way home. Non-fatal: registration must not fail because
+      // the credential could not be linked, and `join` has already succeeded by this point.
       await refreshClaims()
       nav(from ?? '/passport', { replace: true })
     } catch (e) {

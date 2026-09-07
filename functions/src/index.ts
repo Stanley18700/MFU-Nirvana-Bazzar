@@ -9,7 +9,7 @@ export { boothSession, lookupRedemption, confirmRedemption, voidRedemption } fro
 export {
   setUserRole, createUser, updateUser, deleteUser,
   createBooth, updateBooth, deleteBooth, rotateBoothSecret,
-  savePrizePolicy, adjustStock, runDraw,
+  savePrizePolicy, adjustStock, runDraw, saveRefData,
   inviteOrganizer, resendInvite, revokeInvite, inviteInfo, acceptInvite,
   refreshRanks, bootstrapAdmin,
 } from './admin'

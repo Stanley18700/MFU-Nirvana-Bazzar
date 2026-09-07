@@ -57,6 +57,8 @@ export default function Users() {
       <h1 className="text-2xl font-bold">Users & invitations</h1>
       {msg && <div className="mt-3"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
 
+      {/* Only renders while the signed-in admin is still an anonymous /setup account. */}
+
       <section className="card mt-4">
         <h2 className="stamp-text text-navy-soft">Invite booth organizers</h2>
         <p className="mt-1 text-xs text-navy-soft">They never register or set a password: the emailed link signs them in on the booth device and opens their screen. Single-use, expires in 14 days or at the end of the event.</p>
