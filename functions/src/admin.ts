@@ -390,7 +390,9 @@ export const savePrizePolicy = onCall(async (req) => {
     }
     if (n) await b2.commit()
   }
-  await audit(actor, 'savePrizePolicy', 'prizePolicy', ev.id, existing.docs.map((d) => d.data()), parsed)
+  // `stockTotal` is undefined for an existing tier (stock is never typed over), and Firestore
+  // refuses undefined inside a document — which made every policy save from the admin page fail.
+  await audit(actor, 'savePrizePolicy', 'prizePolicy', ev.id, existing.docs.map((d) => d.data()), parsed.map((t) => ({ ...t, stockTotal: t.stockTotal ?? null })))
   return { ok: true, preview, available }
 })
 
@@ -586,7 +588,9 @@ export const resendInvite = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async (re
 export const revokeInvite = onCall(async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
   const id = str(req.data?.inviteId, 'inviteId')
-  await db.doc(`invites/${id}`).set({ status: 'revoked', tokenHash: null }, { merge: true })
+  // The hash stays so the link can still be recognised and told "revoked" rather than "invalid";
+  // status is what acceptInvite checks, so the token is dead either way.
+  await db.doc(`invites/${id}`).set({ status: 'revoked' }, { merge: true })
   await audit(actor, 'revokeInvite', 'invite', id, null, null)
   return { ok: true }
 })
@@ -634,7 +638,8 @@ export const acceptInvite = onCall(async (req) => {
     createdAt: FieldValue.serverTimestamp(), lastSeenAt: FieldValue.serverTimestamp(),
   }, { merge: true })
   if (inv.boothId) await db.doc(`booths/${inv.boothId}`).set({ organizerUid: uid }, { merge: true })
-  await snap.ref.set({ status: 'accepted', acceptedAt: FieldValue.serverTimestamp(), acceptedUid: uid, tokenHash: null }, { merge: true })
+  // Keep the hash (see revokeInvite): a second visit to the link should say "already used", not "invalid".
+  await snap.ref.set({ status: 'accepted', acceptedAt: FieldValue.serverTimestamp(), acceptedUid: uid }, { merge: true })
   return { ok: true, role: inv.role, boothId: inv.boothId }
 })
 
