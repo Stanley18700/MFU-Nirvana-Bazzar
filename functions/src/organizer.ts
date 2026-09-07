@@ -49,7 +49,8 @@ export const lookupRedemption = onCall(async (req) => {
         id: t.id, name: tier.name, reward: tier.reward, thresholdPoints: tier.thresholdPoints,
         stockRemaining: tier.stockRemaining, stockTotal: tier.stockTotal,
         outOfStockNote: tier.outOfStockNoteEn ?? '',
-        unlocked: !!un && !un.voidedAt ? true : false,
+        // A voided redemption reopens the tier (§6.7): the visitor still qualifies and can collect again.
+        unlocked: !!un,
         redeemedAt: un?.redeemedAt ? (un.redeemedAt as { toMillis(): number }).toMillis() : null,
         redeemedBy: un?.redeemedBy ?? null,
       }

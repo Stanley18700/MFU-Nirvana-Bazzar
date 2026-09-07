@@ -22,6 +22,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // §10 — self-service erasure requests, written only by the requestErasure callable. The
+    // visitor reads their own to see it was filed; admins read them all for the inbox.
+    match /erasureRequests/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if false;
+    }
+
     match /booths/{boothId} {
       allow read: if signedIn();
       allow write: if false;

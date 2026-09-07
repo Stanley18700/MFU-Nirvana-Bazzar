@@ -7,11 +7,11 @@ setGlobalOptions({ region: REGION, maxInstances: 20, concurrency: 40, cpu: 1, me
 export { join, scan, redemptionCode, syncAccount, requestErasure } from './visitor'
 export { boothSession, lookupRedemption, confirmRedemption, voidRedemption } from './organizer'
 export {
-  setUserRole, createUser, updateUser, deleteUser,
+  setUserRole, createUser, updateUser, deleteUser, dismissErasureRequest,
   createBooth, updateBooth, deleteBooth, rotateBoothSecret,
   savePrizePolicy, adjustStock, runDraw, saveRefData,
   inviteOrganizer, resendInvite, revokeInvite, inviteInfo, acceptInvite,
   refreshRanks, bootstrapAdmin,
 } from './admin'
-export { createEvent, updateEvent, goLive, archiveEvent, purgeEventData, listEvents } from './event'
+export { createEvent, updateEvent, deleteEvent, goLive, archiveEvent, purgeEventData, listEvents } from './event'
 export { onScanCreate, onUserWrite, rankBooths, sweepActive, purgePersonalData } from './triggers'

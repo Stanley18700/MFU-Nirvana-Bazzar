@@ -1,6 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import {
   db, auth, FieldValue, Timestamp, requireAuth, str, rateLimit, clientFingerprint, redemptionSecret, getActiveEvent,
+  audit, toMillis,
 } from './lib'
 import { computeToken, constantTimeEqual, counterFor, normaliseManualCode, parsePayload, DEFAULT_PERIOD_SECONDS, ParsedToken } from './shared/token'
 import {
@@ -276,9 +277,38 @@ export const syncAccount = onCall(async (req) => {
   return { ok: true as const, synced: true, contact: email, contactVerified: !!rec.emailVerified }
 })
 
-/** §10 — self-service PDPA erasure request. */
+/**
+ * §10 — self-service PDPA erasure request. Idempotent: asking twice reports the first request
+ * rather than moving its date. The visitor's name, passport number and address are copied in so
+ * the admin inbox can show who asked in one read, and so the request still identifies them after
+ * a soft delete has anonymised the user document. An admin closes it through `deleteUser` or
+ * `dismissErasureRequest`.
+ */
 export const requestErasure = onCall(async (req) => {
   const uid = requireAuth(req)
-  await db.collection('erasureRequests').doc(uid).set({ uid, requestedAt: FieldValue.serverTimestamp(), status: 'open' })
-  return { ok: true }
+  const ref = db.doc(`erasureRequests/${uid}`)
+  const existing = await ref.get()
+  if (existing.exists) {
+    return { ok: true as const, existing: true, requestedAt: toMillis(existing.data()!.requestedAt) }
+  }
+  const user = (await db.doc(`users/${uid}`).get()).data() as UserDoc | undefined
+  try {
+    await ref.create({
+      uid,
+      displayName: user?.displayName ?? null,
+      passportNo: user?.passportNo ?? null,
+      contact: user?.contact ?? (req.auth!.token.email as string | undefined)?.toLowerCase() ?? null,
+      requestedAt: FieldValue.serverTimestamp(),
+      status: 'open',
+    })
+  } catch (e) {
+    // Two taps in the same second: the second create loses; report the first.
+    if ((e as { code?: number | string }).code === 6) {
+      const again = await ref.get()
+      return { ok: true as const, existing: true, requestedAt: toMillis(again.data()?.requestedAt) }
+    }
+    throw e
+  }
+  await audit(uid, 'requestErasure', 'user', uid, null, null)
+  return { ok: true as const, existing: false, requestedAt: Date.now() }
 })

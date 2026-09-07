@@ -27,7 +27,8 @@ export const api = {
   redemptionCode: call<Record<string, never>, { code: string; counter: number; period: number; payload: string; serverTime: number }>('redemptionCode'),
   /** Copies the address on the Auth account onto users/{uid} after an email change. */
   syncAccount: call<Record<string, never>, { ok: true; synced: boolean; contact: string | null; contactVerified?: boolean }>('syncAccount'),
-  requestErasure: call<Record<string, never>, { ok: true }>('requestErasure'),
+  /** Idempotent: `existing` is true when a request was already on file; `requestedAt` is when it was filed. */
+  requestErasure: call<Record<string, never>, { ok: true; existing: boolean; requestedAt: number | null }>('requestErasure'),
   // organizer
   boothSession: call<{ boothId?: string }, { boothId: string; booth: Record<string, unknown>; secret: string; period: number; serverTime: number }>('boothSession'),
   lookupRedemption: call<{ payload: string }, LookupResult>('lookupRedemption'),
@@ -35,10 +36,13 @@ export const api = {
   voidRedemption: call<{ visitorId: string; tierId: string; reason: string }, { ok: true }>('voidRedemption'),
   // admin
   setUserRole: call<{ uid: string; role: Role; boothId?: string }, { ok: true }>('setUserRole'),
-  /** `password` is optional; without one the account exists but cannot sign in. */
-  createUser: call<{ displayName: string; contact: string; role: Role; boothId?: string; institution?: string; password?: string }, { uid: string }>('createUser'),
-  updateUser: call<Record<string, unknown> & { uid: string }, { ok: true }>('updateUser'),
+  /** `password` is optional; without one the account exists but cannot sign in. A visitor gets a passport number. */
+  createUser: call<CreateUserInput, { uid: string; passportNo: string | null }>('createUser'),
+  /** Only the keys sent are changed; an empty string clears an optional field. */
+  updateUser: call<UpdateUserInput, { ok: true }>('updateUser'),
+  /** `hard` is the PDPA erasure: account, passport, stamps and unlocks all go. */
   deleteUser: call<{ uid: string; hard?: boolean }, { ok: true }>('deleteUser'),
+  dismissErasureRequest: call<{ uid: string; reason: string }, { ok: true }>('dismissErasureRequest'),
   createBooth: call<BoothInput, { id: string }>('createBooth'),
   updateBooth: call<Partial<BoothInput> & { id: string }, { ok: true }>('updateBooth'),
   deleteBooth: call<{ id: string }, { ok: true; deactivated: boolean }>('deleteBooth'),
@@ -61,11 +65,36 @@ export const api = {
   listEvents: call<Record<string, never>, { liveId: string; events: EventRow[]; accents: readonly string[] }>('listEvents'),
   createEvent: call<EventInput, { id: string }>('createEvent'),
   updateEvent: call<Partial<EventInput> & { id: string }, { ok: true }>('updateEvent'),
+  /** Drafts only; a live or archived event is refused. */
+  deleteEvent: call<{ id: string }, { ok: true }>('deleteEvent'),
   goLive: call<{ id: string }, { ok: true }>('goLive'),
   archiveEvent: call<{ id: string; confirmName: string }, { ok: true; totals: EventTotals; boothCount: number; tierCount: number }>('archiveEvent'),
   purgeEventData: call<{ eventId: string; scope: PurgeScope; limit?: number; hard?: boolean }, { scope: PurgeScope; deleted: number; remaining: number; done: boolean }>('purgeEventData'),
   bootstrapAdmin: call<{ key: string; displayName?: string }, { ok: true }>('bootstrapAdmin'),
 }
+
+export interface CreateUserInput {
+  displayName: string
+  contact: string
+  role: Role
+  boothId?: string
+  password?: string
+  visitorType?: VisitorType
+  countryCode?: string
+  institution?: string
+  school?: string
+  studentId?: string
+}
+
+export type UpdateUserInput = { uid: string } & Partial<{
+  displayName: string
+  contact: string
+  studentId: string
+  institution: string
+  school: string
+  visitorType: VisitorType
+  countryCode: string
+}>
 
 export interface EventInput {
   id?: string

@@ -97,6 +97,21 @@ export const updateEvent = onCall(async (req) => {
   return { ok: true }
 })
 
+/** Remove a draft created by mistake. Live and archived events keep their history; archive those instead. */
+export const deleteEvent = onCall(async (req) => {
+  const { uid: actor } = requireRole(req, 'admin')
+  const id = str(req.data?.id, 'id')
+  const ref = db.doc(`events/${id}`)
+  const snap = await ref.get()
+  if (!snap.exists) throw new HttpsError('not-found', 'Event not found')
+  const before = snap.data() as EventDoc
+  if (before.status !== 'draft') throw new HttpsError('failed-precondition', 'Only drafts can be deleted — archive a live event instead')
+  await ref.delete()
+  clearEventCache()
+  await audit(actor, 'deleteEvent', 'event', id, before, null)
+  return { ok: true }
+})
+
 /** Make one event the live one. Any other live event is archived in the same write. */
 export const goLive = onCall(async (req) => {
   const { uid: actor } = requireRole(req, 'admin')

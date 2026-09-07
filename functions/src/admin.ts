@@ -4,12 +4,13 @@ import {
   db, auth, FieldValue, Timestamp, requireRole, requireAuth, str, num, sha256, randomToken, randomSecretB64, audit,
   getActiveEvent, toMillis, type ActiveEvent,
 } from './lib'
-import { ACCENTS, BoothDoc, InviteDoc, PrizeTierDoc, Role, UserDoc, Zone } from './shared/model'
+import { ACCENTS, BoothDoc, InviteDoc, PrizeTierDoc, Role, UserDoc, VisitorType, Zone, dayOf, passportNo } from './shared/model'
 import { APP_ORIGIN, EMAILJS_PRIVATE_KEY, mailConfigured, sendInvite } from './mailer'
 import { recomputeRanks } from './triggers'
 
 const ZONES: Zone[] = ['entrance', 'middle', 'far']
 const ROLES: Role[] = ['visitor', 'organizer', 'admin']
+const VISITOR_TYPES: VisitorType[] = ['student', 'staff', 'alumni', 'guest']
 
 // ---------- users ----------
 
@@ -30,6 +31,13 @@ export const setUserRole = onCall(async (req) => {
   return { ok: true }
 })
 
+/**
+ * §6.2 — an admin creates an account at the desk: a walk-up visitor who cannot sign up on their
+ * own phone, or a staff account with a set password. The admin vouches for the address, so the
+ * account is marked verified — otherwise the client's Guard would park it at /verify-email
+ * waiting for a mail nobody sends. A visitor gets a passport number from the same counter as
+ * `join`, so the two paths can never collide.
+ */
 export const createUser = onCall(async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
   const d = req.data ?? {}
@@ -38,6 +46,8 @@ export const createUser = onCall(async (req) => {
   const role = str(d.role, 'role') as Role
   if (!ROLES.includes(role)) throw new HttpsError('invalid-argument', 'Bad role')
   const boothId = str(d.boothId, 'boothId', { required: false })
+  if (role === 'organizer' && !boothId) throw new HttpsError('invalid-argument', 'Organizer needs a booth')
+  const isEmail = contact.includes('@')
   /**
    * Without a password the account exists but can never sign in — Firebase has no credential to
    * check — so a staff account created here was unusable. Optional, because an organizer
@@ -45,37 +55,110 @@ export const createUser = onCall(async (req) => {
    */
   const password = str(d.password, 'password', { required: false, max: 128 })
   if (password && password.length < 10) throw new HttpsError('invalid-argument', 'Password must be at least 10 characters')
-  if (password && !contact.includes('@')) throw new HttpsError('invalid-argument', 'A password needs an email address as the contact')
-  const user = await auth.createUser({
-    email: contact.includes('@') ? contact : undefined,
-    displayName,
-    ...(password ? { password } : {}),
-  })
+  if (password && !isEmail) throw new HttpsError('invalid-argument', 'A password needs an email address as the contact')
+
+  // Walk-up details (§4.1 fields, all optional here; defaults describe a Thai guest at the desk).
+  const visitorType = (str(d.visitorType, 'visitorType', { required: false }) || (role === 'visitor' ? 'guest' : 'staff')) as VisitorType
+  if (!VISITOR_TYPES.includes(visitorType)) throw new HttpsError('invalid-argument', 'Bad visitorType')
+  const countryCode = (str(d.countryCode, 'countryCode', { required: false, max: 2 }) || 'TH').toUpperCase()
+  if (!/^[A-Z]{2}$/.test(countryCode)) throw new HttpsError('invalid-argument', 'Bad countryCode')
+  const institution = str(d.institution, 'institution', { required: false, max: 120 }) || 'MFU'
+  const school = str(d.school, 'school', { required: false, max: 120 })
+  const studentId = str(d.studentId, 'studentId', { required: false, max: 40 })
+
+  // One address = one account (§4.1), the same rule `join` applies.
+  const dup = await db.collection('users').where('contact', '==', contact).limit(1).get()
+  if (!dup.empty) throw new HttpsError('already-exists', 'That contact already has an account')
+
+  let user
+  try {
+    user = await auth.createUser({
+      email: isEmail ? contact : undefined,
+      emailVerified: isEmail,
+      displayName,
+      ...(password ? { password } : {}),
+    })
+  } catch (e) {
+    if ((e as { code?: string }).code === 'auth/email-already-exists') {
+      throw new HttpsError('already-exists', 'An account with that email already exists — find it in the list below')
+    }
+    throw e
+  }
   await auth.setCustomUserClaims(user.uid, role === 'organizer' ? { role, boothId } : { role })
+
+  let passport: string | null = null
+  if (role === 'visitor') {
+    const seq = await db.runTransaction(async (tx) => {
+      const cRef = db.doc('counters/passport')
+      const c = await tx.get(cRef)
+      const next = ((c.data()?.value as number | undefined) ?? 0) + 1
+      tx.set(cRef, { value: next }, { merge: true })
+      return next
+    })
+    const ev = await getActiveEvent(true)
+    passport = passportNo(seq, ev.passportPrefix)
+  }
+
   const doc: UserDoc = {
-    role, displayName, contact, contactVerified: false, boothId: role === 'organizer' ? boothId : null,
-    visitorType: 'guest', institution: str(d.institution, 'institution', { required: false }) || 'MFU',
-    countryCode: 'TH', isInternational: false,
-    stampCount: 0, points: 0, stampedBoothIds: [], daysAttended: [],
+    role, displayName, contact, contactVerified: isEmail, boothId: role === 'organizer' ? boothId : null,
+    visitorType, institution, school: school || null, studentId: studentId || null,
+    countryCode, isInternational: countryCode !== 'TH',
+    stampCount: 0, points: 0, stampedBoothIds: [],
+    ...(passport
+      ? { passportNo: passport, daysAttended: [dayOf(new Date())], consentAt: FieldValue.serverTimestamp() }
+      : { daysAttended: [] }),
     createdAt: FieldValue.serverTimestamp(),
+    lastSeenAt: FieldValue.serverTimestamp(),
   }
   await db.doc(`users/${user.uid}`).set(doc)
-  await audit(actor, 'createUser', 'user', user.uid, null, { role, displayName })
-  return { uid: user.uid }
+  await audit(actor, 'createUser', 'user', user.uid, null, { role, displayName, boothId: boothId || null, passportNo: passport })
+  return { uid: user.uid, passportNo: passport }
 })
 
+/** §6.2 — edit any profile field. Only the keys sent are touched; an empty string clears an optional one. */
 export const updateUser = onCall(async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
   const uid = str(req.data?.uid, 'uid')
   const patch: Record<string, unknown> = {}
   for (const f of ['displayName', 'studentId', 'institution', 'school', 'contact', 'visitorType', 'countryCode'] as const) {
-    if (req.data?.[f] !== undefined) patch[f] = str(req.data[f], f, { required: false, max: 120 })
+    if (req.data?.[f] === undefined) continue
+    const v = str(req.data[f], f, { required: false, max: 120 })
+    if (!v && (f === 'displayName' || f === 'contact' || f === 'institution')) throw new HttpsError('invalid-argument', `${f} cannot be empty`)
+    patch[f] = v || null
   }
-  if (patch.countryCode) patch.isInternational = patch.countryCode !== 'TH'
+  if (patch.visitorType !== undefined && !VISITOR_TYPES.includes(patch.visitorType as VisitorType)) throw new HttpsError('invalid-argument', 'Bad visitorType')
+  if (patch.countryCode !== undefined) {
+    patch.countryCode = String(patch.countryCode).toUpperCase()
+    if (!/^[A-Z]{2}$/.test(patch.countryCode as string)) throw new HttpsError('invalid-argument', 'Bad countryCode')
+    patch.isInternational = patch.countryCode !== 'TH'
+  }
+  if (typeof patch.contact === 'string') patch.contact = patch.contact.toLowerCase()
+  if (!Object.keys(patch).length) throw new HttpsError('invalid-argument', 'Nothing to update')
+
   const ref = db.doc(`users/${uid}`)
-  const before = (await ref.get()).data()
+  const snap = await ref.get()
+  if (!snap.exists) throw new HttpsError('not-found', 'User not found')
+  const before = snap.data() as UserDoc
+
+  // The sign-in address lives on the Auth account (see syncAccount); a contact change that is an
+  // email moves it there too, otherwise the organisers would see an address that cannot sign in.
+  if (typeof patch.contact === 'string' && patch.contact !== before.contact) {
+    const dup = await db.collection('users').where('contact', '==', patch.contact).limit(1).get()
+    if (!dup.empty && dup.docs[0].id !== uid) throw new HttpsError('already-exists', 'Another account already uses that contact')
+    if (patch.contact.includes('@')) {
+      try {
+        await auth.updateUser(uid, { email: patch.contact, emailVerified: true })
+        patch.contactVerified = true
+      } catch (e) {
+        const code = (e as { code?: string }).code
+        if (code === 'auth/email-already-exists') throw new HttpsError('already-exists', 'Another sign-in account already uses that email')
+        if (code !== 'auth/user-not-found') throw e
+      }
+    }
+  }
   await ref.set(patch, { merge: true })
-  await audit(actor, 'updateUser', 'user', uid, before, patch)
+  const was = Object.fromEntries(Object.keys(patch).map((k) => [k, (before as unknown as Record<string, unknown>)[k] ?? null]))
+  await audit(actor, 'updateUser', 'user', uid, was, patch)
   return { ok: true }
 })
 
@@ -86,9 +169,16 @@ export const deleteUser = onCall(async (req) => {
   const hard = req.data?.hard === true
   const ref = db.doc(`users/${uid}`)
   if (hard) {
-    const scans = await db.collection('scans').where('visitorId', '==', uid).get()
+    // Everything keyed to the person goes: the document, their stamps and their prize unlocks.
+    // Counters are left alone (§10) — they hold nothing about anyone. At most ~15 docs per
+    // visitor, well inside one batch.
+    const [scans, unlocks] = await Promise.all([
+      db.collection('scans').where('visitorId', '==', uid).get(),
+      db.collection('tierUnlocks').where('visitorId', '==', uid).get(),
+    ])
     const batch = db.batch()
     scans.docs.forEach((s) => batch.delete(s.ref))
+    unlocks.docs.forEach((u) => batch.delete(u.ref))
     batch.delete(ref)
     await batch.commit()
     await auth.deleteUser(uid).catch(() => undefined)
@@ -96,7 +186,26 @@ export const deleteUser = onCall(async (req) => {
     await ref.set({ deletedAt: FieldValue.serverTimestamp(), contact: `deleted-${uid}`, displayName: 'Deleted visitor', studentId: null, ethnicGroup: null }, { merge: true })
     await auth.updateUser(uid, { disabled: true }).catch(() => undefined)
   }
+  // A self-service erasure request (§10) is answered by whichever delete the admin chose.
+  const reqRef = db.doc(`erasureRequests/${uid}`)
+  if ((await reqRef.get()).exists) {
+    await reqRef.set({ status: 'resolved', resolvedAt: FieldValue.serverTimestamp(), resolvedBy: actor, resolution: hard ? 'hard' : 'soft' }, { merge: true })
+  }
   await audit(actor, hard ? 'hardDeleteUser' : 'softDeleteUser', 'user', uid, null, null)
+  return { ok: true }
+})
+
+/** §10 — close an erasure request without deleting anyone: a duplicate, a test account, a withdrawn request. */
+export const dismissErasureRequest = onCall(async (req) => {
+  const { uid: actor } = requireRole(req, 'admin')
+  const uid = str(req.data?.uid, 'uid')
+  const reason = str(req.data?.reason, 'reason', { max: 300 })
+  const ref = db.doc(`erasureRequests/${uid}`)
+  const snap = await ref.get()
+  if (!snap.exists) throw new HttpsError('not-found', 'No erasure request for that user')
+  if (snap.data()!.status !== 'open') throw new HttpsError('failed-precondition', 'That request is already closed')
+  await ref.set({ status: 'dismissed', resolvedAt: FieldValue.serverTimestamp(), resolvedBy: actor, reason }, { merge: true })
+  await audit(actor, 'dismissErasureRequest', 'user', uid, { status: 'open' }, { status: 'dismissed', reason })
   return { ok: true }
 })
 
@@ -109,6 +218,9 @@ function boothFromData(ev: ActiveEvent, d: Record<string, unknown>, existing?: B
     ? (d.activeDays as string[]).filter((x) => ev.days.includes(x))
     : existing?.activeDays ?? [...ev.days]
   const nameEn = str(d.nameEn, 'nameEn', { required: !existing, max: 120 }) || existing!.nameEn
+  // An explicit null clears an image ("Remove badge"); an absent key keeps whatever is there.
+  const image = (k: 'badgeUrl' | 'badgeThumbUrl' | 'photoUrl' | 'photoThumbUrl'): string | null =>
+    k in d ? (typeof d[k] === 'string' ? (d[k] as string) : null) : existing?.[k] ?? null
   return {
     eventId: ev.id,
     nameEn,
@@ -122,10 +234,10 @@ function boothFromData(ev: ActiveEvent, d: Record<string, unknown>, existing?: B
     accentColor: str(d.accentColor, 'accentColor', { required: false, max: 7 }) || existing?.accentColor || ACCENTS[0],
     points: typeof d.points === 'number' ? num(d.points, 'points', { min: 1, max: 100 }) : existing?.points ?? ev.zonePoints[zone],
     zone,
-    badgeUrl: (d.badgeUrl as string | undefined) ?? existing?.badgeUrl ?? null,
-    badgeThumbUrl: (d.badgeThumbUrl as string | undefined) ?? existing?.badgeThumbUrl ?? null,
-    photoUrl: (d.photoUrl as string | undefined) ?? existing?.photoUrl ?? null,
-    photoThumbUrl: (d.photoThumbUrl as string | undefined) ?? existing?.photoThumbUrl ?? null,
+    badgeUrl: image('badgeUrl'),
+    badgeThumbUrl: image('badgeThumbUrl'),
+    photoUrl: image('photoUrl'),
+    photoThumbUrl: image('photoThumbUrl'),
     activeDays,
     isPrizeDesk: typeof d.isPrizeDesk === 'boolean' ? d.isPrizeDesk : existing?.isPrizeDesk ?? false,
     active: typeof d.active === 'boolean' ? d.active : existing?.active ?? true,
@@ -529,8 +641,9 @@ export const acceptInvite = onCall(async (req) => {
 // ---------- misc ----------
 
 export const refreshRanks = onCall(async (req) => {
-  requireRole(req, 'admin')
+  const { uid: actor } = requireRole(req, 'admin')
   await recomputeRanks()
+  await audit(actor, 'refreshRanks', 'stats', 'booths', null, null)
   return { ok: true }
 })
 
