@@ -645,6 +645,12 @@ export const acceptInvite = onCall(async (req) => {
 
 // ---------- misc ----------
 
+/** What the dashboard's readiness checklist cannot see from the client: whether invitation mail can be sent. */
+export const setupStatus = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async (req) => {
+  requireRole(req, 'admin')
+  return { mailConfigured: mailConfigured() }
+})
+
 export const refreshRanks = onCall(async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
   await recomputeRanks()

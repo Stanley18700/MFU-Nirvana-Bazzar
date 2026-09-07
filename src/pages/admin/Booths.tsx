@@ -1,18 +1,20 @@
-import { useState } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { collection, limit, orderBy, query, where } from 'firebase/firestore'
 import { ref as sref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
-import { storage } from '../../lib/firebase'
+import { db, storage } from '../../lib/firebase'
 import { api, errorMessage, type BoothInput } from '../../lib/api'
-import { useBooths, useEvent } from '../../lib/data'
+import { useBooths, useCollection, useEvent } from '../../lib/data'
 import { Stamp } from '../../components/Stamp'
 import { stampMarks } from '../../lib/eventText'
-import { Notice } from '../../components/ui'
-import { ACCENTS, type BoothDoc, type Zone } from '../../../shared/model'
+import { CopyButton, Notice } from '../../components/ui'
+import { ACCENTS, type BoothDoc, type InviteDoc, type UserDoc, type Zone } from '../../../shared/model'
 
 type Row = BoothDoc & { id: string }
+type Msg = { tone: 'green' | 'red' | 'amber'; text: string }
 const empty: BoothInput = { nameEn: '', nameTh: '', shortName: '', hostUnit: '', location: '', descriptionEn: '', zone: 'entrance', points: 10, isPrizeDesk: false, active: true }
 
-/** §6.3 / §6.6 — booth CRUD, points, artwork, rotate secret. */
+/** §6.3 / §6.6 — booth CRUD, points, artwork, rotate secret, and the organizer for each booth (§6.4). */
 export default function Booths() {
   const booths = useBooths(true)
   // Days and default zone points are the live event's, not constants (spec 7.1).
@@ -20,12 +22,19 @@ export default function Booths() {
   const eventDays = event.days
   const zonePoints = event.zonePoints
   const marks = stampMarks(event)
+  const organizers = useCollection<UserDoc>(query(collection(db, 'users'), where('role', '==', 'organizer')), [], 'the organizer list').data
+  const invites = useCollection<InviteDoc>(query(collection(db, 'invites'), orderBy('sentAt', 'desc'), limit(200)), [], 'the invitations').data
   const [editing, setEditing] = useState<BoothInput | null>(null)
   const [editId, setEditId] = useState<string | null>(null)
-  const [msg, setMsg] = useState<{ tone: 'green' | 'red' | 'amber'; text: string } | null>(null)
+  const [msg, setMsg] = useState<Msg | null>(null)
   const [busy, setBusy] = useState(false)
-  const totalPoints = booths.filter((b) => b.active).reduce((s, b) => s + b.points, 0)
-  const missingArt = booths.filter((b) => b.active && !b.badgeUrl).length
+
+  // Booths are one shared list, not copied per event. Anything stamped with another event's id
+  // is shown apart, so it is a decision rather than a mystery.
+  const current = booths.filter((b) => !b.eventId || b.eventId === event.id)
+  const previous = booths.filter((b) => b.eventId && b.eventId !== event.id)
+  const totalPoints = current.filter((b) => b.active).reduce((s, b) => s + b.points, 0)
+  const missingArt = current.filter((b) => b.active && !b.badgeUrl).length
 
   function startEdit(b?: Row) {
     setMsg(null)
@@ -55,6 +64,12 @@ export default function Booths() {
     try { const r = await api.deleteBooth({ id }); setMsg({ tone: 'green', text: r.deactivated ? 'Booth has stamps — deactivated instead of deleted.' : 'Deleted.' }) } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) }
   }
 
+  /** A no-change update re-stamps the booth with the current event's id (the server always writes it). */
+  async function keep(b: Row) {
+    setBusy(true); setMsg(null)
+    try { await api.updateBooth({ id: b.id }); setMsg({ tone: 'green', text: `${b.nameEn} now belongs to ${event.nameEn}.` }) } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
+  }
+
   async function upload(b: Row, kind: 'badge' | 'photo', file: File) {
     setBusy(true); setMsg(null)
     try {
@@ -81,11 +96,53 @@ export default function Booths() {
     } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
   }
 
+  const card = (b: Row, stale = false) => (
+    <li key={b.id} className={`card flex flex-col gap-3 ${b.active && !stale ? '' : 'opacity-70'}`}>
+      <div className="flex gap-3">
+        <Stamp booth={b} collected tilt={-4} size={72} {...marks} />
+        {b.photoUrl && <img src={b.photoThumbUrl ?? b.photoUrl} alt="" className="h-[72px] w-[72px] shrink-0 rounded-xl object-cover" />}
+        <div className="min-w-0 flex-1 text-sm">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0"><div className="truncate font-semibold">{b.nameEn}</div><div className="truncate text-xs text-navy-soft">{b.hostUnit}</div></div>
+            <span className="fig text-lg" style={{ color: b.accentColor }}>{b.points}</span>
+          </div>
+          <div className="mt-1 text-xs text-navy-soft">{b.location} · {b.zone} · {b.activeDays.length}/{eventDays.length} days{b.isPrizeDesk ? ' · prize desk' : ''}{b.active ? '' : ' · inactive'}</div>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            {stale ? (
+              <>
+                <button className="font-semibold underline" disabled={busy} onClick={() => keep(b)}>Keep for this event</button>
+                <button className="underline text-vermilion" onClick={() => remove(b.id)}>Delete</button>
+              </>
+            ) : (
+              <>
+                <button className="underline" onClick={() => startEdit(b)}>Edit</button>
+                <Link className="underline" to={`/booth?boothId=${b.id}`} target="_blank" rel="noopener">Open screen</Link>
+                <Link className="underline" to={`/booth/stats?boothId=${b.id}`}>Stats</Link>
+                <label className="cursor-pointer underline">{b.badgeUrl ? 'Replace badge' : 'Badge'}<input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(b, 'badge', e.target.files[0])} /></label>
+                {b.badgeUrl && <button className="underline" disabled={busy} onClick={() => removeImage(b, 'badge')}>Remove badge</button>}
+                <label className="cursor-pointer underline">{b.photoUrl ? 'Replace photo' : 'Photo'}<input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(b, 'photo', e.target.files[0])} /></label>
+                {b.photoUrl && <button className="underline" disabled={busy} onClick={() => removeImage(b, 'photo')}>Remove photo</button>}
+                <button className="underline text-amber" onClick={() => rotate(b.id)}>Rotate secret</button>
+                <button className="underline text-vermilion" onClick={() => remove(b.id)}>Delete</button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      {!stale && (
+        <OrganizerPanel booth={b}
+          organizer={b.organizerUid ? organizers.find((u) => u.id === b.organizerUid) ?? null : null}
+          pending={invites.find((i) => i.boothId === b.id && (i.status === 'sent' || i.status === 'opened')) ?? null}
+          onMsg={setMsg} />
+      )}
+    </li>
+  )
+
   return (
     <div className="page-in">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="stamp-text text-navy-soft">{booths.filter((b) => b.active).length} active booths · {totalPoints} points on the floor</div>
+          <div className="stamp-text text-navy-soft">{event.nameEn} · {current.filter((b) => b.active).length} active booths · {totalPoints} points on the floor</div>
           <h1 className="text-2xl font-bold">Booths</h1>
         </div>
         <button className="btn-primary" onClick={() => startEdit()}>New booth</button>
@@ -127,31 +184,93 @@ export default function Booths() {
       )}
 
       <ul className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {booths.map((b) => (
-          <li key={b.id} className={`card flex gap-3 ${b.active ? '' : 'opacity-60'}`}>
-            <Stamp booth={b} collected tilt={-4} size={72} {...marks} />
-            {b.photoUrl && <img src={b.photoThumbUrl ?? b.photoUrl} alt="" className="h-[72px] w-[72px] shrink-0 rounded-xl object-cover" />}
-            <div className="min-w-0 flex-1 text-sm">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0"><div className="truncate font-semibold">{b.nameEn}</div><div className="truncate text-xs text-navy-soft">{b.hostUnit}</div></div>
-                <span className="fig text-lg" style={{ color: b.accentColor }}>{b.points}</span>
-              </div>
-              <div className="mt-1 text-xs text-navy-soft">{b.location} · {b.zone} · {b.activeDays.length}/{eventDays.length} days{b.isPrizeDesk ? ' · prize desk' : ''}{b.organizerUid ? ' · organizer linked' : ' · no organizer yet'}</div>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <button className="underline" onClick={() => startEdit(b)}>Edit</button>
-                <Link className="underline" to={`/booth?boothId=${b.id}`}>Open screen</Link>
-                <Link className="underline" to={`/booth/stats?boothId=${b.id}`}>Stats</Link>
-                <label className="cursor-pointer underline">{b.badgeUrl ? 'Replace badge' : 'Badge'}<input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(b, 'badge', e.target.files[0])} /></label>
-                {b.badgeUrl && <button className="underline" disabled={busy} onClick={() => removeImage(b, 'badge')}>Remove badge</button>}
-                <label className="cursor-pointer underline">{b.photoUrl ? 'Replace photo' : 'Photo'}<input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(b, 'photo', e.target.files[0])} /></label>
-                {b.photoUrl && <button className="underline" disabled={busy} onClick={() => removeImage(b, 'photo')}>Remove photo</button>}
-                <button className="underline text-amber" onClick={() => rotate(b.id)}>Rotate secret</button>
-                <button className="underline text-vermilion" onClick={() => remove(b.id)}>Delete</button>
-              </div>
-            </div>
-          </li>
-        ))}
+        {current.map((b) => card(b))}
+        {current.length === 0 && <li className="text-sm text-navy-soft">No booths yet — press New booth.</li>}
       </ul>
+
+      {previous.length > 0 && (
+        <section className="mt-8">
+          <h2 className="stamp-text text-navy-soft">From a previous event · {previous.length}</h2>
+          <p className="mt-1 text-sm text-navy-soft">
+            These booths were created under another event. Keep the ones you want at <b>{event.nameEn}</b> — they carry over as they are — and delete the rest.
+          </p>
+          <ul className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{previous.map((b) => card(b, true))}</ul>
+        </section>
+      )}
+    </div>
+  )
+}
+
+/**
+ * §6.4 from the booth's side: who runs it, or the invitation on its way, or a button to send one —
+ * so a booth can be staffed without a trip to the Users page.
+ */
+function OrganizerPanel({ booth, organizer, pending, onMsg }: {
+  booth: Row; organizer: (UserDoc & { id: string }) | null; pending: (InviteDoc & { id: string }) | null; onMsg: (m: Msg) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [link, setLink] = useState<string | null>(null)
+  const ref = useRef<HTMLInputElement>(null)
+
+  async function invite(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      const r = await api.inviteOrganizer({ invites: [{ name: name.trim(), email: email.trim(), boothId: booth.id }] })
+      const res = r.results[0]
+      setLink(res.link ?? null)
+      onMsg(res.mailed ? { tone: 'green', text: `Invitation emailed to ${res.email}.` } : { tone: 'amber', text: `Email is not configured — copy the link under ${booth.nameEn} and send it yourself.` })
+      setOpen(false); setName(''); setEmail('')
+    } catch (err) { onMsg({ tone: 'red', text: errorMessage(err) }) } finally { setBusy(false) }
+  }
+
+  async function resend() {
+    if (!pending) return
+    setBusy(true)
+    try {
+      const r = await api.resendInvite({ inviteId: pending.id })
+      setLink(r.link ?? null)
+      onMsg(r.mailed ? { tone: 'green', text: `Re-sent to ${pending.email}.` } : { tone: 'amber', text: 'New link ready under the booth — copy it. The old link no longer works.' })
+    } catch (err) { onMsg({ tone: 'red', text: errorMessage(err) }) } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="rounded-xl bg-white/50 px-3 py-2 text-xs">
+      {organizer ? (
+        <div className="flex items-center gap-2">
+          <span className="inline-block h-2 w-2 rounded-full bg-jade" aria-hidden />
+          <span className="truncate"><b>{organizer.displayName}</b>{organizer.contact ? ` · ${organizer.contact}` : ''}</span>
+          <span className="ml-auto text-navy-soft">organizer</span>
+        </div>
+      ) : pending ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-block h-2 w-2 rounded-full bg-amber" aria-hidden />
+          <span className="truncate">Invited <b>{pending.displayName}</b> · {pending.email} · {pending.status}</span>
+          <button className="ml-auto underline" disabled={busy} onClick={resend}>Resend</button>
+        </div>
+      ) : open ? (
+        <form onSubmit={invite} className="flex flex-wrap items-center gap-2">
+          <input className="field w-36 py-1.5" placeholder="Name" required value={name} onChange={(e) => setName(e.target.value)} />
+          <input className="field flex-1 py-1.5" placeholder="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <button className="btn-primary py-1.5" disabled={busy}>{busy ? 'Sending…' : 'Send'}</button>
+          <button type="button" className="btn-ghost py-1.5" onClick={() => setOpen(false)}>Cancel</button>
+        </form>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="inline-block h-2 w-2 rounded-full bg-navy/30" aria-hidden />
+          <span className="text-navy-soft">No organizer yet</span>
+          <button className="ml-auto font-semibold underline" onClick={() => setOpen(true)}>Invite organizer</button>
+        </div>
+      )}
+      {link && (
+        <div className="mt-2 flex items-center gap-2">
+          <input ref={ref} readOnly className="field flex-1 py-1 font-mono text-[11px]" value={link} onFocus={(e) => e.currentTarget.select()} />
+          <CopyButton text={link} inputRef={ref} className="underline" />
+        </div>
+      )}
     </div>
   )
 }

@@ -144,21 +144,23 @@ export default function EventAdmin() {
 
   return (
     <div>
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Event</h1>
-          <p className="text-sm text-navy-soft">
-            Name, dates, days, QR period and default points are stored on the event document, so the
-            app can be run again for the next event without a redeploy.
-          </p>
-        </div>
-        <button className="btn-ghost" onClick={() => { setForm(blank()); setMsg(null) }}>New event</button>
+      <header>
+        <h1 className="text-2xl font-bold">Event</h1>
+        <p className="text-sm text-navy-soft">
+          The app runs one event at a time. Its name, dates, days, QR period and default points live
+          here; booths, prizes and people are set up on their own pages.
+        </p>
       </header>
 
       {msg && <div className="mt-4"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
 
       <section className="card mt-5 grid gap-4 md:grid-cols-2">
-        <h2 className="stamp-text text-navy-soft md:col-span-2">{form.id ? `Edit ${form.id}` : 'New event'}</h2>
+        <h2 className="stamp-text text-navy-soft md:col-span-2">
+          {form.id === liveId ? 'The current event' : form.id ? `Draft · ${form.id}` : 'New event (starts as a draft)'}
+          {form.id !== liveId && live && (
+            <button className="ml-3 text-xs font-normal normal-case tracking-normal underline" onClick={() => { setForm(fromRow(live)); setMsg(null) }}>back to the current event</button>
+          )}
+        </h2>
         <label>Name (English)<input className="field mt-1" value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} /></label>
         <label>Name (Thai, optional)<input className="field mt-1" value={form.nameTh} onChange={(e) => setForm({ ...form, nameTh: e.target.value })} /></label>
         <label>Starts<input className="field mt-1" type="datetime-local" value={form.startsAt} onChange={(e) => setDates(e.target.value, form.endsAt)} /></label>
@@ -212,8 +214,21 @@ export default function EventAdmin() {
         </div>
       </section>
 
-      <section className="mt-6">
-        <h2 className="stamp-text text-navy-soft">All events</h2>
+      {/* Everything about a *second* event stays folded away: day to day there is only the one above. */}
+      <details className="mt-8 rounded-2xl border rule p-4">
+        <summary className="cursor-pointer">
+          <span className="stamp-text text-navy-soft">After the event · archive this one, prepare the next</span>
+        </summary>
+        <p className="mt-3 text-sm text-navy-soft">
+          Booths, prizes and accounts are shared, not copied per event. The way to move on is to
+          archive the current event (its totals are frozen), which clears stamps and progress, then
+          go live with the next one. A draft can be prepared here in advance, but only its own
+          settings: booths and prizes stay as they are until you archive.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button className="btn-ghost" onClick={() => { setForm(blank()); setMsg(null); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>New draft event</button>
+        </div>
+        <h2 className="stamp-text mt-5 text-navy-soft">All events</h2>
         <ul className="mt-3 grid gap-3 md:grid-cols-2">
           {rows.map((r) => (
             <li key={r.id} className="card text-sm">
@@ -234,9 +249,8 @@ export default function EventAdmin() {
             </li>
           ))}
         </ul>
-      </section>
-
-      {live && <DangerZone live={live} onDone={load} />}
+        {live && <DangerZone live={live} onDone={load} />}
+      </details>
     </div>
   )
 }

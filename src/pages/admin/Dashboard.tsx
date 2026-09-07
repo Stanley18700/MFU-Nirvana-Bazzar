@@ -5,6 +5,7 @@ import { CsvButton, Fig, Flag, fmt } from '../../components/ui'
 import { countryName } from '../../lib/countries'
 import { dayOf } from '../../../shared/model'
 import { useDashboardModel, type DaySel } from './useDashboardModel'
+import { Readiness } from './Readiness'
 
 /** §6.1 — the live dashboard. Reads ~120 small documents, never a scan collection. */
 export default function Dashboard() {
@@ -32,6 +33,8 @@ export default function Dashboard() {
           <Link to={`/admin/print?day=${day}`} target="_blank" rel="noopener" className="btn-ghost text-sm">Print / PDF</Link>
         </div>
       </header>
+
+      <Readiness />
 
       <section className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Fig value={fmt(m.scoped.visitors)} label="Visitors registered" />

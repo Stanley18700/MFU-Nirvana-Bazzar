@@ -61,6 +61,8 @@ export const api = {
   inviteInfo: call<{ token: string }, { status: 'invalid' | 'revoked' | 'accepted' | 'expired' } | { status: 'ok'; displayName: string; email: string; role: Role; boothId: string | null; boothName: string }>('inviteInfo'),
   acceptInvite: call<{ token: string }, { ok: true; role: Role; boothId: string | null }>('acceptInvite'),
   refreshRanks: call<Record<string, never>, { ok: true }>('refreshRanks'),
+  /** For the dashboard readiness checklist. */
+  setupStatus: call<Record<string, never>, { mailConfigured: boolean }>('setupStatus'),
   // admin: event lifecycle
   listEvents: call<Record<string, never>, { liveId: string; events: EventRow[]; accents: readonly string[] }>('listEvents'),
   createEvent: call<EventInput, { id: string }>('createEvent'),
