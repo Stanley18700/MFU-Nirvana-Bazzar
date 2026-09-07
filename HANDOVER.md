@@ -121,11 +121,11 @@ collection/document): `stats/event/shards/{0..9}`, `stats/booths/items/{boothId}
 
 - **Firebase project `mfu-passport`** — owned by Stanley's Google account. He must add the next
   developer as **Editor** (Project settings → Users and permissions) or hand over the account.
-- **Web app config** — complete, in `.env.local.example`: `projectId mfu-passport`,
-  `authDomain mfu-passport.firebaseapp.com`, `storageBucket mfu-passport.firebasestorage.app`,
-  `messagingSenderId 451027884644`, plus `apiKey` and `appId`. These are public client
-  identifiers that ship in the JS bundle, not secrets — the real secrets are in Secret Manager.
-  Copy the file to `.env.local` to point the dev server at the real project.
+- **Web app config** — in `.env.local` on the dev machine (gitignored, and deliberately *not*
+  in the committed `.env.local.example`). Re-read it any time from the console: **Project
+  settings → General → Your apps → Web app → SDK setup and configuration**.
+- **EmailJS ids** — in `functions/.env` on the dev machine, likewise not committed. The private
+  key is in Secret Manager.
 - **$50 GCP coupon** — Stanley has it; must be redeemed on the Blaze billing account.
 - **GitHub repo** `cnacha-mfu/mfupassport` (private) — supervisor owns it; branches `main`,
   `proto1.0`, `gh-pages` (public mock only — never push the app there).

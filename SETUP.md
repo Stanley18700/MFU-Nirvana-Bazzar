@@ -33,27 +33,38 @@ npm --prefix functions install    # Cloud Functions
 firebase use --add            # pick the project, alias "default" — updates .firebaserc
 ```
 
-Copy `.env.local.example` to `.env.local` — it is already filled in for project `mfu-passport`:
+Copy `.env.local.example` to `.env.local` (gitignored) and paste the values from the console —
+**Project settings → General → Your apps → Web app → SDK setup and configuration**:
 
 ```ini
-VITE_FIREBASE_API_KEY=AIzaSyDSSW4Dex46vD-RpFhGBs06qj4TmxYsgfA
-VITE_FIREBASE_AUTH_DOMAIN=mfu-passport.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=mfu-passport
-VITE_FIREBASE_STORAGE_BUCKET=mfu-passport.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=451027884644
-VITE_FIREBASE_APP_ID=1:451027884644:web:c7ac084bafe1a7572d1d71
-VITE_APP_ORIGIN=https://mfu-passport.web.app
+VITE_FIREBASE_API_KEY=AIza...
+VITE_FIREBASE_AUTH_DOMAIN=<project-id>.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=<project-id>
+VITE_FIREBASE_STORAGE_BUCKET=<project-id>.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=<project number>
+VITE_FIREBASE_APP_ID=1:...:web:...
+VITE_APP_ORIGIN=https://<project-id>.web.app
 ```
+
+> Real values belong only in `.env.local`, never in `.env.local.example` or in this file — both
+> are committed. `VITE_APP_ORIGIN` must match the Hosting domain exactly, because booth QR
+> payloads embed it.
 
 Functions read their parameters from `functions/.env` (copy `functions/.env.example`; also not committed):
 
 ```ini
-APP_ORIGIN=https://mfu-passport.web.app
-EMAILJS_SERVICE_ID=service_glzv23b        # EmailJS account: Stanley's (Nyan Sint Zaw)
-EMAILJS_TEMPLATE_INVITE=template_yuoog5d  # "Booth invitation" template
-EMAILJS_TEMPLATE_RESTORE=                 # not created yet; restore-by-email stays disabled until it is
-EMAILJS_PUBLIC_KEY=2mRZJpDrdwx4TIsjo
+APP_ORIGIN=https://<project-id>.web.app
+# From the EmailJS dashboard. Optional — leave blank and organizer invites fall back to a
+# copyable link. Keep the real ids in functions/.env only, never in the committed example.
+EMAILJS_SERVICE_ID=
+EMAILJS_TEMPLATE_INVITE=
+EMAILJS_TEMPLATE_RESTORE=
+EMAILJS_PUBLIC_KEY=
 ```
+
+> The EmailJS **public key** is not as harmless as the name suggests: with the service and
+> template ids it can send mail from the account if browser requests are enabled, which is
+> exactly why `spec/spec.md` §6.4 chose the server-side path. Keep all four out of git.
 
 Secrets go in Secret Manager, not in files:
 
