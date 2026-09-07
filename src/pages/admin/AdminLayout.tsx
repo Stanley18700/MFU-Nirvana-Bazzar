@@ -5,21 +5,31 @@ import { useEvent } from '../../lib/data'
 import { errorMessage } from '../../lib/api'
 import { DataErrors, Notice } from '../../components/ui'
 
-const NAV = [
-  { to: '/admin', label: 'Dashboard', end: true },
-  { to: '/admin/event', label: 'Event' },
-  { to: '/admin/booths', label: 'Booths' },
-  { to: '/admin/users', label: 'Users & invites' },
-  { to: '/admin/prizes', label: 'Prizes & stock' },
-  { to: '/admin/draw', label: 'Stage draw' },
-  { to: '/admin/refdata', label: 'Reference lists' },
-  { to: '/admin/audit', label: 'Audit log' },
+/**
+ * Three groups in the order an admin needs them: what you look at during the event, what you set
+ * up before it, what you consult afterwards. Eight equal items gave no hint where to start.
+ */
+const GROUPS: Array<{ title: string; items: Array<{ to: string; label: string; end?: boolean }> }> = [
+  { title: 'Run', items: [
+    { to: '/admin', label: 'Dashboard', end: true },
+    { to: '/admin/wall', label: 'Hall screen' },
+    { to: '/redeem', label: 'Prize desk' },
+    { to: '/admin/draw', label: 'Stage draw' },
+  ] },
+  { title: 'Set up', items: [
+    { to: '/admin/event', label: 'Event' },
+    { to: '/admin/booths', label: 'Booths' },
+    { to: '/admin/prizes', label: 'Prizes & stock' },
+    { to: '/admin/users', label: 'Users & invites' },
+  ] },
+  { title: 'Records', items: [
+    { to: '/admin/audit', label: 'Audit log' },
+    { to: '/admin/refdata', label: 'Reference lists' },
+  ] },
 ]
 
-/** Other screens an admin reaches from here. On a phone these join the scrolling nav; on a desktop they sit in the sidebar foot. */
+/** The admin's own screens. On a phone these join the scrolling nav; on a desktop they sit in the sidebar foot. */
 const LINKS = [
-  { to: '/admin/wall', label: 'Hall screen mode' },
-  { to: '/redeem', label: 'Prize desk' },
   { to: '/passport', label: 'My passport (test as visitor)' },
   { to: '/account', label: 'My account' },
 ]
@@ -44,9 +54,15 @@ export default function AdminLayout() {
           </div>
           <button className="shrink-0 text-xs text-paper/70 underline md:hidden" onClick={leave}>Sign out</button>
         </div>
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:pb-0">
-          {NAV.map((n) => (
-            <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `whitespace-nowrap rounded-lg px-3 py-2 text-sm ${isActive ? 'bg-paper/15 font-semibold' : 'text-paper/75 hover:bg-paper/10'}`}>{n.label}</NavLink>
+        <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:gap-0 md:pb-0">
+          {GROUPS.map((g) => (
+            // `contents` on a phone flattens the groups into one scrolling row; on a desktop each is a titled block.
+            <div key={g.title} className="contents md:mb-3 md:block">
+              <div className="stamp-text hidden px-3 pb-1 pt-2 text-[10px] text-paper/40 md:block">{g.title}</div>
+              {g.items.map((n) => (
+                <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `whitespace-nowrap rounded-lg px-3 py-2 text-sm md:block ${isActive ? 'bg-paper/15 font-semibold' : 'text-paper/75 hover:bg-paper/10'}`}>{n.label}</NavLink>
+              ))}
+            </div>
           ))}
           {LINKS.map((n) => (
             <NavLink key={n.to} to={n.to} className="whitespace-nowrap rounded-lg px-3 py-2 text-sm text-paper/55 hover:bg-paper/10 md:hidden">{n.label}</NavLink>

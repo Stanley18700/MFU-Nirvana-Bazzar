@@ -119,4 +119,5 @@ input, select, textarea, button { font: inherit; }
 @media print {
   body { background: #fff !important; color: #000; }
   .card { box-shadow: none; break-inside: avoid; }
+  .print-page { break-after: page; }
 }

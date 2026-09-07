@@ -145,7 +145,10 @@ export default function Booths() {
           <div className="stamp-text text-navy-soft">{event.nameEn} · {current.filter((b) => b.active).length} active booths · {totalPoints} points on the floor</div>
           <h1 className="text-2xl font-bold">Booths</h1>
         </div>
-        <button className="btn-primary" onClick={() => startEdit()}>New booth</button>
+        <div className="flex flex-wrap gap-2">
+          {current.some((b) => b.active) && <Link to="/admin/booth-cards" target="_blank" rel="noopener" className="btn-ghost">Print all cards</Link>}
+          <button className="btn-primary" onClick={() => startEdit()}>New booth</button>
+        </div>
       </header>
       {missingArt > 0 && <div className="mt-3"><Notice tone="amber">{missingArt} booth{missingArt > 1 ? 's' : ''} still use the generated stamp. That is fine — uploading a badge is optional (§2.5).</Notice></div>}
       {msg && <div className="mt-3"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
@@ -183,6 +186,8 @@ export default function Booths() {
         </section>
       )}
 
+      <BulkImport zonePoints={zonePoints} onDone={setMsg} />
+
       <ul className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {current.map((b) => card(b))}
         {current.length === 0 && <li className="text-sm text-navy-soft">No booths yet — press New booth.</li>}
@@ -198,6 +203,54 @@ export default function Booths() {
         </section>
       )}
     </div>
+  )
+}
+
+const ZONES: Zone[] = ['entrance', 'middle', 'far']
+
+/** Stand up a floor plan from a pasted list — one booth per line, `name, host unit, location, zone[, points]`. */
+function BulkImport({ zonePoints, onDone }: { zonePoints: Record<Zone, number>; onDone: (m: Msg) => void }) {
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [progress, setProgress] = useState<string | null>(null)
+  const rows = text.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+    const [nameEn = '', hostUnit = '', location = '', zoneRaw = '', pointsRaw = ''] = l.split(/[,\t;]/).map((x) => x.trim())
+    const zone = ZONES.find((z) => z === zoneRaw.toLowerCase()) ?? 'entrance'
+    const points = Number(pointsRaw) > 0 ? Number(pointsRaw) : zonePoints[zone]
+    const badZone = !!zoneRaw && !ZONES.includes(zoneRaw.toLowerCase() as Zone)
+    return { nameEn, hostUnit, location, zone, points, bad: !nameEn || badZone, line: l }
+  })
+  const bad = rows.filter((r) => r.bad)
+
+  async function run() {
+    setBusy(true)
+    let made = 0
+    const failed: string[] = []
+    // One at a time: the server numbers booth ids from the current count.
+    for (const [i, r] of rows.entries()) {
+      setProgress(`Creating ${i + 1} of ${rows.length}…`)
+      try { await api.createBooth({ nameEn: r.nameEn, hostUnit: r.hostUnit, location: r.location, zone: r.zone, points: r.points }); made++ }
+      catch (e) { failed.push(`${r.nameEn}: ${errorMessage(e)}`) }
+    }
+    setBusy(false); setProgress(null)
+    if (failed.length) onDone({ tone: 'amber', text: `${made} created, ${failed.length} failed — ${failed.join('; ')}` })
+    else { onDone({ tone: 'green', text: `${made} booth${made === 1 ? '' : 's'} created.` }); setText('') }
+  }
+
+  return (
+    <details className="card mt-4">
+      <summary className="cursor-pointer"><span className="stamp-text text-navy-soft">Bulk: paste a list of booths</span></summary>
+      <p className="mt-2 text-xs text-navy-soft">
+        One booth per line: <code>name, host unit, location, zone</code>, with an optional fifth column for points.
+        Zone is <code>entrance</code>, <code>middle</code> or <code>far</code> ({zonePoints.entrance} / {zonePoints.middle} / {zonePoints.far} points by default). Badges, days and the prize-desk flag are set on the cards afterwards.
+      </p>
+      <textarea className="field mt-2 font-mono text-xs" rows={5} value={text} onChange={(e) => setText(e.target.value)} disabled={busy}
+        placeholder={'School of Law, School of Law, Hall A · Row 1, entrance\nOffice of International Affairs, OIA, Hall B · Stage, far, 25'} />
+      <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+        <button className="btn-primary" disabled={busy || rows.length === 0 || bad.length > 0} onClick={run}>{busy ? progress : `Create ${rows.length} booth${rows.length === 1 ? '' : 's'}`}</button>
+        {bad.length > 0 && <span className="text-xs text-vermilion">{bad.length} line{bad.length === 1 ? '' : 's'} need a name and a zone of entrance / middle / far: {bad.slice(0, 2).map((r) => `“${r.line}”`).join(', ')}</span>}
+      </div>
+    </details>
   )
 }
 

@@ -196,6 +196,9 @@ Have two visitors with a **Voyager** unlock (100 points) before §4, and one at 
 | A-64 | `/admin/event` | One card for the current event; drafts, Go live and the archive are folded under **After the event**; *New draft event* switches the card and offers *back to the current event* | 7.1 | |
 | A-65 | `/admin/booths` header and cards | Header names the event; every card ends with its organizer (green), a pending invite with *Resend* (amber) or *Invite organizer*; sending shows the copyable link on the card | 6.3, 6.4 | |
 | A-66 | `/admin/booths` after going live with a second event (staging only) | Booths from the earlier event sit under **From a previous event** with *Keep for this event* and *Delete*; Keep moves the booth up | 6.3 | |
+| A-67 | `/admin/booths` → **Print all cards** | New tab with one table card per active booth; the print preview puts each on its own A4 page with the static QR and instructions | 5.1 | |
+| A-68 | Admin sidebar on a laptop | Three titled groups: Run (Dashboard, Hall screen, Prize desk, Stage draw), Set up (Event, Booths, Prizes & stock, Users & invites), Records (Audit log, Reference lists); on a phone the same items scroll in one row | 6 | |
+| A-69 | `/admin/booths` → **Bulk: paste a list of booths** with three lines, one with zone `back` | The bad line is named and the button stays disabled; fix it, press Create 3 booths, watch the progress text; three new cards appear with zone default points | 6.3 | |
 
 ## 6. Hall wall
 
