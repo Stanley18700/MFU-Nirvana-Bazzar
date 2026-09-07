@@ -25,7 +25,7 @@ builds cleanly but **has never been run against a Firebase project.** That is th
 |---|---|
 | Spec, concept deck, clickable mock (`spec/`, `demo/`) | Done by the supervisor, unchanged, on `main` |
 | Application code (client + functions + rules + seed) | Written, `tsc` and `vite build` pass |
-| Runtime testing against the **emulator** | **Done, 7 Sep.** `npm run e2e` — 37 checks through the real rules and triggers, all passing. Eight defects found and fixed (SETUP.md, "Changes since v0.1") |
+| Runtime testing against the **emulator** | **Done, 7 Sep.** `npm run e2e` — 145 checks through the real rules and triggers, all passing (scripts/e2e/). Eight defects found and fixed on 7 Sep, three more on 8 Sep (savePrizePolicy audit write, voided tier shown as locked, invite "used/revoked" states unreachable) |
 | Reusable events (`/admin/event`, archive & restart) | **Built and tested.** The event is a document, not a constant |
 | Live prize stock on the visitor's side | **Built.** Exact count on every tier, always |
 | Mobile layout for every non-admin screen | **Done.** `xs` breakpoint added; booth kiosk, stamp grid, scanner, prize page and prize desk fixed at 320px |
@@ -116,7 +116,8 @@ src/pages/organizer/   Booth (rotating QR), BoothStats, Redeem (prize desk)
 src/pages/admin/       AdminLayout, Dashboard, Event (lifecycle + danger zone), Booths, Users (+invites),
                        Prizes (+stock, void), Draw, Audit, Wall, Setup
 src/lib/eventText.ts   visitor-facing event copy derived from the live event document
-scripts/e2e.mjs        37-check end-to-end run against the emulators (`npm run e2e`)
+scripts/e2e/           end-to-end run against the emulators (`npm run e2e`): lib.mjs + four ordered steps
+docs/UAT.md            the manual acceptance checklist (screens, devices, mail) and the known-gaps register
 src/components/        Stamp (generated fallback stamp SVG), QR, Scanner (BarcodeDetector → zxing-wasm), ui
 firestore.rules        clients never write users/scans/tierUnlocks/stats/auditLog; boothSecrets denied to all clients
 firestore.indexes.json composite indexes; add one if a query fails with "requires an index" (the error gives a link)
@@ -151,7 +152,14 @@ Deviations from `spec/spec.md`, all deliberate for v0.1:
 - No Resize Images extension — badge uploads are used at their uploaded size (client caps 512 KB).
 - Booth ranks recompute every 1 min (Cloud Scheduler floor), not 30 s.
 - App Check not enforced. Turn on reCAPTCHA Enterprise App Check before the real event.
-- No one-page PDF export of the dashboard (CSV per panel exists).
+- The dashboard's "one-page PDF" is the browser's Save-as-PDF of `/admin/print`, not a generated
+  file. Every panel has a CSV button; the ethnic-group one asks for confirmation first.
+- `ethnicGroup` sits on `users/{uid}`, and Firestore rules cannot hide one field: an admin who
+  reads a user document can technically see it. No admin screen renders it per person (the
+  Users drawer says so); the dashboard only ever shows the folded aggregate. Spec §10's "rules
+  deny ethnicGroup to every client except the owner" would need a sub-document — backlog.
+- A hard (PDPA) delete decrements the visitor counters through `onUserWrite`; spec §10 says
+  counters stay intact. Accepted: the totals then describe the people who are still registered.
 - An email/password account cannot reach the passport until the address is confirmed; a Google
   account arrives confirmed and skips that step. Deliberate — but it means Firebase's mail
   deliverability is on the critical path on day one. Test it to an mfu.ac.th address before the

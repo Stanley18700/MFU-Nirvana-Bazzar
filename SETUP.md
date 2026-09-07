@@ -276,7 +276,7 @@ FUNCTIONS_DISCOVERY_TIMEOUT=120 firebase emulators:start
 ### The automated end-to-end check
 
 ```bash
-npm run e2e     # resets the emulator, reseeds, then runs scripts/e2e.mjs
+npm run e2e     # resets the emulator, reseeds, then runs scripts/e2e/run.mjs
 ```
 
 It drives the whole loop through the client SDK, so it goes through the real security rules

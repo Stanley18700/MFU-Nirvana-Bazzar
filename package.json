@@ -14,7 +14,7 @@
     "seed:emulator": "npm --prefix functions run seed:emulator",
     "rescue:admin": "npm --prefix functions run rescue:admin --",
     "reset:emulator": "node scripts/reset-emulator.mjs",
-    "e2e": "npm run reset:emulator && npm run seed:emulator && node scripts/e2e.mjs"
+    "e2e": "npm run reset:emulator && npm run seed:emulator && node scripts/e2e/run.mjs"
   },
   "dependencies": {
     "firebase": "^11.10.0",

@@ -82,7 +82,7 @@ and making the first admin. `spec/` and `demo/` are unchanged.
 npm install && npm --prefix functions install
 npm run emulators    # Auth, Firestore, Functions, UI (see SETUP.md §7)
 npm run dev          # against those emulators
-npm run e2e          # 37-check end-to-end run through the real rules and triggers
+npm run e2e          # 145-check end-to-end run through the real rules and triggers (scripts/e2e/)
 npm run deploy       # build client + functions, deploy everything
 ```
 

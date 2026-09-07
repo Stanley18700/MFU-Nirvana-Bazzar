@@ -832,7 +832,7 @@ auditLog/{id}       read: admin. write: Cloud Functions only.
 
 Every write that matters — scans, unlocks, redemptions, role changes — goes through a
 Cloud Function, never a direct client write. Rules are the second line of defence, not
-the first. Rules are covered by unit tests against the Firestore emulator, run in CI.
+the first. Rules are exercised by the emulator end-to-end run (`npm run e2e`, `scripts/e2e/`), including the negative cases in §12.13; there is no CI yet.
 
 ---
 
@@ -983,9 +983,11 @@ ships features instead of operating infrastructure.
   Withdrawing that consent from the passport page erases the value while leaving the
   passport and its stamps intact. Country of origin is *not* sensitive data and is
   handled normally.
-- Security rules deny `ethnicGroup` to every client except the owner; the admin UI reads
-  it only through the aggregated `stats/event` document, so no admin screen can list
-  people by ethnicity even by accident.
+- `ethnicGroup` is stored on the visitor's own user document. Firestore rules cannot hide a
+  single field, so an admin (who may read user documents) could technically see it; the
+  enforcement is in the UI: no admin screen renders it per person, and the dashboard reads
+  only the folded aggregate on `stats/event`. Moving it to an owner-only sub-document would
+  make the rule literal and is on the backlog.
 - Data residency: the Firestore database and all Cloud Functions are pinned to
   `asia-southeast1` (Singapore), the nearest Google region — worth stating explicitly in
   the PDPA notice.
