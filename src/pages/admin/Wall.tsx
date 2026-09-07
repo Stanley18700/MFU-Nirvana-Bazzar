@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
-import { useBooths, useBoothStats, useBuckets, useEventStats } from '../../lib/data'
+import { useBooths, useBoothStats, useBuckets, useEvent, useEventStats } from '../../lib/data'
 import { Crest, fmt } from '../../components/ui'
 
 /** §6.1 — presentation mode for a hall screen: dark navy, oversized figures, auto-rotating. */
 export default function Wall() {
   const ev = useEventStats()
+  const event = useEvent()
   const booths = useBooths()
   const { data: bstats } = useBoothStats()
   const buckets = useBuckets(60)
@@ -19,7 +20,7 @@ export default function Wall() {
   return (
     <main className="flex min-h-screen flex-col bg-navy-deep p-[4vw] text-paper" onClick={() => document.documentElement.requestFullscreen?.()}>
       <header className="flex items-center justify-between">
-        <div><div className="stamp-text text-[1.2vw] text-gold">MFU Go Global International Festival</div><h1 className="text-[3vw] font-bold leading-none">Passport live</h1></div>
+        <div><div className="stamp-text text-[1.2vw] text-gold">{event.nameEn}</div><h1 className="text-[3vw] font-bold leading-none">Passport live</h1></div>
         <Crest className="h-[8vw] w-[8vw] text-gold" />
       </header>
       <section className="mt-[3vh] grid grid-cols-3 gap-[2vw]">

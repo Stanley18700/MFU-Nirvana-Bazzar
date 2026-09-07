@@ -1,0 +1,345 @@
+import { useCallback, useEffect, useState } from 'react'
+import { api, errorMessage, type EventRow, type PurgeScope } from '../../lib/api'
+import { Notice, Spinner, fmt } from '../../components/ui'
+import { dayOf, type Zone } from '../../../shared/model'
+
+const ZONES: Zone[] = ['entrance', 'middle', 'far']
+const ZONE_LABEL: Record<Zone, string> = { entrance: 'Entrance row', middle: 'Middle hall', far: 'Far corner' }
+
+type Form = {
+  id?: string
+  nameEn: string
+  nameTh: string
+  startsAt: string
+  endsAt: string
+  days: string[]
+  qrPeriodSeconds: number
+  passportPrefix: string
+  zonePoints: Record<Zone, number>
+}
+
+/** `<input type="datetime-local">` wants local wall-clock, not an ISO instant. */
+function toLocalInput(ms: number | null): string {
+  if (!ms) return ''
+  const d = new Date(ms)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function daysBetween(startMs: number, endMs: number): string[] {
+  const out: string[] = []
+  for (let t = startMs; t <= endMs && out.length < 60; t += 86400_000) {
+    const d = dayOf(new Date(t))
+    if (!out.includes(d)) out.push(d)
+  }
+  const last = dayOf(new Date(endMs))
+  if (!out.includes(last)) out.push(last)
+  return out
+}
+
+function blank(): Form {
+  const start = new Date(); start.setHours(9, 0, 0, 0)
+  const end = new Date(start.getTime() + 2 * 86400_000); end.setHours(16, 0, 0, 0)
+  return {
+    nameEn: '', nameTh: '',
+    startsAt: toLocalInput(start.getTime()), endsAt: toLocalInput(end.getTime()),
+    days: daysBetween(start.getTime(), end.getTime()),
+    qrPeriodSeconds: 20, passportPrefix: 'MFU-GG',
+    zonePoints: { entrance: 10, middle: 15, far: 20 },
+  }
+}
+
+function fromRow(r: EventRow): Form {
+  return {
+    id: r.id, nameEn: r.nameEn, nameTh: r.nameTh,
+    startsAt: toLocalInput(r.startsAt), endsAt: toLocalInput(r.endsAt),
+    days: r.days, qrPeriodSeconds: r.qrPeriodSeconds, passportPrefix: r.passportPrefix,
+    zonePoints: r.zonePoints,
+  }
+}
+
+/**
+ * The steps of an archive-and-restart, in the order they must run. `scans` must go before
+ * `booths` — the deterministic id `scans/{uid}_{boothId}` is what would otherwise stop a
+ * returning visitor re-stamping a reused booth id.
+ */
+const CLEAR_STEPS: Array<{ scope: PurgeScope; label: string }> = [
+  { scope: 'scans', label: 'Stamps' },
+  { scope: 'tierUnlocks', label: 'Prize unlocks' },
+  { scope: 'stockAdjustments', label: 'Stock ledger' },
+  { scope: 'draws', label: 'Stage draws' },
+  { scope: 'buckets', label: 'Timeline' },
+  { scope: 'invites', label: 'Invitations' },
+  { scope: 'rateLimits', label: 'Rate limits' },
+  { scope: 'counters', label: 'Passport numbering' },
+  { scope: 'visitors', label: 'Visitor progress' },
+  // `eventStats` is deliberately last, and repeated after a settle below: deleting a visitor
+  // fires onUserWrite, which decrements the shards. Clearing them first lets those late
+  // deltas recreate the shards at negative values, and the next event opens below zero.
+  { scope: 'eventStats', label: 'Event counters' },
+]
+
+export default function EventAdmin() {
+  const [rows, setRows] = useState<EventRow[] | null>(null)
+  const [liveId, setLiveId] = useState<string>('')
+  const [form, setForm] = useState<Form | null>(null)
+  const [msg, setMsg] = useState<{ tone: 'green' | 'red' | 'amber'; text: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const load = useCallback(async () => {
+    try {
+      const r = await api.listEvents({})
+      setRows(r.events); setLiveId(r.liveId)
+      const live = r.events.find((e) => e.id === r.liveId)
+      setForm((f) => f ?? (live ? fromRow(live) : blank()))
+    } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) }
+  }, [])
+
+  useEffect(() => { void load() }, [load])
+
+  function setDates(startsAt: string, endsAt: string) {
+    if (!form) return
+    const a = startsAt ? new Date(startsAt).getTime() : 0
+    const b = endsAt ? new Date(endsAt).getTime() : 0
+    setForm({ ...form, startsAt, endsAt, days: a && b && b >= a ? daysBetween(a, b) : form.days })
+  }
+
+  async function save() {
+    if (!form) return
+    setBusy(true); setMsg(null)
+    try {
+      const payload = {
+        nameEn: form.nameEn, nameTh: form.nameTh,
+        startsAt: new Date(form.startsAt).getTime(),
+        endsAt: new Date(form.endsAt).getTime(),
+        days: form.days, qrPeriodSeconds: form.qrPeriodSeconds,
+        passportPrefix: form.passportPrefix, zonePoints: form.zonePoints,
+      }
+      if (form.id) { await api.updateEvent({ id: form.id, ...payload }); setMsg({ tone: 'green', text: 'Saved.' }) }
+      else { const r = await api.createEvent(payload); setForm({ ...form, id: r.id }); setMsg({ tone: 'green', text: `Created "${r.id}" as a draft. Add booths and a prize policy, then Go live.` }) }
+      await load()
+    } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
+  }
+
+  async function goLive(id: string) {
+    setBusy(true); setMsg(null)
+    try { await api.goLive({ id }); setMsg({ tone: 'green', text: 'This event is now live.' }); await load() }
+    catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
+  }
+
+  const live = rows?.find((e) => e.id === liveId) ?? null
+
+  if (!rows || !form) return <Spinner label="Loading events…" />
+
+  return (
+    <div>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Event</h1>
+          <p className="text-sm text-navy-soft">
+            Name, dates, days, QR period and default points are stored on the event document, so the
+            app can be run again for the next event without a redeploy.
+          </p>
+        </div>
+        <button className="btn-ghost" onClick={() => { setForm(blank()); setMsg(null) }}>New event</button>
+      </header>
+
+      {msg && <div className="mt-4"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
+
+      <section className="card mt-5 grid gap-4 md:grid-cols-2">
+        <h2 className="stamp-text text-navy-soft md:col-span-2">{form.id ? `Edit ${form.id}` : 'New event'}</h2>
+        <label>Name (English)<input className="field mt-1" value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} /></label>
+        <label>Name (Thai, optional)<input className="field mt-1" value={form.nameTh} onChange={(e) => setForm({ ...form, nameTh: e.target.value })} /></label>
+        <label>Starts<input className="field mt-1" type="datetime-local" value={form.startsAt} onChange={(e) => setDates(e.target.value, form.endsAt)} /></label>
+        <label>Ends<input className="field mt-1" type="datetime-local" value={form.endsAt} onChange={(e) => setDates(form.startsAt, e.target.value)} /></label>
+
+        <fieldset className="md:col-span-2">
+          <legend className="stamp-text text-navy-soft">Days the event runs</legend>
+          <div className="mt-2 flex flex-wrap gap-3 text-sm">
+            {(form.startsAt && form.endsAt ? daysBetween(new Date(form.startsAt).getTime(), new Date(form.endsAt).getTime()) : form.days).map((d, i) => (
+              <label key={d} className="flex items-center gap-1">
+                <input type="checkbox" checked={form.days.includes(d)}
+                  onChange={(e) => setForm({ ...form, days: e.target.checked ? [...form.days, d].sort() : form.days.filter((x) => x !== d) })} />
+                Day {i + 1} · {d}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <label>QR rotation (seconds)
+          <input className="field mt-1" type="number" min={10} max={120} value={form.qrPeriodSeconds}
+            onChange={(e) => setForm({ ...form, qrPeriodSeconds: Number(e.target.value) })} />
+        </label>
+        <label>Passport prefix
+          <input className="field mt-1" value={form.passportPrefix} onChange={(e) => setForm({ ...form, passportPrefix: e.target.value.toUpperCase() })} />
+          <span className="text-xs text-navy-soft">Numbers read {form.passportPrefix || 'MFU-GG'}-0001</span>
+        </label>
+
+        <fieldset className="md:col-span-2">
+          <legend className="stamp-text text-navy-soft">Default points per zone (§6.6)</legend>
+          <div className="mt-2 grid gap-3 sm:grid-cols-3">
+            {ZONES.map((z) => (
+              <label key={z} className="text-sm">{ZONE_LABEL[z]}
+                <input className="field mt-1" type="number" min={1} max={100} value={form.zonePoints[z]}
+                  onChange={(e) => setForm({ ...form, zonePoints: { ...form.zonePoints, [z]: Number(e.target.value) } })} />
+              </label>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-navy-soft">
+            Applies to booths created from now on. Existing booths keep their points, and points
+            already awarded are frozen at scan time.
+          </p>
+        </fieldset>
+
+        <div className="flex flex-wrap gap-2 md:col-span-2">
+          <button className="btn-primary" disabled={busy || !form.nameEn || !form.startsAt || !form.endsAt} onClick={save}>
+            {busy ? 'Saving…' : form.id ? 'Save' : 'Create draft'}
+          </button>
+          {form.id && form.id !== liveId && (
+            <button className="btn-gold" disabled={busy} onClick={() => goLive(form.id!)}>Go live</button>
+          )}
+        </div>
+      </section>
+
+      <section className="mt-6">
+        <h2 className="stamp-text text-navy-soft">All events</h2>
+        <ul className="mt-3 grid gap-3 md:grid-cols-2">
+          {rows.map((r) => (
+            <li key={r.id} className="card text-sm">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate font-semibold">{r.nameEn}</div>
+                  <div className="text-xs text-navy-soft">{r.id} · {r.days.length} days · {fmt(r.boothCount)} booths</div>
+                </div>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                  r.status === 'live' ? 'bg-jade/15 text-jade' : r.status === 'draft' ? 'bg-amber/15 text-amber' : 'bg-navy/10 text-navy-soft'
+                }`}>{r.status}</span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                <button className="underline" onClick={() => { setForm(fromRow(r)); setMsg(null) }}>Edit</button>
+                {r.status !== 'live' && <button className="underline" disabled={busy} onClick={() => goLive(r.id)}>Go live</button>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {live && <DangerZone live={live} onDone={load} />}
+    </div>
+  )
+}
+
+/**
+ * Archive the live event and start the next one. Every step is a separate call so nothing
+ * runs past the callable timeout on a full three-day dataset, and the admin can see progress.
+ */
+function DangerZone({ live, onDone }: { live: EventRow; onDone: () => Promise<void> }) {
+  const [open, setOpen] = useState(false)
+  const [confirmName, setConfirmName] = useState('')
+  const [keepBooths, setKeepBooths] = useState(true)
+  const [keepTiers, setKeepTiers] = useState(true)
+  const [hardDelete, setHardDelete] = useState(false)
+  const [log, setLog] = useState<string[]>([])
+  const [running, setRunning] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
+
+  const say = (s: string) => setLog((l) => [...l, s])
+
+  async function drain(scope: PurgeScope, label: string, hard = false) {
+    say(`${label}…`)
+    let total = 0
+    for (let guard = 0; guard < 500; guard++) {
+      const r = await api.purgeEventData({ eventId: live.id, scope, hard })
+      total += r.deleted
+      if (r.done) break
+    }
+    setLog((l) => [...l.slice(0, -1), `${label} — ${total ? `${total} cleared` : 'nothing to clear'}`])
+  }
+
+  async function run() {
+    setRunning(true); setErr(null); setLog([]); setDone(false)
+    try {
+      say('Freezing totals to the archive…')
+      const a = await api.archiveEvent({ id: live.id, confirmName })
+      setLog((l) => [...l.slice(0, -1), `Archived — ${fmt(a.totals.visitors)} visitors, ${fmt(a.totals.stamps)} stamps, ${fmt(a.totals.redeemed)} prizes handed over`])
+
+      for (const step of CLEAR_STEPS) {
+        await drain(step.scope, step.label, step.scope === 'visitors' && hardDelete)
+      }
+      if (keepBooths) {
+        await drain('boothStats', 'Reset booth counters')
+        await drain('rotateSecrets', 'New booth QR secrets')
+      } else {
+        await drain('booths', 'Booths and artwork')
+      }
+      if (keepTiers) await drain('resetTierStock', 'Restore prize stock')
+      else await drain('prizeTiers', 'Prize tiers')
+
+      // Let any trailing onUserWrite / onScanCreate deltas land, then clear the counters again.
+      say('Settling counters…')
+      await new Promise((r) => setTimeout(r, 6000))
+      await api.purgeEventData({ eventId: live.id, scope: 'eventStats' })
+      setLog((l) => [...l.slice(0, -1), 'Settling counters — done'])
+
+      setDone(true)
+      await onDone()
+    } catch (e) {
+      setErr(errorMessage(e))
+    } finally { setRunning(false) }
+  }
+
+  return (
+    <section className="mt-8 rounded-2xl border-2 border-vermilion/40 p-4">
+      <h2 className="stamp-text text-vermilion">Danger zone</h2>
+      <p className="mt-2 text-sm text-navy-soft">
+        Archive <b>{live.nameEn}</b> and start a new event. Its totals are frozen to a read-only
+        archive first, then the stamps, prize unlocks, counters and visitor progress are cleared so
+        the next event starts from zero. This cannot be undone.
+      </p>
+
+      {!open ? (
+        <button className="btn-danger mt-3" onClick={() => setOpen(true)}>Archive &amp; start a new event</button>
+      ) : (
+        <div className="mt-4 grid gap-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={keepBooths} onChange={(e) => setKeepBooths(e.target.checked)} disabled={running} />
+            Keep the booths (counters reset to zero and every QR secret is replaced)
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={keepTiers} onChange={(e) => setKeepTiers(e.target.checked)} disabled={running} />
+            Keep the prize policy (stock restored to the full loaded-in figure)
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={hardDelete} onChange={(e) => setHardDelete(e.target.checked)} disabled={running} />
+            Also delete visitor accounts outright (PDPA). Otherwise their progress is reset and the account kept.
+          </label>
+
+          <label className="text-sm">Type <b>{live.nameEn}</b> to confirm
+            <input className="field mt-1" value={confirmName} onChange={(e) => setConfirmName(e.target.value)} disabled={running} />
+          </label>
+
+          <div className="flex flex-wrap gap-2">
+            <button className="btn-danger" disabled={running || confirmName.trim().toLowerCase() !== live.nameEn.trim().toLowerCase()} onClick={run}>
+              {running ? 'Working…' : 'Archive and clear'}
+            </button>
+            <button className="btn-ghost" disabled={running} onClick={() => { setOpen(false); setLog([]); setErr(null) }}>Cancel</button>
+          </div>
+
+          {log.length > 0 && (
+            <ol className="mt-2 rounded-xl bg-navy/5 p-3 text-sm">
+              {log.map((l, i) => <li key={i} className="tabular-nums">{l}</li>)}
+            </ol>
+          )}
+          {err && <Notice tone="red">{err}</Notice>}
+          {done && (
+            <Notice tone="green">
+              Cleared. The archive is at <code>archives/{live.id}</code>. Now create the next event
+              above{keepBooths ? '' : ', add its booths'}{keepTiers ? '' : ' and set a prize policy'}, then press <b>Go live</b>.
+            </Notice>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}

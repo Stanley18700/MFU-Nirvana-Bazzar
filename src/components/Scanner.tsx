@@ -97,7 +97,7 @@ export function Scanner({ onResult, paused = false, className = '' }: Props) {
       <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
       {state === 'live' && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
-          <div className="h-56 w-56 rounded-2xl border-2 border-white/80 shadow-[0_0_0_9999px_rgba(14,24,38,.45)]" />
+          <div className="aspect-square w-[65%] max-w-[14rem] rounded-2xl border-2 border-white/80 shadow-[0_0_0_9999px_rgba(14,24,38,.45)]" />
         </div>
       )}
       {state === 'starting' && <p className="absolute inset-0 grid place-items-center text-sm text-white/80">Starting camera…</p>}

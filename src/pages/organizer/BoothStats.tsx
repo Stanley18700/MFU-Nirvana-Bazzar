@@ -1,9 +1,9 @@
 import { Link, useSearchParams } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useAuth } from '../../lib/auth'
-import { useBoothStat, useBooths, useEventStats } from '../../lib/data'
+import { useBoothStat, useBooths, useEvent, useEventStats } from '../../lib/data'
 import { Fig, Spinner, fmt } from '../../components/ui'
-import { EVENT_DAYS, dayOf } from '../../../shared/model'
+import { dayOf } from '../../../shared/model'
 
 /** §5.3 — the organizer sees their own booth only. */
 export default function BoothStats() {
@@ -14,9 +14,11 @@ export default function BoothStats() {
   const booth = booths.find((b) => b.id === boothId)
   const { data: stat } = useBoothStat(boothId)
   const ev = useEventStats()
+  const event = useEvent()
   if (!booth) return <Spinner />
 
-  const today = (EVENT_DAYS as readonly string[]).includes(dayOf(new Date())) ? dayOf(new Date()) : EVENT_DAYS[0]
+  const days = event.days
+  const today = days.includes(dayOf(new Date())) ? dayOf(new Date()) : days[0]
   const hours = Array.from({ length: 8 }, (_, i) => `${String(9 + i).padStart(2, '0')}`)
   const hourly = hours.map((h) => ({ hour: `${h}:00`, visitors: stat?.byHour?.[`${today}T${h}`] ?? 0 }))
   const vt = stat?.byVisitorType ?? {}
@@ -27,7 +29,7 @@ export default function BoothStats() {
       <div className="stamp-text mt-3" style={{ color: booth.accentColor }}>{booth.location} · worth {booth.points} points</div>
       <h1 className="text-2xl font-bold">{booth.nameEn}</h1>
 
-      <section className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <section className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
         <Fig value={fmt(stat?.stamps)} label="Visitors stamped" accent={booth.accentColor} />
         <Fig value={stat?.rank ? `#${stat.rank}` : '–'} label={`Rank of ${booths.filter((b) => b.active).length} booths`} />
         <Fig value={fmt(ev.totals.stamps)} label="Event total" />
@@ -37,9 +39,9 @@ export default function BoothStats() {
         <h2 className="stamp-text text-navy-soft">Visitors per hour · {today}</h2>
         <div className="mt-3 h-52">
           <ResponsiveContainer>
-            <BarChart data={hourly} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+            <BarChart data={hourly} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="rgba(23,38,63,.1)" />
-              <XAxis dataKey="hour" tick={{ fontSize: 11, fill: '#4A5872' }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="hour" tick={{ fontSize: 11, fill: '#4A5872' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={4} />
               <YAxis tick={{ fontSize: 11, fill: '#4A5872' }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip cursor={{ fill: 'rgba(23,38,63,.06)' }} contentStyle={{ borderRadius: 12, border: 'none', fontSize: 12 }} />
               <Bar dataKey="visitors" fill={booth.accentColor} radius={[4, 4, 0, 0]} maxBarSize={36} />
@@ -60,8 +62,8 @@ export default function BoothStats() {
       <section className="card mt-4">
         <h2 className="stamp-text text-navy-soft">By day</h2>
         <ul className="mt-3 grid grid-cols-3 gap-2 text-sm">
-          {EVENT_DAYS.map((d, i) => (
-            <li key={d} className="rounded-xl bg-white/50 p-3"><div className="fig text-2xl">{fmt(stat?.byDay?.[d])}</div><div className="stamp-text text-navy-soft">Day {i + 1}</div></li>
+          {days.map((d, i) => (
+            <li key={d} className="rounded-xl bg-white/50 p-3"><div className="fig text-xl xs:text-2xl">{fmt(stat?.byDay?.[d])}</div><div className="stamp-text text-navy-soft">Day {i + 1}</div></li>
           ))}
         </ul>
       </section>

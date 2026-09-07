@@ -54,9 +54,22 @@ their own screens. There is one copy of the code, not three.
 
 ## The three roles
 
-- **Visitor** — registers in under a minute, scans booths, redeems prizes.
+- **Visitor** — registers in under a minute, scans booths, redeems prizes, and sees how many
+  of each prize are left, live.
 - **Organizer** — runs one booth's screen; it operates itself all day.
-- **Admin** — live statistics, user CRUD and roles, booth CRUD, prize policy.
+- **Admin** — live statistics, user CRUD and roles, booth CRUD, prize policy, and the event
+  itself: create it, run it, archive it, and start the next one.
+
+## Reusable, event to event
+
+The event is a Firestore document, not a build-time constant. Its name, dates, days, QR
+rotation period, passport prefix and default zone points all live on `events/{id}`, and the
+admin creates, edits, archives and replaces it from **`/admin/event`** without a redeploy.
+
+Archiving freezes the event's totals to `archives/{id}` and then clears the stamps, unlocks,
+counters and visitor progress, which is what makes the booth ids safe to reuse — stamps are
+keyed `scans/{visitorId}_{boothId}`, so without the clear a returning visitor could never
+re-stamp a `booth-01` belonging to a different event. See `SETUP.md` §8.
 
 ## The app (`proto1.0`)
 
@@ -67,7 +80,9 @@ and making the first admin. `spec/` and `demo/` are unchanged.
 
 ```bash
 npm install && npm --prefix functions install
-npm run dev          # against the local emulators (see SETUP.md §7)
+npm run emulators    # Auth, Firestore, Functions, UI (see SETUP.md §7)
+npm run dev          # against those emulators
+npm run e2e          # 32-check end-to-end run through the real rules and triggers
 npm run deploy       # build client + functions, deploy everything
 ```
 

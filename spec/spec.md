@@ -328,9 +328,16 @@ When a visitor's stamp count reaches a tier threshold, the Prize page shows:
 - A **redemption code**: a rotating 8-character alphanumeric code plus a QR, refreshed
   every 30 seconds — so a screenshot cannot be forwarded to a friend.
 - Tier state: `unlocked` -> `redeemed` (after prize-desk confirmation).
-- Live **remaining stock** for the tier ("43 left"), shown once stock
-  falls below 20% so it creates urgency near the end without looking like a countdown
-  all morning.
+- Live **remaining stock** for the tier ("43 left").
+
+  > **Amended, September 2026 (event planners' request).** The count is now shown on
+  > **every active tier, at all times**, on both the Prize page and the passport cover —
+  > not only once stock falls below 20%. The original rule avoided a number ticking down
+  > all morning; the planners asked for the remaining figure to be visible to visitors
+  > live, and that request wins. Low stock is still coloured amber under 20% and the
+  > out-of-stock note still replaces the figure at zero. No backend change was needed:
+  > `prizeTiers/{tierId}.stockRemaining` was already world-readable to any signed-in
+  > client and already streaming through `useTiers()`.
 
 Prize-desk staff (an organizer whose booth carries the `is_prize_desk` flag, or an
 admin) opens `/redeem`, scans the visitor's code, sees the visitor's name, tier, and
@@ -663,9 +670,31 @@ Both choices are load-bearing, not stylistic.
 
 ### 7.1 Collections
 
+> **Amended, September 2026 — the event is data, not a constant.** `EVENT_ID`,
+> `EVENT_DAYS` and `ZONE_POINTS` were compile-time constants, which made the app a
+> single-use build. The live event is now the one `events/{eventId}` document with
+> `status: 'live'`, carrying `days[]`, `passportPrefix` and `zonePoints`, and the admin
+> creates, edits, archives and replaces it from `/admin/event` without a redeploy. The
+> constants survive only as seed defaults and last-resort fallbacks.
+>
+> The app still runs **one event at a time**. Rather than event-scoping the deterministic
+> ids `scans/{visitorId}_{boothId}` and `tierUnlocks/{visitorId}_{tierId}`, the stats
+> paths, the rules and every query, an event is **archived** — its totals frozen to
+> `archives/{eventId}` — and its working data purged. Purging `scans` and `tierUnlocks`
+> is precisely what makes booth ids safe to reuse: without it, a returning visitor could
+> never re-stamp a `booth-01` that belongs to a different event.
+
 ```
 events/{eventId}
-  nameTh, nameEn, startsAt, endsAt, qrPeriodSeconds, active, boothCount, createdAt
+  nameTh, nameEn, startsAt, endsAt, qrPeriodSeconds, active, boothCount, createdAt,
+  days[], passportPrefix, zonePoints, status: 'draft'|'live'|'archived', archivedAt
+
+archives/{eventId}                            # frozen before a purge; admin-read only
+  eventId, nameEn, nameTh, days, startsAt, endsAt, archivedAt, archivedBy,
+  totals: { visitors, stamps, points, redeemed },
+  booths: [{ id, nameEn, points, stamps }],
+  tiers: [{ id, name, thresholdPoints, stockTotal, stockRemaining, redeemed }],
+  draws: [{ winners, names, createdAt }]
 
 users/{uid}                                  # uid = Firebase Auth uid
   role: 'visitor' | 'organizer' | 'admin'    # mirrors the custom claim
@@ -1003,10 +1032,12 @@ ships features instead of operating infrastructure.
 | `/passport/prize` | visitor | Tier status and redemption code |
 | `/scan` | visitor | Camera scanner and manual entry |
 | `/s/:token` | visitor | Scan landing (from the native camera app) |
+| `/r/:token` | organizer / admin | Redemption landing (visitor's code opened from the native camera app) |
 | `/booth` | organizer | Rotating QR and live counts |
 | `/booth/stats` | organizer | Own booth statistics |
 | `/redeem` | organizer / admin | Prize desk scanner and confirm |
 | `/admin` | admin | Dashboard |
+| `/admin/event` | admin | Event details, go live, archive &amp; start the next event |
 | `/admin/wall` | admin | Hall-screen presentation mode |
 | `/admin/users` | admin | User CRUD and roles |
 | `/admin/booths` | admin | Booth CRUD and secret rotation |

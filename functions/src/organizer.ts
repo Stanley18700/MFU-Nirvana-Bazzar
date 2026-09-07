@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
-import { db, FieldValue, requireRole, str, audit } from './lib'
+import { db, FieldValue, requireRole, str, audit, getActiveEvent } from './lib'
 import { verifyRedemptionPayload } from './visitor'
-import { BoothDoc, EVENT_ID, EventDoc, PrizeTierDoc, TierUnlockDoc, UserDoc } from './shared/model'
+import { BoothDoc, PrizeTierDoc, TierUnlockDoc, UserDoc } from './shared/model'
 import { DEFAULT_PERIOD_SECONDS } from './shared/token'
 
 /** §5.1 — the only path to a booth secret. Organizer gets their own booth; admin may name any. */
@@ -10,10 +10,10 @@ export const boothSession = onCall(async (req) => {
   const boothId = role === 'admin' ? str(req.data?.boothId, 'boothId') : claimBooth
   if (!boothId) throw new HttpsError('failed-precondition', 'No booth assigned to this account')
 
-  const [boothSnap, secretSnap, eventSnap] = await Promise.all([
+  const [boothSnap, secretSnap, event] = await Promise.all([
     db.doc(`booths/${boothId}`).get(),
     db.doc(`boothSecrets/${boothId}`).get(),
-    db.doc(`events/${EVENT_ID}`).get(),
+    getActiveEvent(),
   ])
   if (!boothSnap.exists || !secretSnap.exists) throw new HttpsError('not-found', 'Booth not found')
   const booth = boothSnap.data() as BoothDoc
@@ -21,7 +21,7 @@ export const boothSession = onCall(async (req) => {
     boothId,
     booth: { ...booth, createdAt: null },
     secret: secretSnap.data()!.secret as string,
-    period: (eventSnap.data() as EventDoc | undefined)?.qrPeriodSeconds ?? DEFAULT_PERIOD_SECONDS,
+    period: event.qrPeriodSeconds ?? DEFAULT_PERIOD_SECONDS,
     serverTime: Date.now(),
   }
 })

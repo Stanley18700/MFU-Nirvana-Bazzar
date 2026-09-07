@@ -14,6 +14,8 @@
   --color-jade: #1e8a6e;
   --color-amber: #d4762a;
   --font-sans: 'IBM Plex Sans Thai', 'IBM Plex Sans', system-ui, sans-serif;
+  /* Small-phone tier. Tailwind ships nothing below sm (640px), but §12.11 asks for 320px. */
+  --breakpoint-xs: 380px;
 }
 
 :root {
@@ -69,8 +71,12 @@ body {
   .stamp-land, .page-in, .pulse-once, .seal-draw { animation-duration: 1ms !important; }
 }
 
-/* Booth screen must be legible at 3 m (§2.6) */
+/* Booth screen must be legible at 3 m (§2.6) — on a kiosk. */
 .booth-screen { font-size: clamp(24px, 2.2vw, 36px); }
+/* On a phone the 24px floor overflows the manual code and the footer; scale with the viewport. */
+@media (max-width: 640px) {
+  .booth-screen { font-size: clamp(13px, 4.2vw, 22px); }
+}
 
 input, select, textarea, button { font: inherit; }
 .field {

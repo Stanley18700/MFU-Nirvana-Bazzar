@@ -70,7 +70,11 @@ export default function Prizes() {
                   {t ? <><span className="fig text-lg">{fmt(t.stockRemaining)}</span> <span className="text-navy-soft">/ {fmt(t.stockTotal)}</span></> : <input className="field" type="number" min={0} placeholder="Initial stock" value={r.stockTotal ?? ''} onChange={(e) => set(i, { stockTotal: Number(e.target.value) })} />}
                   {preview && r.id && preview[r.id] > 0 && <div className="text-xs text-amber">unlocks for {preview[r.id]} visitors</div>}
                 </div>
-                <input className="field md:col-span-6 text-xs" value={r.outOfStockNoteEn ?? ''} onChange={(e) => set(i, { outOfStockNoteEn: e.target.value })} placeholder="Shown to visitors if this tier runs out (e.g. collection point or later date)" />
+                <input className="field md:col-span-5 text-xs" value={r.outOfStockNoteEn ?? ''} onChange={(e) => set(i, { outOfStockNoteEn: e.target.value })} placeholder="Shown to visitors if this tier runs out (e.g. collection point or later date)" />
+                {/* Dropping a row deactivates the tier on save (§6.7) — unlock history is never deleted. */}
+                <button type="button" className="text-xs text-vermilion underline" onClick={() => setRows(rows.filter((_, j) => j !== i))}>
+                  Remove{t ? ' (deactivates)' : ''}
+                </button>
               </div>
             )
           })}

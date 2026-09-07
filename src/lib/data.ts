@@ -3,8 +3,8 @@ import {
   collection, doc, onSnapshot, orderBy, query, where, limit, type DocumentData, type Query, type DocumentReference,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import type { BoothDoc, BoothStats, BucketDoc, EventStatsShard, PrizeTierDoc, TierUnlockDoc } from '../../shared/model'
-import { STATS_SHARDS } from '../../shared/model'
+import type { BoothDoc, BoothStats, BucketDoc, EventDoc, EventStatsShard, PrizeTierDoc, TierUnlockDoc } from '../../shared/model'
+import { DEFAULT_PASSPORT_PREFIX, EVENT_DAYS, EVENT_ID, STATS_SHARDS, ZONE_POINTS } from '../../shared/model'
 
 export type WithId<T> = T & { id: string }
 
@@ -41,6 +41,51 @@ export function useDoc<T = DocumentData>(ref: DocumentReference | null, deps: un
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps)
   return { data, loading, fromCache }
+}
+
+export type LiveEvent = WithId<EventDoc>
+
+const FALLBACK_EVENT: LiveEvent = {
+  id: EVENT_ID,
+  nameEn: 'MFU Go Global International Festival',
+  nameTh: '',
+  startsAt: null,
+  endsAt: null,
+  qrPeriodSeconds: 20,
+  active: true,
+  boothCount: 0,
+  days: [...EVENT_DAYS],
+  passportPrefix: DEFAULT_PASSPORT_PREFIX,
+  zonePoints: { ...ZONE_POINTS },
+  status: 'live',
+}
+
+/**
+ * The one live event (spec 7.1). Days, dates, name, QR period and default zone points are
+ * data, not constants, so the app can be reused for the next event without a redeploy.
+ * Falls back to the seeded defaults while the listener is still opening or if nothing is live.
+ */
+export function useEvent(): LiveEvent {
+  const { data } = useCollection<EventDoc>(query(collection(db, 'events'), where('status', '==', 'live'), limit(1)), [])
+  const ev = data[0]
+  return useMemo(() => {
+    if (!ev) return FALLBACK_EVENT
+    return {
+      ...FALLBACK_EVENT,
+      ...ev,
+      days: Array.isArray(ev.days) && ev.days.length ? ev.days : FALLBACK_EVENT.days,
+      zonePoints: ev.zonePoints ?? FALLBACK_EVENT.zonePoints,
+      passportPrefix: ev.passportPrefix || FALLBACK_EVENT.passportPrefix,
+    }
+  }, [ev])
+}
+
+/** Milliseconds for a Firestore Timestamp read straight off a snapshot. */
+export function ms(v: unknown): number | null {
+  if (!v) return null
+  if (typeof v === 'number') return v
+  const t = v as { toMillis?: () => number }
+  return typeof t.toMillis === 'function' ? t.toMillis() : null
 }
 
 export function useBooths(includeInactive = false) {

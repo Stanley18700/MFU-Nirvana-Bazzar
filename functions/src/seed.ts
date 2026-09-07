@@ -12,7 +12,7 @@ import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { FieldValue, getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { randomBytes } from 'node:crypto'
-import { ACCENTS, EVENT_DAYS, EVENT_ID, ZONE_POINTS, Zone } from './shared/model'
+import { ACCENTS, DEFAULT_PASSPORT_PREFIX, EVENT_DAYS, EVENT_ID, ZONE_POINTS, Zone } from './shared/model'
 
 const args = process.argv.slice(2)
 if (args.includes('--emulator')) {
@@ -62,6 +62,9 @@ async function main() {
     startsAt: Timestamp.fromDate(new Date('2026-09-16T09:00:00+07:00')),
     endsAt: Timestamp.fromDate(new Date('2026-09-18T16:00:00+07:00')),
     qrPeriodSeconds: 20, active: true, boothCount: BOOTHS.length, createdAt: FieldValue.serverTimestamp(),
+    // The event is data, not a constant, so an admin can archive it and create the next one
+    // from /admin/event without a redeploy.
+    days: [...EVENT_DAYS], passportPrefix: DEFAULT_PASSPORT_PREFIX, zonePoints: { ...ZONE_POINTS }, status: 'live',
   }, { merge: true })
 
   for (const [i, b] of BOOTHS.entries()) {

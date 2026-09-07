@@ -1,10 +1,10 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import {
-  db, auth, FieldValue, Timestamp, requireAuth, str, rateLimit, clientFingerprint, redemptionSecret,
+  db, auth, FieldValue, Timestamp, requireAuth, str, rateLimit, clientFingerprint, redemptionSecret, getActiveEvent,
 } from './lib'
 import { computeToken, constantTimeEqual, counterFor, normaliseManualCode, parsePayload, DEFAULT_PERIOD_SECONDS, ParsedToken } from './shared/token'
 import {
-  BoothDoc, EVENT_ID, EventDoc, PrizeTierDoc, ScanResult, UserDoc, VisitorType, dayOf, passportNo,
+  BoothDoc, PrizeTierDoc, ScanResult, UserDoc, VisitorType, dayOf, passportNo,
 } from './shared/model'
 
 const VISITOR_TYPES: VisitorType[] = ['student', 'staff', 'alumni', 'guest']
@@ -56,6 +56,8 @@ export const join = onCall(async (req) => {
     return next
   })
 
+  // Forced: the passport number carries the event's prefix and is never reissued.
+  const ev = await getActiveEvent(true)
   const today = dayOf(new Date())
   const user: UserDoc = {
     role: 'visitor',
@@ -72,7 +74,7 @@ export const join = onCall(async (req) => {
     contact,
     contactVerified: false,
     boothId: null,
-    passportNo: passportNo(seq),
+    passportNo: passportNo(seq, ev.passportPrefix),
     stampCount: 0,
     points: 0,
     stampedBoothIds: [],
@@ -94,11 +96,26 @@ export const scan = onCall(async (req): Promise<ScanResult> => {
   const raw = str(req.data?.payload, 'payload', { max: 400 })
   if (!(await rateLimit(`scan_${uid}`, 10, 60))) return { status: 'rate_limited' }
 
-  const [eventSnap, userSnap] = await Promise.all([db.doc(`events/${EVENT_ID}`).get(), db.doc(`users/${uid}`).get()])
+  const [event, userSnap] = await Promise.all([getActiveEvent(), db.doc(`users/${uid}`).get()])
   if (!userSnap.exists) return { status: 'not_registered' }
   const user = userSnap.data() as UserDoc
-  const period = (eventSnap.data() as EventDoc | undefined)?.qrPeriodSeconds ?? DEFAULT_PERIOD_SECONDS
-  const nowCounter = counterFor(Date.now(), period)
+  let period = event.qrPeriodSeconds ?? DEFAULT_PERIOD_SECONDS
+  let nowCounter = counterFor(Date.now(), period)
+
+  /**
+   * The counter is derived from the event's QR period, so a warm instance holding a stale
+   * cached event computes the wrong window and rejects perfectly good codes. That window is
+   * short but it lands exactly when a new event goes live. One forced re-read on the failure
+   * path costs a single document read and closes it.
+   */
+  const refreshPeriod = async (): Promise<boolean> => {
+    const fresh = await getActiveEvent(true)
+    const p = fresh.qrPeriodSeconds ?? DEFAULT_PERIOD_SECONDS
+    if (p === period) return false
+    period = p
+    nowCounter = counterFor(Date.now(), period)
+    return true
+  }
 
   let parsed = parsePayload(raw)
   if (!parsed) {
@@ -107,6 +124,7 @@ export const scan = onCall(async (req): Promise<ScanResult> => {
     const code = normaliseManualCode(raw)
     if (code.length !== 6) return { status: 'invalid' }
     parsed = await matchManualCode(code, nowCounter)
+    if (!parsed && (await refreshPeriod())) parsed = await matchManualCode(code, nowCounter)
     if (!parsed) return { status: 'invalid' }
   }
 
@@ -118,6 +136,7 @@ export const scan = onCall(async (req): Promise<ScanResult> => {
   const booth = boothSnap.data() as BoothDoc
   if (!booth.active) return { status: 'invalid' }
   // Grace window of one period (§5.2): current or previous counter only.
+  if (parsed.counter !== nowCounter && parsed.counter !== nowCounter - 1) await refreshPeriod()
   if (parsed.counter !== nowCounter && parsed.counter !== nowCounter - 1) {
     // A well-formed but stale token: tell the visitor to rescan rather than "invalid".
     const expected = await computeToken(secretSnap.data()!.secret, parsed.boothId, parsed.counter)
@@ -138,7 +157,7 @@ export const scan = onCall(async (req): Promise<ScanResult> => {
       tx.create(scanRef, {
         visitorId: uid,
         boothId: parsed.boothId,
-        eventId: EVENT_ID,
+        eventId: event.id,
         scannedAt: Timestamp.fromDate(now),
         day: dayOf(now),
         pointsAwarded: booth.points, // frozen at scan time (§6.6)

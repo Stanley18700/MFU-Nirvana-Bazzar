@@ -3,7 +3,9 @@ import { getAuth } from 'firebase-admin/auth'
 import { FieldValue, getFirestore, Timestamp, Transaction } from 'firebase-admin/firestore'
 import { HttpsError, CallableRequest } from 'firebase-functions/v2/https'
 import { createHash, randomBytes } from 'node:crypto'
-import { Role, STATS_SHARDS } from './shared/model'
+import {
+  DEFAULT_PASSPORT_PREFIX, EVENT_DAYS, EVENT_ID, EventDoc, Role, STATS_SHARDS, ZONE_POINTS,
+} from './shared/model'
 
 if (!getApps().length) initializeApp()
 
@@ -52,6 +54,68 @@ export function randomToken(bytes = 32): string {
 
 export function randomSecretB64(): string {
   return randomBytes(32).toString('base64')
+}
+
+export type ActiveEvent = EventDoc & { id: string }
+
+const FALLBACK_EVENT: ActiveEvent = {
+  id: EVENT_ID,
+  nameEn: 'MFU Go Global International Festival',
+  nameTh: '',
+  startsAt: null,
+  endsAt: null,
+  qrPeriodSeconds: 20,
+  active: true,
+  boothCount: 0,
+  days: [...EVENT_DAYS],
+  passportPrefix: DEFAULT_PASSPORT_PREFIX,
+  zonePoints: { ...ZONE_POINTS },
+  status: 'live',
+}
+
+let eventCache: { at: number; value: ActiveEvent } | null = null
+
+/**
+ * The one live event. Read from `events` rather than a constant so an admin can archive
+ * this event and create the next one without a redeploy.
+ *
+ * Memoised per instance, because the hot `scan` path needs it on every call. The cache is
+ * only safe where a few seconds of staleness cannot be observed: `clearEventCache()` reaches
+ * the instance that switched events, but other warm instances keep theirs until the TTL
+ * expires. Anything that writes the event's identity into a durable record — the passport
+ * prefix, a booth's eventId, an invitation's expiry — must pass `force`.
+ */
+export async function getActiveEvent(force = false): Promise<ActiveEvent> {
+  if (!force && eventCache && Date.now() - eventCache.at < 30_000) return eventCache.value
+  const q = await db.collection('events').where('status', '==', 'live').limit(1).get()
+  let value: ActiveEvent
+  if (q.empty) {
+    // Pre-migration data has no `status`; fall back to the seeded document, then to defaults.
+    const legacy = await db.doc(`events/${EVENT_ID}`).get()
+    value = legacy.exists
+      ? { ...FALLBACK_EVENT, ...(legacy.data() as Partial<EventDoc>), id: legacy.id, days: (legacy.data()!.days as string[]) ?? [...EVENT_DAYS] }
+      : FALLBACK_EVENT
+  } else {
+    const d = q.docs[0]
+    value = { ...FALLBACK_EVENT, ...(d.data() as Partial<EventDoc>), id: d.id }
+  }
+  if (!Array.isArray(value.days) || value.days.length === 0) value.days = [...EVENT_DAYS]
+  if (!value.zonePoints) value.zonePoints = { ...ZONE_POINTS }
+  if (!value.passportPrefix) value.passportPrefix = DEFAULT_PASSPORT_PREFIX
+  eventCache = { at: Date.now(), value }
+  return value
+}
+
+/** Call after any write to an event document so the next read is not stale. */
+export function clearEventCache() { eventCache = null }
+
+/** Milliseconds since the epoch for a Firestore Timestamp, a Date, or a number. */
+export function toMillis(v: unknown): number | null {
+  if (!v) return null
+  if (typeof v === 'number') return v
+  if (v instanceof Date) return v.getTime()
+  if (typeof (v as { toMillis?: () => number }).toMillis === 'function') return (v as { toMillis(): number }).toMillis()
+  return null
 }
 
 export function shardRef(i = Math.floor(Math.random() * STATS_SHARDS)) {

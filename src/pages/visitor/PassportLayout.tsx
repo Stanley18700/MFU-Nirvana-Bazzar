@@ -4,7 +4,7 @@ import { Icon, TabBar } from '../../components/ui'
 export default function PassportLayout() {
   const loc = useLocation()
   return (
-    <div className="mx-auto min-h-full max-w-md pb-24">
+    <div className="mx-auto min-h-full max-w-md pb-24" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
       <div key={loc.pathname} className="page-in">
         <Outlet />
       </div>

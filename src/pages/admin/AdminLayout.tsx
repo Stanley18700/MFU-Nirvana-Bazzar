@@ -2,9 +2,11 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../../lib/firebase'
 import { useAuth } from '../../lib/auth'
+import { useEvent } from '../../lib/data'
 
 const NAV = [
   { to: '/admin', label: 'Dashboard', end: true },
+  { to: '/admin/event', label: 'Event' },
   { to: '/admin/booths', label: 'Booths' },
   { to: '/admin/users', label: 'Users & invites' },
   { to: '/admin/prizes', label: 'Prizes & stock' },
@@ -14,11 +16,12 @@ const NAV = [
 
 export default function AdminLayout() {
   const { profile } = useAuth()
+  const event = useEvent()
   return (
     <div className="flex min-h-full flex-col md:flex-row">
       <aside className="flex shrink-0 flex-col bg-navy text-paper md:w-60 md:min-h-screen">
         <div className="px-5 py-4">
-          <div className="stamp-text text-gold">MFU Go Global</div>
+          <div className="stamp-text truncate text-gold">{event.nameEn}</div>
           <div className="font-semibold">Passport admin</div>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:pb-0">

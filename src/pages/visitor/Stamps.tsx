@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useAuth } from '../../lib/auth'
-import { useBooths } from '../../lib/data'
+import { useBooths, useEvent } from '../../lib/data'
 import { Stamp } from '../../components/Stamp'
+import { stampMarks } from '../../lib/eventText'
 import { Spinner } from '../../components/ui'
-import { EVENT_DAYS, dayOf, type BoothDoc } from '../../../shared/model'
+import { dayOf, type BoothDoc } from '../../../shared/model'
 
 function tiltFor(id: string) {
   let h = 0
@@ -11,14 +12,19 @@ function tiltFor(id: string) {
   return ((Math.abs(h) % 9) - 4) * 1.5 // -6 … +6 degrees, stable per booth
 }
 
-function dayLabel(day: string) {
-  const i = (EVENT_DAYS as readonly string[]).indexOf(day)
-  return i >= 0 ? `Day ${i + 1}` : day
+function makeDayLabel(days: string[]) {
+  return (day: string) => {
+    const i = days.indexOf(day)
+    return i >= 0 ? `Day ${i + 1}` : day
+  }
 }
 
 export default function Stamps() {
   const { profile } = useAuth()
   const booths = useBooths()
+  const event = useEvent()
+  const dayLabel = makeDayLabel(event.days)
+  const marks = stampMarks(event)
   const [open, setOpen] = useState<(BoothDoc & { id: string }) | null>(null)
   const today = dayOf(new Date())
 
@@ -46,16 +52,16 @@ export default function Stamps() {
       {remaining.length > 0 && (
         <section className="mt-6">
           <h2 className="stamp-text text-navy-soft">Still to collect · highest value first</h2>
-          <ul className="mt-3 grid grid-cols-3 gap-3">
+          <ul className="mt-3 grid grid-cols-2 gap-3 xs:grid-cols-3">
             {remaining.map((b) => {
-              const notToday = !b.activeDays.includes(today) && (EVENT_DAYS as readonly string[]).includes(today)
+              const notToday = !b.activeDays.includes(today) && event.days.includes(today)
               return (
                 <li key={b.id}>
                   <button onClick={() => setOpen(b)} className="flex w-full flex-col items-center gap-1 rounded-2xl border border-dashed rule bg-white/40 p-2 text-center">
-                    <Stamp booth={b} collected={false} points={b.points} size={76} />
+                    <Stamp booth={b} collected={false} points={b.points} size={76} {...marks} />
                     <span className="line-clamp-2 text-xs font-medium leading-tight">{b.nameEn}</span>
                     <span className="stamp-text" style={{ color: b.accentColor }}>{b.points} pts</span>
-                    {notToday && <span className="text-[10px] text-amber">{b.activeDays.map(dayLabel).join(' · ')}</span>}
+                    {notToday && <span className="text-[11px] text-amber">{b.activeDays.map(dayLabel).join(' · ')}</span>}
                   </button>
                 </li>
               )
@@ -69,13 +75,13 @@ export default function Stamps() {
         {collected.length === 0 ? (
           <p className="mt-3 rounded-2xl bg-white/40 p-6 text-center text-sm text-navy-soft">No stamps yet. Tap <b>Scan</b> at your first booth.</p>
         ) : (
-          <ul className="mt-3 grid grid-cols-3 gap-3">
+          <ul className="mt-3 grid grid-cols-2 gap-3 xs:grid-cols-3">
             {collected.map((b) => (
               <li key={b.id}>
                 <button onClick={() => setOpen(b)} className="flex w-full flex-col items-center gap-1 rounded-2xl bg-paper-2 p-2 text-center">
-                  <Stamp booth={b} collected tilt={tiltFor(b.id)} size={76} />
+                  <Stamp booth={b} collected tilt={tiltFor(b.id)} size={76} {...marks} />
                   <span className="line-clamp-2 text-xs font-medium leading-tight">{b.nameEn}</span>
-                  <span className="text-[10px] text-navy-soft">✓ +{b.points} pts</span>
+                  <span className="text-[11px] text-navy-soft">✓ +{b.points} pts</span>
                 </button>
               </li>
             ))}
@@ -87,7 +93,7 @@ export default function Stamps() {
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-navy-deep/60 p-4 sm:items-center" onClick={() => setOpen(null)}>
           <div className="card w-full max-w-md bg-paper page-in" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-4">
-              <Stamp booth={open} collected={profile.stampedBoothIds?.includes(open.id) ?? false} size={72} points={open.points} />
+              <Stamp booth={open} collected={profile.stampedBoothIds?.includes(open.id) ?? false} size={72} points={open.points} {...marks} />
               <div className="min-w-0 flex-1">
                 <div className="stamp-text" style={{ color: open.accentColor }}>{open.location} · {open.points} points</div>
                 <h3 className="text-lg font-bold leading-tight">{open.nameEn}</h3>

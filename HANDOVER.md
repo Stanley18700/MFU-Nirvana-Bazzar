@@ -1,6 +1,6 @@
 # Handover — MFU Go Global Passport
 
-**Status date:** 4 September 2026 · **Branch:** `proto1.0` · **Event:** 16–18 September 2026
+**Status date:** 7 September 2026 · **Branch:** `proto1.0` · **Event:** 16–18 September 2026
 **Deadline that matters:** a live demo for the supervisor, ~7–9 September.
 
 Read this first, then `SETUP.md` (deploy steps) and `spec/spec.md` (the product spec, which the
@@ -24,45 +24,49 @@ builds cleanly but **has never been run against a Firebase project.** That is th
 |---|---|
 | Spec, concept deck, clickable mock (`spec/`, `demo/`) | Done by the supervisor, unchanged, on `main` |
 | Application code (client + functions + rules + seed) | Written, `tsc` and `vite build` pass |
+| Runtime testing against the **emulator** | **Done, 7 Sep.** `npm run e2e` — 32 checks through the real rules and triggers, all passing. Eight defects found and fixed (SETUP.md, "Changes since v0.1") |
+| Reusable events (`/admin/event`, archive & restart) | **Built and tested.** The event is a document, not a constant |
+| Live prize stock on the visitor's side | **Built.** Exact count on every tier, always |
+| Mobile layout for every non-admin screen | **Done.** `xs` breakpoint added; booth kiosk, stamp grid, scanner, prize page and prize desk fixed at 320px |
 | Firebase project | Exists: **`mfu-passport`** (Stanley's personal Google account). Web app config partly known — see §5 |
 | Console setup (Auth providers, Firestore, Storage, Blaze) | **Unverified** — nobody has confirmed these are enabled |
-| `.env.local`, `functions/.env` | Not created (templates `.env.local.example`, `functions/.env.example` exist) |
+| `.env.local`, `functions/.env` | `functions/.env` exists. `.env.local` still to be copied from `.env.local.example`, which now has the full web config |
 | Secrets (`ADMIN_BOOTSTRAP_KEY`, `EMAILJS_PRIVATE_KEY`) | Not set |
-| Dependencies installed on the dev machine | Partially (`npm install` was interrupted in both root and `functions/`) — rerun both |
+| Dependencies installed on the dev machine | Installed in both root and `functions/`. Firebase CLI 15.29, Java 21 present |
 | Deployed | **Never** |
-| Seeded (12 booths, 3 tiers, reference lists) | Never |
-| Runtime testing against Firestore | **None.** Expect a handful of first-deploy bugs (wrong field path, missing index, rules too tight). Budget half a day |
+| Seeded (12 booths, 3 tiers, reference lists) | Emulator yes; real project never |
+| Runtime testing against **real Firestore** | **Still none.** The emulator pass above removes most of the risk, but expect a missing composite index or a rules surprise on first deploy |
 | Tested on a real phone camera | No |
-| Committed to git | **No** — 20 new files are uncommitted on `proto1.0`. Commit first, before anything else |
+| Committed to git | Committed on `proto1.0`. Push to `github.com/cnacha-mfu/mfupassport` tree `proto1.0` |
 | Stray files to delete | `app-src.tgz`, `mfupassport-app.tgz` in the repo root (transfer leftovers, gitignored) |
+| Remaining blockers | The Firebase console work in §3 — Auth providers, Firestore + Storage in `asia-southeast1`, Blaze billing, and the two secrets. All of it is yours to do; none of it is code |
 
 ## 3. Steps left, in order
 
-1. **Commit.** `git add -A && git commit -m "Add app v0.1"` on `proto1.0`. Push.
-2. **Firebase console** (Stanley's account for now, university account later — see §7):
+1. **Firebase console** (Stanley's account for now, university account later — see §7):
    Authentication → enable *Anonymous* and *Email/Password* with *Email link* on; Firestore in
    `asia-southeast1`, production mode; Storage, same region; upgrade to **Blaze** (Functions need it);
    redeem the $50 GCP coupon on that billing account; set a $20 budget alert.
-3. **Config.** Project settings → Your apps → copy `firebaseConfig`. Create `.env.local` from the
+2. **Config.** Project settings → Your apps → copy `firebaseConfig`. Create `.env.local` from the
    example (fill `VITE_FIREBASE_API_KEY` and `VITE_FIREBASE_APP_ID`); copy `functions/.env.example`
    to `functions/.env`.
-4. **Tooling.** `npm install`, `npm --prefix functions install`, `npm i -g firebase-tools`,
+3. **Tooling.** `npm install`, `npm --prefix functions install`, `npm i -g firebase-tools`,
    `firebase login`, `firebase use mfu-passport`.
-5. **Secrets.** `firebase functions:secrets:set ADMIN_BOOTSTRAP_KEY` (any long random string; used
+4. **Secrets.** `firebase functions:secrets:set ADMIN_BOOTSTRAP_KEY` (any long random string; used
    once). `firebase functions:secrets:set EMAILJS_PRIVATE_KEY` (type `none` unless EmailJS is set up —
    the function declares the secret so it must exist).
-6. **Deploy.** `npm run deploy` (builds client + functions, deploys hosting, functions, rules,
+5. **Deploy.** `npm run deploy` (builds client + functions, deploys hosting, functions, rules,
    indexes, storage rules). First functions deploy takes 3–6 min and may prompt to enable APIs.
-7. **Seed.** `npm run seed` (needs `gcloud auth application-default login` or a service-account key
+6. **Seed.** `npm run seed` (needs `gcloud auth application-default login` or a service-account key
    in `GOOGLE_APPLICATION_CREDENTIALS`). Idempotent.
-8. **First admin.** Open `https://mfu-passport.web.app/setup`, enter the bootstrap key. Works only
+7. **First admin.** Open `https://mfu-passport.web.app/setup`, enter the bootstrap key. Works only
    while no admin exists.
-9. **Test the loop end to end** and fix what breaks (see §6 for where bugs are most likely):
+8. **Test the loop end to end** and fix what breaks (see §6 for where bugs are most likely):
    `/join` on a phone → `/booth?boothId=booth-01` on a laptop as admin → scan → `/admin` shows the
    stamp within a second → lower a tier threshold in `/admin/prizes` → `/passport/prize` shows the
    rotating code → `/redeem` confirms it → stock decrements → `/admin/users` sends an invite →
    open the link on another device → lands on `/booth`.
-10. **Demo prep.** Print a QR to `https://mfu-passport.web.app/join` for the "welcome sign". Have
+9. **Demo prep.** Print a QR to `https://mfu-passport.web.app/join` for the "welcome sign". Have
     the dashboard on the projector, one laptop/tablet as a booth, phones from the audience.
 
 Optional before the meeting: EmailJS for real invite emails (SETUP.md §2; ~15 min). Without it the
@@ -93,7 +97,10 @@ src/lib/api.ts         typed wrappers for every callable
 src/lib/data.ts        onSnapshot hooks; useEventStats() sums the 10 shards client-side
 src/pages/visitor/     Landing, Join, PassportLayout, Cover, Stamps, Prize, Scan, ScanResult, ScanLanding (/s/:token), Restore, Invite
 src/pages/organizer/   Booth (rotating QR), BoothStats, Redeem (prize desk)
-src/pages/admin/       AdminLayout, Dashboard, Booths, Users (+invites), Prizes (+stock, void), Draw, Audit, Wall, Setup
+src/pages/admin/       AdminLayout, Dashboard, Event (lifecycle + danger zone), Booths, Users (+invites),
+                       Prizes (+stock, void), Draw, Audit, Wall, Setup
+src/lib/eventText.ts   visitor-facing event copy derived from the live event document
+scripts/e2e.mjs        32-check end-to-end run against the emulators (`npm run e2e`)
 src/components/        Stamp (generated fallback stamp SVG), QR, Scanner (BarcodeDetector → zxing-wasm), ui
 firestore.rules        clients never write users/scans/tierUnlocks/stats/auditLog; boothSecrets denied to all clients
 firestore.indexes.json composite indexes; add one if a query fails with "requires an index" (the error gives a link)
@@ -107,9 +114,11 @@ collection/document): `stats/event/shards/{0..9}`, `stats/booths/items/{boothId}
 
 - **Firebase project `mfu-passport`** — owned by Stanley's Google account. He must add the next
   developer as **Editor** (Project settings → Users and permissions) or hand over the account.
-- **Web app config** — known so far: `projectId mfu-passport`, `authDomain mfu-passport.firebaseapp.com`,
-  `storageBucket mfu-passport.firebasestorage.app`, `messagingSenderId 451027884644`.
-  **Still needed:** `apiKey` and `appId` (console → Project settings → Your apps).
+- **Web app config** — complete, in `.env.local.example`: `projectId mfu-passport`,
+  `authDomain mfu-passport.firebaseapp.com`, `storageBucket mfu-passport.firebasestorage.app`,
+  `messagingSenderId 451027884644`, plus `apiKey` and `appId`. These are public client
+  identifiers that ship in the JS bundle, not secrets — the real secrets are in Secret Manager.
+  Copy the file to `.env.local` to point the dev server at the real project.
 - **$50 GCP coupon** — Stanley has it; must be redeemed on the Blaze billing account.
 - **GitHub repo** `cnacha-mfu/mfupassport` (private) — supervisor owns it; branches `main`,
   `proto1.0`, `gh-pages` (public mock only — never push the app there).

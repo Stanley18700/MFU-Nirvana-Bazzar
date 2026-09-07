@@ -4,11 +4,18 @@ export type Role = 'visitor' | 'organizer' | 'admin'
 export type VisitorType = 'student' | 'staff' | 'alumni' | 'guest'
 export type Zone = 'entrance' | 'middle' | 'far'
 
+/**
+ * Seed defaults and last-resort fallbacks only. The live event is a document —
+ * `events/{id}` with `status: 'live'` — so the app can be run again for a new event
+ * without a redeploy. Read it with `getActiveEvent()` (functions) or `useEvent()` (client).
+ */
 export const EVENT_ID = 'mfu-go-global-2026'
 export const EVENT_DAYS = ['2026-09-16', '2026-09-17', '2026-09-18'] as const
 export type EventDay = (typeof EVENT_DAYS)[number]
 
 export const ZONE_POINTS: Record<Zone, number> = { entrance: 10, middle: 15, far: 20 }
+export const DEFAULT_PASSPORT_PREFIX = 'MFU-GG'
+export type EventStatus = 'draft' | 'live' | 'archived'
 
 export const ACCENTS = [
   '#E0533D', '#1B52A8', '#1E8A6E', '#C8A24A', '#7B4EA8', '#D4762A', '#2A7FB8', '#B23A63', '#4E8B32',
@@ -22,6 +29,35 @@ export interface EventDoc {
   qrPeriodSeconds: number
   active: boolean
   boothCount: number
+  /** The days this event runs, 'YYYY-MM-DD' in Asia/Bangkok. Was the EVENT_DAYS constant. */
+  days: string[]
+  /** Passport number prefix, e.g. 'MFU-GG' -> MFU-GG-0001. */
+  passportPrefix: string
+  /** Default points offered per zone when a booth is created. */
+  zonePoints: Record<Zone, number>
+  status: EventStatus
+  /** Arc text on the generated fallback stamp (spec 2.5) — e.g. 'MFU GO GLOBAL'. */
+  stampMarkTop?: string
+  /** Lower arc, e.g. '2026 · CHIANG RAI'. */
+  stampMarkBottom?: string
+  archivedAt?: unknown
+  createdAt?: unknown
+}
+
+/** The frozen totals kept at `archives/{eventId}` when an event is archived and purged. */
+export interface ArchiveDoc {
+  eventId: string
+  nameEn: string
+  nameTh: string
+  days: string[]
+  startsAt: unknown
+  endsAt: unknown
+  archivedAt: unknown
+  archivedBy: string
+  totals: { visitors: number; stamps: number; points: number; redeemed: number }
+  booths: Array<{ id: string; nameEn: string; points: number; stamps: number }>
+  tiers: Array<{ id: string; name: string; thresholdPoints: number; stockTotal: number; stockRemaining: number; redeemed: number }>
+  draws: Array<{ winners: string[]; names: unknown; createdAt: unknown }>
 }
 
 export interface UserDoc {
@@ -185,6 +221,6 @@ export function hourOf(date: Date, tz = 'Asia/Bangkok'): string {
   return new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', hour12: false }).format(date)
 }
 
-export function passportNo(seq: number): string {
-  return `MFU-GG-${String(seq).padStart(4, '0')}`
+export function passportNo(seq: number, prefix: string = DEFAULT_PASSPORT_PREFIX): string {
+  return `${prefix}-${String(seq).padStart(4, '0')}`
 }

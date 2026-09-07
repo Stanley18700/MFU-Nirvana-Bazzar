@@ -8,9 +8,12 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "emulators": "firebase emulators:start --import=.emulator-data --export-on-exit",
+    "emulators": "firebase emulators:start --export-on-exit=.emulator-data --import=.emulator-data || firebase emulators:start --export-on-exit=.emulator-data",
     "deploy": "npm run build && npm --prefix functions run build && firebase deploy",
-    "seed": "npm --prefix functions run seed"
+    "seed": "npm --prefix functions run seed",
+    "seed:emulator": "npm --prefix functions run seed:emulator",
+    "reset:emulator": "node scripts/reset-emulator.mjs",
+    "e2e": "npm run reset:emulator && npm run seed:emulator && node scripts/e2e.mjs"
   },
   "dependencies": {
     "firebase": "^11.10.0",

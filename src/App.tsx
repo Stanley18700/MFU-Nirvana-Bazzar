@@ -17,9 +17,11 @@ import Invite from './pages/visitor/Invite'
 import Booth from './pages/organizer/Booth'
 import BoothStats from './pages/organizer/BoothStats'
 import Redeem from './pages/organizer/Redeem'
+import RedeemLanding from './pages/organizer/RedeemLanding'
 
 import AdminLayout from './pages/admin/AdminLayout'
 import Dashboard from './pages/admin/Dashboard'
+import EventAdmin from './pages/admin/Event'
 import Users from './pages/admin/Users'
 import Booths from './pages/admin/Booths'
 import Prizes from './pages/admin/Prizes'
@@ -48,6 +50,7 @@ export default function App() {
       <Route path="/restore" element={<Restore />} />
       <Route path="/invite/:token" element={<Invite />} />
       <Route path="/s/:token" element={<ScanLanding />} />
+      <Route path="/r/:token" element={<RedeemLanding />} />
       <Route path="/setup" element={<Setup />} />
 
       <Route element={<Guard roles={['visitor', 'admin']} />}>
@@ -70,6 +73,7 @@ export default function App() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="users" element={<Users />} />
+          <Route path="event" element={<EventAdmin />} />
           <Route path="booths" element={<Booths />} />
           <Route path="prizes" element={<Prizes />} />
           <Route path="draw" element={<Draw />} />

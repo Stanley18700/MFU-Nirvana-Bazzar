@@ -1,12 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { useBooths, useBoothStats, useBuckets, useEventStats, useTiers } from '../../lib/data'
+import { useBooths, useBoothStats, useBuckets, useEvent, useEventStats, useTiers } from '../../lib/data'
 import { Fig, Flag, fmt } from '../../components/ui'
 import { countryName } from '../../lib/countries'
-import { EVENT_DAYS, dayOf } from '../../../shared/model'
+import { dayOf } from '../../../shared/model'
 
-type DaySel = 'all' | (typeof EVENT_DAYS)[number]
+type DaySel = string
 
 function csv(rows: Array<Record<string, string | number>>, name: string) {
   if (!rows.length) return
@@ -23,7 +23,10 @@ function ExportBtn({ rows, name }: { rows: Array<Record<string, string | number>
 /** §6.1 — the live dashboard. Reads ~120 small documents, never a scan collection. */
 export default function Dashboard() {
   const today = dayOf(new Date())
-  const [day, setDay] = useState<DaySel>((EVENT_DAYS as readonly string[]).includes(today) ? (today as DaySel) : 'all')
+  const event = useEvent()
+  const eventDays = event.days
+  const [day, setDay] = useState<DaySel>('all')
+  useEffect(() => { setDay(eventDays.includes(today) ? today : 'all') }, [eventDays, today])
   const ev = useEventStats()
   const booths = useBooths(true)
   const { data: bstats } = useBoothStats()
@@ -68,7 +71,7 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold">Dashboard</h1>
         </div>
         <div className="flex rounded-lg bg-navy/5 p-1 text-sm" role="tablist" aria-label="Day selector">
-          {([...EVENT_DAYS, 'all'] as DaySel[]).map((d, i) => (
+          {([...eventDays, 'all'] as DaySel[]).map((d, i) => (
             <button key={d} role="tab" aria-selected={day === d} onClick={() => setDay(d)} className={`rounded-md px-3 py-1.5 ${day === d ? 'bg-white font-semibold shadow-sm' : 'text-navy-soft'}`}>{d === 'all' ? 'All' : `Day ${i + 1}`}</button>
           ))}
         </div>

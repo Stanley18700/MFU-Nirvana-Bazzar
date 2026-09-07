@@ -10,8 +10,10 @@ service cloud.firestore {
 
     // Spec §7.4 — every consequential write goes through Cloud Functions.
 
+    // Public: the landing page reads the live event's name and dates before anonymous
+    // sign-in has resolved. Holds nothing sensitive — name, dates, days, QR period, prefix.
     match /events/{eventId} {
-      allow read: if signedIn();
+      allow read: if true;
       allow write: if false;
     }
 
@@ -61,6 +63,17 @@ service cloud.firestore {
     }
 
     match /auditLog/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Stage draw results (§6.7) and the frozen summary written before an event is purged.
+    match /draws/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /archives/{id} {
       allow read: if isAdmin();
       allow write: if false;
     }

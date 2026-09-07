@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Scanner } from '../../components/Scanner'
 import { api, errorMessage, type LookupResult } from '../../lib/api'
 import { useTiers } from '../../lib/data'
@@ -15,6 +15,11 @@ export default function Redeem() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ tone: 'green' | 'amber' | 'red'; text: string } | null>(null)
   const [manual, setManual] = useState('')
+
+  // §4.4 — arriving from /r/<payload> (native camera scan): look it up straight away.
+  const [params, setParams] = useSearchParams()
+  const deepLink = params.get('code')
+  const fired = useRef(false)
 
   async function onCode(text: string) {
     if (busy) return
@@ -37,10 +42,18 @@ export default function Redeem() {
     } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
   }
 
+  useEffect(() => {
+    if (!deepLink || fired.current) return
+    fired.current = true
+    void onCode(deepLink)
+    setParams({}, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLink])
+
   function reset() { setLookup(null); setPayload(null); setMsg(null); setManual('') }
 
   return (
-    <main className="mx-auto min-h-full max-w-lg bg-navy-deep px-4 pb-8 text-paper">
+    <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="mx-auto min-h-full max-w-lg bg-navy-deep px-4 pb-8 text-paper">
       <header className="flex items-center justify-between py-4">
         <Link to={role === 'admin' ? '/admin' : '/booth'} className="text-sm text-paper/70">← Back</Link>
         <div className="stamp-text text-gold">Prize desk</div>
@@ -48,14 +61,14 @@ export default function Redeem() {
       </header>
 
       {/* §4.4 — live stock strip */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 xs:grid-cols-3">
         {tiers.map((t) => {
           const pct = t.stockTotal ? t.stockRemaining / t.stockTotal : 0
           const tone = t.stockRemaining <= 5 ? 'text-vermilion' : pct < 0.2 ? 'text-amber' : 'text-jade'
           return (
             <div key={t.id} className="rounded-xl bg-white/5 p-3">
               <div className="stamp-text text-paper/60">{t.name}</div>
-              <div className={`fig text-2xl ${tone}`}>{fmt(t.stockRemaining)}<span className="text-sm text-paper/40"> / {fmt(t.stockTotal)}</span></div>
+              <div className={`fig text-xl xs:text-2xl ${tone}`}>{fmt(t.stockRemaining)}<span className="text-sm text-paper/40"> / {fmt(t.stockTotal)}</span></div>
             </div>
           )
         })}
@@ -69,7 +82,7 @@ export default function Redeem() {
             <label className="stamp-text text-paper/60" htmlFor="rc">Or type the visitor's code</label>
             <div className="mt-2 flex gap-2">
               <input id="rc" className="field flex-1 bg-white/90 font-mono uppercase" value={manual} onChange={(e) => setManual(e.target.value)} placeholder="uid.counter.CODE or paste link" />
-              <button className="btn-gold" disabled={busy || !manual.trim()}>Look up</button>
+              <button className="btn-gold shrink-0" disabled={busy || !manual.trim()}>Look up</button>
             </div>
           </form>
         </>
@@ -86,9 +99,9 @@ export default function Redeem() {
                   <div className="text-xs text-navy-soft">{t.reward}</div>
                   {t.redeemedAt && <div className="text-xs text-jade">Redeemed {new Date(t.redeemedAt).toLocaleTimeString()}</div>}
                 </div>
-                {t.redeemedAt ? <span className="rounded-full bg-jade/15 px-3 py-1 text-xs font-semibold text-jade">Done</span>
-                  : t.unlocked ? <button className="btn-primary" disabled={busy || t.stockRemaining <= 0} onClick={() => confirm(t.id)}>{t.stockRemaining <= 0 ? 'Out of stock' : 'Hand over'}</button>
-                  : <span className="text-xs text-navy-soft">{t.thresholdPoints - lookup.visitor.points} pts short</span>}
+                {t.redeemedAt ? <span className="shrink-0 rounded-full bg-jade/15 px-3 py-1 text-xs font-semibold text-jade">Done</span>
+                  : t.unlocked ? <button className="btn-primary shrink-0" disabled={busy || t.stockRemaining <= 0} onClick={() => confirm(t.id)}>{t.stockRemaining <= 0 ? 'Out of stock' : 'Hand over'}</button>
+                  : <span className="shrink-0 text-xs text-navy-soft">{t.thresholdPoints - lookup.visitor.points} pts short</span>}
               </li>
             ))}
           </ul>
@@ -97,6 +110,6 @@ export default function Redeem() {
         </section>
       )}
       {msg && !lookup && <div className="mt-3"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
-    </main>
+    </main></>
   )
 }

@@ -51,8 +51,54 @@ export const api = {
   inviteInfo: call<{ token: string }, { status: 'invalid' | 'revoked' | 'accepted' | 'expired' } | { status: 'ok'; displayName: string; email: string; role: Role; boothId: string | null; boothName: string }>('inviteInfo'),
   acceptInvite: call<{ token: string }, { ok: true; role: Role; boothId: string | null }>('acceptInvite'),
   refreshRanks: call<Record<string, never>, { ok: true }>('refreshRanks'),
+  // admin: event lifecycle
+  listEvents: call<Record<string, never>, { liveId: string; events: EventRow[]; accents: readonly string[] }>('listEvents'),
+  createEvent: call<EventInput, { id: string }>('createEvent'),
+  updateEvent: call<Partial<EventInput> & { id: string }, { ok: true }>('updateEvent'),
+  goLive: call<{ id: string }, { ok: true }>('goLive'),
+  archiveEvent: call<{ id: string; confirmName: string }, { ok: true; totals: EventTotals; boothCount: number; tierCount: number }>('archiveEvent'),
+  purgeEventData: call<{ eventId: string; scope: PurgeScope; limit?: number; hard?: boolean }, { scope: PurgeScope; deleted: number; remaining: number; done: boolean }>('purgeEventData'),
   bootstrapAdmin: call<{ key: string; displayName?: string }, { ok: true }>('bootstrapAdmin'),
 }
+
+export interface EventInput {
+  id?: string
+  nameEn: string
+  nameTh?: string
+  /** Milliseconds since the epoch. */
+  startsAt: number
+  endsAt: number
+  days?: string[]
+  qrPeriodSeconds?: number
+  passportPrefix?: string
+  zonePoints?: Record<Zone, number>
+}
+
+export interface EventRow {
+  id: string
+  nameEn: string
+  nameTh: string
+  startsAt: number | null
+  endsAt: number | null
+  days: string[]
+  qrPeriodSeconds: number
+  passportPrefix: string
+  zonePoints: Record<Zone, number>
+  status: 'draft' | 'live' | 'archived'
+  boothCount: number
+}
+
+export interface EventTotals { visitors: number; stamps: number; points: number; redeemed: number }
+
+/**
+ * One step of the archive-and-restart purge (spec 7.1). `booths` / `prizeTiers` start the
+ * next event blank; `resetTierStock` / `rotateSecrets` are what you run instead when
+ * carrying them over.
+ */
+export type PurgeScope =
+  | 'scans' | 'tierUnlocks' | 'stockAdjustments' | 'draws' | 'buckets' | 'invites' | 'rateLimits'
+  | 'visitors' | 'boothStats' | 'eventStats' | 'counters'
+  | 'booths' | 'prizeTiers' | 'resetTierStock' | 'rotateSecrets'
 
 export interface BoothInput {
   id?: string

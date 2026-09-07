@@ -3,17 +3,23 @@ import { Link } from 'react-router-dom'
 import { ref as sref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { storage } from '../../lib/firebase'
 import { api, errorMessage, type BoothInput } from '../../lib/api'
-import { useBooths } from '../../lib/data'
+import { useBooths, useEvent } from '../../lib/data'
 import { Stamp } from '../../components/Stamp'
+import { stampMarks } from '../../lib/eventText'
 import { Notice } from '../../components/ui'
-import { ACCENTS, EVENT_DAYS, ZONE_POINTS, type BoothDoc, type Zone } from '../../../shared/model'
+import { ACCENTS, type BoothDoc, type Zone } from '../../../shared/model'
 
 type Row = BoothDoc & { id: string }
-const empty: BoothInput = { nameEn: '', nameTh: '', shortName: '', hostUnit: '', location: '', descriptionEn: '', zone: 'entrance', points: 10, activeDays: [...EVENT_DAYS], isPrizeDesk: false, active: true }
+const empty: BoothInput = { nameEn: '', nameTh: '', shortName: '', hostUnit: '', location: '', descriptionEn: '', zone: 'entrance', points: 10, isPrizeDesk: false, active: true }
 
 /** §6.3 / §6.6 — booth CRUD, points, artwork, rotate secret. */
 export default function Booths() {
   const booths = useBooths(true)
+  // Days and default zone points are the live event's, not constants (spec 7.1).
+  const event = useEvent()
+  const eventDays = event.days
+  const zonePoints = event.zonePoints
+  const marks = stampMarks(event)
   const [editing, setEditing] = useState<BoothInput | null>(null)
   const [editId, setEditId] = useState<string | null>(null)
   const [msg, setMsg] = useState<{ tone: 'green' | 'red' | 'amber'; text: string } | null>(null)
@@ -23,7 +29,7 @@ export default function Booths() {
 
   function startEdit(b?: Row) {
     setMsg(null)
-    if (!b) { setEditing({ ...empty }); setEditId(null); return }
+    if (!b) { setEditing({ ...empty, activeDays: [...eventDays], points: zonePoints.entrance }); setEditId(null); return }
     setEditId(b.id)
     setEditing({ nameEn: b.nameEn, nameTh: b.nameTh, shortName: b.shortName, hostUnit: b.hostUnit, location: b.location, descriptionEn: b.descriptionEn, zone: b.zone, points: b.points, activeDays: b.activeDays, isPrizeDesk: b.isPrizeDesk, active: b.active, accentColor: b.accentColor })
   }
@@ -84,8 +90,8 @@ export default function Booths() {
           <label>Host unit<input className="field mt-1" value={editing.hostUnit ?? ''} onChange={(e) => setEditing({ ...editing, hostUnit: e.target.value })} /></label>
           <label>Location<input className="field mt-1" value={editing.location ?? ''} onChange={(e) => setEditing({ ...editing, location: e.target.value })} /></label>
           <label>Zone → default points
-            <select className="field mt-1" value={editing.zone} onChange={(e) => { const z = e.target.value as Zone; setEditing({ ...editing, zone: z, points: ZONE_POINTS[z] }) }}>
-              <option value="entrance">Entrance row · 10</option><option value="middle">Middle hall · 15</option><option value="far">Far corner · 20</option>
+            <select className="field mt-1" value={editing.zone} onChange={(e) => { const z = e.target.value as Zone; setEditing({ ...editing, zone: z, points: zonePoints[z] }) }}>
+              <option value="entrance">Entrance row · {zonePoints.entrance}</option><option value="middle">Middle hall · {zonePoints.middle}</option><option value="far">Far corner · {zonePoints.far}</option>
             </select>
           </label>
           <label>Points (override)<input className="field mt-1" type="number" min={1} max={100} value={editing.points ?? 10} onChange={(e) => setEditing({ ...editing, points: Number(e.target.value) })} /></label>
@@ -94,7 +100,7 @@ export default function Booths() {
           </label>
           <label className="md:col-span-2">Description<textarea className="field mt-1" rows={2} value={editing.descriptionEn ?? ''} onChange={(e) => setEditing({ ...editing, descriptionEn: e.target.value })} /></label>
           <fieldset><legend>Present on</legend>
-            <div className="mt-1 flex gap-3 text-sm">{EVENT_DAYS.map((d, i) => <label key={d} className="flex items-center gap-1"><input type="checkbox" checked={editing.activeDays?.includes(d)} onChange={(e) => setEditing({ ...editing, activeDays: e.target.checked ? [...(editing.activeDays ?? []), d] : (editing.activeDays ?? []).filter((x) => x !== d) })} />Day {i + 1}</label>)}</div>
+            <div className="mt-1 flex flex-wrap gap-3 text-sm">{eventDays.map((d, i) => <label key={d} className="flex items-center gap-1"><input type="checkbox" checked={editing.activeDays?.includes(d)} onChange={(e) => setEditing({ ...editing, activeDays: e.target.checked ? [...(editing.activeDays ?? []), d] : (editing.activeDays ?? []).filter((x) => x !== d) })} />Day {i + 1}</label>)}</div>
           </fieldset>
           <div className="flex flex-col gap-1 text-sm">
             <label className="flex items-center gap-2"><input type="checkbox" checked={!!editing.isPrizeDesk} onChange={(e) => setEditing({ ...editing, isPrizeDesk: e.target.checked })} />This booth is a prize desk</label>
@@ -110,13 +116,13 @@ export default function Booths() {
       <ul className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {booths.map((b) => (
           <li key={b.id} className={`card flex gap-3 ${b.active ? '' : 'opacity-60'}`}>
-            <Stamp booth={b} collected tilt={-4} size={72} />
+            <Stamp booth={b} collected tilt={-4} size={72} {...marks} />
             <div className="min-w-0 flex-1 text-sm">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0"><div className="truncate font-semibold">{b.nameEn}</div><div className="truncate text-xs text-navy-soft">{b.hostUnit}</div></div>
                 <span className="fig text-lg" style={{ color: b.accentColor }}>{b.points}</span>
               </div>
-              <div className="mt-1 text-xs text-navy-soft">{b.location} · {b.zone} · {b.activeDays.length}/3 days{b.isPrizeDesk ? ' · prize desk' : ''}{b.organizerUid ? ' · organizer linked' : ' · no organizer yet'}</div>
+              <div className="mt-1 text-xs text-navy-soft">{b.location} · {b.zone} · {b.activeDays.length}/{eventDays.length} days{b.isPrizeDesk ? ' · prize desk' : ''}{b.organizerUid ? ' · organizer linked' : ' · no organizer yet'}</div>
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
                 <button className="underline" onClick={() => startEdit(b)}>Edit</button>
                 <Link className="underline" to={`/booth?boothId=${b.id}`}>Open screen</Link>

@@ -30,7 +30,7 @@ export default function ScanLanding() {
   if (role === 'organizer') return <Navigate to="/booth" replace />
 
   return (
-    <main className="mx-auto min-h-full max-w-md bg-navy-deep p-4 text-paper">
+    <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="mx-auto min-h-full max-w-md bg-navy-deep p-4 text-paper">
       <header className="flex items-center justify-between px-1 py-3">
         <Link to="/passport" className="text-sm text-paper/70">← Passport</Link>
         <div className="stamp-text text-gold">Booth check-in</div>
@@ -41,6 +41,6 @@ export default function ScanLanding() {
           : result ? <ScanResultView result={result} onRetry={() => window.location.assign('/scan')} />
           : <Spinner label="Stamping…" />}
       </div>
-    </main>
+    </main></>
   )
 }

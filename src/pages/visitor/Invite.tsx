@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { api, errorMessage } from '../../lib/api'
+import { useEvent } from '../../lib/data'
+import { eventDateLine } from '../../lib/eventText'
 import { Crest, Notice, Spinner } from '../../components/ui'
 
 type Info = Awaited<ReturnType<typeof api.inviteInfo>>
@@ -10,6 +12,7 @@ type Info = Awaited<ReturnType<typeof api.inviteInfo>>
 export default function Invite() {
   const { token = '' } = useParams()
   const { ready, role, refreshClaims } = useAuth()
+  const event = useEvent()
   const nav = useNavigate()
   const [info, setInfo] = useState<Info | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -27,8 +30,8 @@ export default function Invite() {
   }
 
   return (
-    <main className="mx-auto flex min-h-full max-w-md flex-col bg-navy px-6 py-10 text-paper">
-      <div className="stamp-text text-gold">MFU Go Global International Festival · 16–18 September 2026</div>
+    <><div className="fixed inset-0 -z-10 bg-navy" aria-hidden /><main className="mx-auto flex min-h-full max-w-md flex-col bg-navy px-6 py-10 text-paper">
+      <div className="stamp-text text-gold">{event.nameEn} · {eventDateLine(event, false)}</div>
       <div className="my-8 flex justify-center"><Crest className="h-28 w-28 text-gold" /></div>
       {!info && !err && <Spinner label="Reading your invitation…" />}
       {err && <Notice tone="red">{err}</Notice>}
@@ -52,6 +55,6 @@ export default function Invite() {
           <button className="btn-gold mt-6 w-full py-3.5 text-lg" onClick={accept} disabled={!ready || busy}>{busy ? 'Setting up…' : 'Accept and open my booth'}</button>
         </div>
       )}
-    </main>
+    </main></>
   )
 }

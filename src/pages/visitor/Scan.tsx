@@ -32,7 +32,7 @@ export default function Scan() {
   }
 
   return (
-    <main className="mx-auto flex min-h-full max-w-md flex-col bg-navy-deep text-paper">
+    <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="mx-auto flex min-h-full max-w-md flex-col bg-navy-deep text-paper">
       <header className="flex items-center justify-between px-5 py-4">
         <Link to="/passport" className="text-sm text-paper/70">← Passport</Link>
         <div className="stamp-text text-gold">Scan a booth</div>
@@ -43,7 +43,7 @@ export default function Scan() {
         <div className="m-4 rounded-3xl bg-paper text-navy"><ScanResultView result={result} onRetry={() => { setResult(null); setManual('') }} /></div>
       ) : (
         <>
-          <Scanner onResult={(t) => void submit(t)} paused={busy} className="mx-4 aspect-[3/4]" />
+          <Scanner onResult={(t) => void submit(t)} paused={busy} className="mx-4 aspect-square max-h-[50dvh]" />
           {busy && <div className="text-paper/80"><Spinner label="Checking…" /></div>}
           {err && <div className="mx-4 mt-3"><Notice tone="red">{err}</Notice></div>}
           <form onSubmit={onManual} className="mx-4 mt-4 mb-8 rounded-2xl bg-white/5 p-4">
@@ -51,11 +51,11 @@ export default function Scan() {
             <div className="mt-2 flex gap-2">
               <input id="manual" className="field flex-1 bg-white/90 text-center font-mono text-xl tracking-[0.35em] uppercase" maxLength={7} autoCapitalize="characters" autoCorrect="off" spellCheck={false}
                 value={manual} onChange={(e) => setManual(normaliseManualCode(e.target.value))} placeholder="ABC234" />
-              <button className="btn-gold" disabled={normaliseManualCode(manual).length !== 6 || busy}>Stamp</button>
+              <button className="btn-gold shrink-0" disabled={normaliseManualCode(manual).length !== 6 || busy}>Stamp</button>
             </div>
           </form>
         </>
       )}
-    </main>
+    </main></>
   )
 }

@@ -2,14 +2,14 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { defineSecret } from 'firebase-functions/params'
 import {
   db, auth, FieldValue, Timestamp, requireRole, requireAuth, str, num, sha256, randomToken, randomSecretB64, audit,
+  getActiveEvent, toMillis, type ActiveEvent,
 } from './lib'
-import { ACCENTS, BoothDoc, EVENT_DAYS, EVENT_ID, InviteDoc, PrizeTierDoc, Role, UserDoc, Zone, ZONE_POINTS } from './shared/model'
+import { ACCENTS, BoothDoc, InviteDoc, PrizeTierDoc, Role, UserDoc, Zone } from './shared/model'
 import { APP_ORIGIN, EMAILJS_PRIVATE_KEY, mailConfigured, sendInvite } from './mailer'
 import { recomputeRanks } from './triggers'
 
 const ZONES: Zone[] = ['entrance', 'middle', 'far']
 const ROLES: Role[] = ['visitor', 'organizer', 'admin']
-const EVENT_END = new Date('2026-09-18T16:00:00+07:00').getTime()
 
 // ---------- users ----------
 
@@ -90,15 +90,15 @@ export const deleteUser = onCall(async (req) => {
 
 // ---------- booths ----------
 
-function boothFromData(d: Record<string, unknown>, existing?: BoothDoc): Omit<BoothDoc, 'createdAt'> {
+function boothFromData(ev: ActiveEvent, d: Record<string, unknown>, existing?: BoothDoc): Omit<BoothDoc, 'createdAt'> {
   const zone = (str(d.zone, 'zone', { required: false }) || existing?.zone || 'entrance') as Zone
   if (!ZONES.includes(zone)) throw new HttpsError('invalid-argument', 'Bad zone')
   const activeDays = Array.isArray(d.activeDays)
-    ? (d.activeDays as string[]).filter((x) => (EVENT_DAYS as readonly string[]).includes(x))
-    : existing?.activeDays ?? [...EVENT_DAYS]
+    ? (d.activeDays as string[]).filter((x) => ev.days.includes(x))
+    : existing?.activeDays ?? [...ev.days]
   const nameEn = str(d.nameEn, 'nameEn', { required: !existing, max: 120 }) || existing!.nameEn
   return {
-    eventId: EVENT_ID,
+    eventId: ev.id,
     nameEn,
     nameTh: str(d.nameTh, 'nameTh', { required: false, max: 120 }) || existing?.nameTh || '',
     shortName: str(d.shortName, 'shortName', { required: false, max: 24 }) || existing?.shortName
@@ -108,7 +108,7 @@ function boothFromData(d: Record<string, unknown>, existing?: BoothDoc): Omit<Bo
     descriptionEn: str(d.descriptionEn, 'descriptionEn', { required: false, max: 600 }) || existing?.descriptionEn || '',
     descriptionTh: str(d.descriptionTh, 'descriptionTh', { required: false, max: 600 }) || existing?.descriptionTh || '',
     accentColor: str(d.accentColor, 'accentColor', { required: false, max: 7 }) || existing?.accentColor || ACCENTS[0],
-    points: typeof d.points === 'number' ? num(d.points, 'points', { min: 1, max: 100 }) : existing?.points ?? ZONE_POINTS[zone],
+    points: typeof d.points === 'number' ? num(d.points, 'points', { min: 1, max: 100 }) : existing?.points ?? ev.zonePoints[zone],
     zone,
     badgeUrl: (d.badgeUrl as string | undefined) ?? existing?.badgeUrl ?? null,
     badgeThumbUrl: (d.badgeThumbUrl as string | undefined) ?? existing?.badgeThumbUrl ?? null,
@@ -125,8 +125,9 @@ function boothFromData(d: Record<string, unknown>, existing?: BoothDoc): Omit<Bo
 export const createBooth = onCall(async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
   const d = req.data ?? {}
+  const ev = await getActiveEvent(true)
   const count = (await db.collection('booths').count().get()).data().count
-  const booth = boothFromData(d)
+  const booth = boothFromData(ev, d)
   if (!d.accentColor) booth.accentColor = ACCENTS[count % ACCENTS.length]
   if (typeof d.sortOrder !== 'number') booth.sortOrder = count + 1
   const id = str(d.id, 'id', { required: false, max: 40 }) || `booth-${String(count + 1).padStart(2, '0')}`
@@ -137,7 +138,7 @@ export const createBooth = onCall(async (req) => {
   batch.set(ref, { ...booth, createdAt: FieldValue.serverTimestamp() })
   batch.set(db.doc(`boothSecrets/${id}`), { secret: randomSecretB64(), rotatedAt: FieldValue.serverTimestamp(), rotatedBy: actor })
   batch.set(db.doc(`stats/booths/items/${id}`), { boothId: id, stamps: 0, byVisitorType: {}, byDay: {}, byHour: {} }, { merge: true })
-  batch.set(db.doc(`events/${EVENT_ID}`), { boothCount: FieldValue.increment(1) }, { merge: true })
+  batch.set(db.doc(`events/${ev.id}`), { boothCount: FieldValue.increment(1) }, { merge: true })
   await batch.commit()
   await audit(actor, 'createBooth', 'booth', id, null, booth)
   return { id }
@@ -150,7 +151,7 @@ export const updateBooth = onCall(async (req) => {
   const snap = await ref.get()
   if (!snap.exists) throw new HttpsError('not-found', 'Booth not found')
   const before = snap.data() as BoothDoc
-  const after = boothFromData(req.data ?? {}, before)
+  const after = boothFromData(await getActiveEvent(), req.data ?? {}, before)
   await ref.set(after, { merge: true })
   await audit(actor, 'updateBooth', 'booth', id, before, after)
   return { ok: true }
@@ -165,11 +166,12 @@ export const deleteBooth = onCall(async (req) => {
     await audit(actor, 'deactivateBooth', 'booth', id, null, null)
     return { ok: true, deactivated: true }
   }
+  const ev = await getActiveEvent()
   const batch = db.batch()
   batch.delete(db.doc(`booths/${id}`))
   batch.delete(db.doc(`boothSecrets/${id}`))
   batch.delete(db.doc(`stats/booths/items/${id}`))
-  batch.set(db.doc(`events/${EVENT_ID}`), { boothCount: FieldValue.increment(-1) }, { merge: true })
+  batch.set(db.doc(`events/${ev.id}`), { boothCount: FieldValue.increment(-1) }, { merge: true })
   await batch.commit()
   await audit(actor, 'deleteBooth', 'booth', id, null, null)
   return { ok: true, deactivated: false }
@@ -189,6 +191,7 @@ export const rotateBoothSecret = onCall(async (req) => {
 /** §6.5 / §6.7 — thresholds validated against points available; preview of new unlocks. */
 export const savePrizePolicy = onCall(async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
+  const ev = await getActiveEvent(true)
   const tiers = req.data?.tiers
   if (!Array.isArray(tiers) || tiers.length === 0 || tiers.length > 10) throw new HttpsError('invalid-argument', 'tiers[] required')
   const booths = await db.collection('booths').where('active', '==', true).get()
@@ -229,7 +232,7 @@ export const savePrizePolicy = onCall(async (req) => {
     const ref = db.doc(`prizeTiers/${t.id}`)
     const prev = existing.docs.find((d) => d.id === t.id)?.data() as PrizeTierDoc | undefined
     const { stockTotal, ...rest } = t
-    const doc: Partial<PrizeTierDoc> = { eventId: EVENT_ID, ...rest }
+    const doc: Partial<PrizeTierDoc> = { eventId: ev.id, ...rest }
     if (!prev) {
       doc.stockTotal = stockTotal ?? 0
       doc.stockRemaining = stockTotal ?? 0
@@ -263,7 +266,7 @@ export const savePrizePolicy = onCall(async (req) => {
     }
     if (n) await b2.commit()
   }
-  await audit(actor, 'savePrizePolicy', 'prizePolicy', EVENT_ID, existing.docs.map((d) => d.data()), parsed)
+  await audit(actor, 'savePrizePolicy', 'prizePolicy', ev.id, existing.docs.map((d) => d.data()), parsed)
   return { ok: true, preview, available }
 })
 
@@ -289,6 +292,7 @@ export const adjustStock = onCall(async (req) => {
 /** §6.7 — stage draw. */
 export const runDraw = onCall(async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
+  const ev = await getActiveEvent()
   const count = num(req.data?.count ?? 1, 'count', { min: 1, max: 50 })
   const tiers = await db.collection('prizeTiers').where('grantsDrawEntry', '==', true).get()
   const pool = new Set<string>()
@@ -306,18 +310,33 @@ export const runDraw = onCall(async (req) => {
     return { uid: w, displayName: u?.displayName ?? '?', passportNo: u?.passportNo ?? '' }
   }))
   await db.collection('draws').add({ winners, names, actorUid: actor, createdAt: FieldValue.serverTimestamp(), poolSize: pool.size })
-  await audit(actor, 'runDraw', 'draw', EVENT_ID, null, { winners })
+  await audit(actor, 'runDraw', 'draw', ev.id, null, { winners })
   return { winners: names, poolSize: pool.size }
 })
 
 // ---------- invitations (§6.4) ----------
 
-function inviteExpiry() {
-  return Timestamp.fromMillis(Math.min(Date.now() + 14 * 86400_000, EVENT_END))
+/**
+ * 14 days, or the end of the live event, whichever comes first (spec 6.4). Read from the
+ * event document: a fixed date issues every invitation already expired once it has passed.
+ */
+function inviteExpiry(ev: ActiveEvent) {
+  const fortnight = Date.now() + 14 * 86400_000
+  const end = toMillis(ev.endsAt)
+  return Timestamp.fromMillis(end && end > Date.now() ? Math.min(fortnight, end) : fortnight)
+}
+
+function eventDates(ev: ActiveEvent): string {
+  const fmt = (ms: number | null) => (ms
+    ? new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Bangkok' })
+    : '')
+  const a = fmt(toMillis(ev.startsAt)), b = fmt(toMillis(ev.endsAt))
+  return a && b ? (a === b ? a : a + ' - ' + b) : ev.days.join(' / ')
 }
 
 export const inviteOrganizer = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
+  const ev = await getActiveEvent(true)
   const list: Array<{ name: string; email: string; boothId: string; role?: Role }> = Array.isArray(req.data?.invites)
     ? req.data.invites
     : [{ name: req.data?.name, email: req.data?.email, boothId: req.data?.boothId, role: req.data?.role }]
@@ -335,7 +354,7 @@ export const inviteOrganizer = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async 
       boothName = (b.data() as BoothDoc).nameEn
     }
     const token = randomToken(24)
-    const expiresAt = inviteExpiry()
+    const expiresAt = inviteExpiry(ev)
     const ref = db.collection('invites').doc()
     const doc: InviteDoc = {
       email, displayName, boothId, role, tokenHash: sha256(token), status: 'sent',
@@ -345,7 +364,11 @@ export const inviteOrganizer = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async 
     const link = `${APP_ORIGIN.value()}/invite/${token}`
     let mailed = false
     try {
-      mailed = await sendInvite({ to: email, name: displayName, boothName, link, expires: expiresAt.toDate().toLocaleDateString('en-GB') })
+      mailed = await sendInvite({
+        to: email, name: displayName, boothName, link,
+        expires: expiresAt.toDate().toLocaleDateString('en-GB'),
+        eventName: ev.nameEn, eventDates: eventDates(ev),
+      })
     } catch (e) {
       console.error('invite mail failed', e)
     }
@@ -362,14 +385,19 @@ export const resendInvite = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async (re
   const ref = db.doc(`invites/${id}`)
   const inv = (await ref.get()).data() as InviteDoc | undefined
   if (!inv || inv.status === 'accepted') throw new HttpsError('failed-precondition', 'Cannot resend')
+  const ev = await getActiveEvent(true)
   const token = randomToken(24)
-  const expiresAt = inviteExpiry()
+  const expiresAt = inviteExpiry(ev)
   await ref.set({ tokenHash: sha256(token), status: 'sent', sentAt: FieldValue.serverTimestamp(), expiresAt }, { merge: true })
   const boothName = inv.boothId ? ((await db.doc(`booths/${inv.boothId}`).get()).data() as BoothDoc | undefined)?.nameEn ?? '' : ''
   const link = `${APP_ORIGIN.value()}/invite/${token}`
   let mailed = false
   try {
-    mailed = await sendInvite({ to: inv.email, name: inv.displayName, boothName, link, expires: expiresAt.toDate().toLocaleDateString('en-GB') })
+    mailed = await sendInvite({
+      to: inv.email, name: inv.displayName, boothName, link,
+      expires: expiresAt.toDate().toLocaleDateString('en-GB'),
+      eventName: ev.nameEn, eventDates: eventDates(ev),
+    })
   } catch (e) { console.error(e) }
   await audit(actor, 'resendInvite', 'invite', id, null, { mailed })
   return { mailed, link: mailed ? undefined : link }

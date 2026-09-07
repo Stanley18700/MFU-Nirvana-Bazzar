@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
-import { useBooths, useTiers } from '../../lib/data'
+import { useBooths, useEvent, useTiers } from '../../lib/data'
+import { eventMark } from '../../lib/eventText'
 import { Crest, Spinner, fmt } from '../../components/ui'
 
 export function tierProgress<T extends { id: string; name: string; thresholdPoints: number }>(points: number, tiers: T[]) {
@@ -16,6 +17,7 @@ export default function Cover() {
   const { profile } = useAuth()
   const tiers = useTiers().filter((t) => t.active)
   const booths = useBooths()
+  const event = useEvent()
   if (!profile) return <Spinner />
   const points = profile.points ?? 0
   const { sorted, reached, next, pct } = tierProgress(points, tiers)
@@ -27,7 +29,7 @@ export default function Cover() {
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full border border-gold/20" />
         <div className="absolute -right-4 -top-4 h-40 w-40 rounded-full border border-gold/10" />
         <div className="stamp-text text-gold">Mae Fah Luang University</div>
-        <div className="mt-1 text-lg font-semibold tracking-wide">MFU GO GLOBAL · 2026</div>
+        <div className="mt-1 text-lg font-semibold tracking-wide">{eventMark(event)}</div>
         <div className="mt-8 flex items-center gap-5">
           <Crest className="h-20 w-20 shrink-0 text-gold" />
           <div className="min-w-0">
@@ -36,12 +38,12 @@ export default function Cover() {
             <div className="font-mono text-sm tracking-widest text-gold">{profile.passportNo}</div>
           </div>
         </div>
-        <div className="mt-8 flex items-end justify-between">
-          <div>
+        <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
             <div className="fig text-5xl text-gold">{fmt(points)}</div>
             <div className="stamp-text text-paper/60">points · {profile.stampCount ?? 0} of {booths.length} stamps</div>
           </div>
-          <div className="relative h-32 w-32">
+          <div className="relative h-24 w-24 shrink-0 xs:h-32 xs:w-32">
             <svg viewBox="0 0 128 128" className="h-full w-full -rotate-90">
               <circle cx="64" cy="64" r={r} fill="none" stroke="rgba(233,229,220,.15)" strokeWidth="8" />
               <circle cx="64" cy="64" r={r} fill="none" stroke="#C8A24A" strokeWidth="8" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} style={{ transition: 'stroke-dashoffset 600ms ease-out' }} />
@@ -49,16 +51,22 @@ export default function Cover() {
             <div className="absolute inset-0 grid place-items-center text-center">
               <div>
                 <div className="fig text-xl">{next ? next.thresholdPoints - points : '✓'}</div>
-                <div className="text-[10px] uppercase tracking-wider text-paper/60">{next ? 'to go' : 'top tier'}</div>
+                <div className="text-[11px] uppercase tracking-wider text-paper/60">{next ? 'to go' : 'top tier'}</div>
               </div>
             </div>
           </div>
         </div>
-        <div className="mt-6 flex items-center gap-2">
+        {/* Tier strip with live remaining stock (event planners' request) — wraps on narrow phones. */}
+        <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2">
           {sorted.map((t) => (
             <div key={t.id} className="flex items-center gap-1.5">
-              <span className={`h-2.5 w-2.5 rounded-full ${reached.includes(t) ? 'bg-gold' : 'bg-paper/25'}`} />
+              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${reached.includes(t) ? 'bg-gold' : 'bg-paper/25'}`} />
               <span className={`text-xs ${reached.includes(t) ? 'text-gold' : 'text-paper/50'}`}>{t.name}</span>
+              {t.stockTotal > 0 && (
+                <span className={`text-[11px] ${t.stockRemaining <= 0 ? 'text-vermilion' : 'text-paper/45'}`}>
+                  {t.stockRemaining <= 0 ? 'sold out' : `${fmt(t.stockRemaining)} left`}
+                </span>
+              )}
             </div>
           ))}
         </div>
@@ -67,7 +75,7 @@ export default function Cover() {
         </p>
       </section>
 
-      <section className="mt-6 grid grid-cols-2 gap-3">
+      <section className="mt-6 grid grid-cols-1 gap-3 xs:grid-cols-2">
         <Link to="/scan" className="card flex flex-col gap-1 hover:bg-paper-2/80">
           <span className="stamp-text text-navy-soft">Next</span>
           <span className="font-semibold">Scan a booth</span>

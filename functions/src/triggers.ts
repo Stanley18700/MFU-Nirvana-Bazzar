@@ -1,6 +1,6 @@
 import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
-import { db, FieldValue, Timestamp, shardRef, boothStatsRef, bucketRef } from './lib'
+import { db, FieldValue, Timestamp, shardRef, boothStatsRef, bucketRef, getActiveEvent, toMillis } from './lib'
 import { BoothStats, PrizeTierDoc, ScanDoc, UserDoc, hourOf } from './shared/model'
 
 /** §7.2 — one scan updates every counter in a single batched write, and creates tier unlocks. */
@@ -132,8 +132,12 @@ export const sweepActive = onSchedule({ schedule: 'every 1 minutes', timeZone: '
 
 /** §10 — 90-day retention. Runs daily; a no-op until the cut-off. */
 export const purgePersonalData = onSchedule({ schedule: 'every day 03:00', timeZone: 'Asia/Bangkok' }, async () => {
-  const cutoff = new Date('2026-12-17T00:00:00+07:00') // event end + 90 days
-  if (Date.now() < cutoff.getTime()) return
+  // §10 — 90 days after the live event ends, whenever that is. Never a fixed date, or a
+  // future event's visitors would be purged mid-run.
+  const ev = await getActiveEvent(true)
+  const endsAt = toMillis(ev.endsAt)
+  if (!endsAt) return
+  if (Date.now() < endsAt + 90 * 86400_000) return
   const users = await db.collection('users').where('role', '==', 'visitor').limit(400).get()
   const batch = db.batch()
   users.docs.forEach((d) => batch.update(d.ref, {

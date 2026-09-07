@@ -48,6 +48,8 @@ export interface InviteMail {
   boothName: string
   link: string
   expires: string
+  eventName: string
+  eventDates: string
 }
 
 /** Returns true if an email actually went out. */
@@ -58,8 +60,8 @@ export async function sendInvite(m: InviteMail): Promise<boolean> {
     booth_name: m.boothName,
     invite_link: m.link,
     expires: m.expires,
-    event_name: 'MFU Go Global International Festival',
-    event_dates: '16–18 September 2026',
+    event_name: m.eventName,
+    event_dates: m.eventDates,
   })
 }
 
