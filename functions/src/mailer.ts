@@ -1,12 +1,17 @@
 /**
  * §6.4 — mail is sent from Cloud Functions, never the browser.
- * EmailJS server-side path: POST with the PRIVATE key as accessToken.
- * If EmailJS is not configured the callables return the link instead so the
- * admin can copy it by hand — good enough for a demo, and the swap is one file.
+ *
+ * This file now carries exactly one message: the organizer invitation. The three account
+ * mails a visitor sees — address verification, password reset, address change — are sent by
+ * Firebase Auth itself from the templates under Authentication → Templates, triggered from
+ * src/lib/authActions.ts. Nothing to configure here for those.
+ *
+ * EmailJS server-side path: POST with the PRIVATE key as accessToken. If EmailJS is not
+ * configured the callable returns the link instead so the admin can copy it by hand.
  *
  *   firebase functions:secrets:set EMAILJS_PRIVATE_KEY
- *   (EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_INVITE, EMAILJS_TEMPLATE_RESTORE, APP_ORIGIN
- *    are plain params; the CLI prompts for them on first deploy or reads functions/.env)
+ *   (EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_INVITE, APP_ORIGIN are plain
+ *    params; the CLI prompts for them on first deploy or reads functions/.env)
  */
 import { defineSecret, defineString } from 'firebase-functions/params'
 
@@ -14,7 +19,6 @@ export const EMAILJS_PRIVATE_KEY = defineSecret('EMAILJS_PRIVATE_KEY')
 export const EMAILJS_PUBLIC_KEY = defineString('EMAILJS_PUBLIC_KEY', { default: '' })
 export const EMAILJS_SERVICE_ID = defineString('EMAILJS_SERVICE_ID', { default: '' })
 export const EMAILJS_TEMPLATE_INVITE = defineString('EMAILJS_TEMPLATE_INVITE', { default: '' })
-export const EMAILJS_TEMPLATE_RESTORE = defineString('EMAILJS_TEMPLATE_RESTORE', { default: '' })
 export const APP_ORIGIN = defineString('APP_ORIGIN', { default: 'https://mfu-passport.web.app' })
 
 export function mailConfigured(): boolean {
@@ -63,13 +67,4 @@ export async function sendInvite(m: InviteMail): Promise<boolean> {
     event_name: m.eventName,
     event_dates: m.eventDates,
   })
-}
-
-export async function sendRestoreLink(to: string, uid: string): Promise<boolean> {
-  const { getAuth } = await import('firebase-admin/auth')
-  const link = await getAuth().generateSignInWithEmailLink(to, {
-    url: `${APP_ORIGIN.value()}/restore?uid=${uid}`,
-    handleCodeInApp: true,
-  })
-  return send(EMAILJS_TEMPLATE_RESTORE.value(), { to_email: to, restore_link: link })
 }

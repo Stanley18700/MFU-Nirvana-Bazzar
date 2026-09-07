@@ -9,7 +9,7 @@ import { Notice, Spinner } from '../../components/ui'
 /** §4.3 — `/s/<token>`: the booth QR opened with the phone's native camera app. */
 export default function ScanLanding() {
   const { token = '' } = useParams()
-  const { ready, role } = useAuth()
+  const { ready, user, emailVerified, role } = useAuth()
   const [result, setResult] = useState<ScanResult | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const fired = useRef(false)
@@ -25,7 +25,10 @@ export default function ScanLanding() {
   }, [ready, role, token])
 
   if (!ready) return <Spinner label="Checking your stamp…" />
-  // Not registered: go to /join and come straight back to this token afterwards (§4.3).
+  // No account, or a half-finished one: sign in / confirm / register and come straight back
+  // to this token afterwards, so the visitor never loses the booth they just scanned (§4.3).
+  if (!user) return <Navigate to="/signup" state={{ from: `/s/${token}` }} replace />
+  if (!emailVerified) return <Navigate to="/verify-email" state={{ from: `/s/${token}` }} replace />
   if (!role) return <Navigate to="/join" state={{ from: `/s/${token}` }} replace />
   if (role === 'organizer') return <Navigate to="/booth" replace />
 

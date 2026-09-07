@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { connectAuthEmulator, getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth'
+import { connectAuthEmulator, getAuth, browserLocalPersistence, setPersistence, GoogleAuthProvider } from 'firebase/auth'
 import { connectFirestoreEmulator, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
 import { connectStorageEmulator, getStorage } from 'firebase/storage'
@@ -30,6 +30,13 @@ export const db = initializeFirestore(app, {
 })
 export const functions = getFunctions(app, REGION)
 export const storage = getStorage(app)
+
+/**
+ * Google is the one social provider (Anonymous is off — see SETUP.md). `select_account`
+ * matters at a shared booth laptop: without it the browser silently reuses the last account.
+ */
+export const googleProvider = new GoogleAuthProvider()
+googleProvider.setCustomParameters({ prompt: 'select_account' })
 
 if (USE_EMULATOR) {
   const host = window.location.hostname || '127.0.0.1'

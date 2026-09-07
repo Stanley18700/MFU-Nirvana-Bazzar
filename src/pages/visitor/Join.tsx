@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { api, errorMessage } from '../../lib/api'
 import { useEthnicGroups, useRefList } from '../../lib/data'
@@ -18,7 +18,7 @@ function guessCountry(): string {
 }
 
 export default function Join() {
-  const { ready, role, refreshClaims } = useAuth()
+  const { ready, user, role, refreshClaims, signOut } = useAuth()
   const nav = useNavigate()
   const loc = useLocation()
   const from = (loc.state as { from?: string } | null)?.from
@@ -27,8 +27,9 @@ export default function Join() {
   const ethnic = useEthnicGroups()
 
   const [f, setF] = useState({
-    displayName: '', visitorType: 'student' as VisitorType, studentId: '', institution: 'MFU', institutionOther: '',
-    school: '', countryCode: guessCountry(), ethnicGroup: '', ethnicConsent: false, contact: '', consent: false,
+    // Google hands us a name; the visitor can still overwrite it before it goes on the cover.
+    displayName: user?.displayName ?? '', visitorType: 'student' as VisitorType, studentId: '', institution: 'MFU', institutionOther: '',
+    school: '', countryCode: guessCountry(), ethnicGroup: '', ethnicConsent: false, consent: false,
   })
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -58,7 +59,7 @@ export default function Join() {
         school: f.institution === 'MFU' ? f.school : f.institutionOther || undefined,
         countryCode: f.countryCode,
         ethnicGroup: f.ethnicGroup || undefined, ethnicConsent: f.ethnicConsent,
-        contact: f.contact, consent: true,
+        consent: true,
       })
       await refreshClaims()
       nav(from ?? '/passport', { replace: true })
@@ -69,9 +70,17 @@ export default function Join() {
 
   return (
     <main className="mx-auto max-w-md px-5 pb-16 pt-8 page-in">
-      <Link to="/" className="text-sm text-navy-soft">← Back</Link>
-      <h1 className="mt-3 text-2xl font-bold">Start your passport</h1>
-      <p className="mt-1 text-sm text-navy-soft">Under a minute. No app, no password.</p>
+      <h1 className="text-2xl font-bold">Start your passport</h1>
+      <p className="mt-1 text-sm text-navy-soft">Under a minute — a few details for the organisers, then your passport opens.</p>
+
+      {/* The account email is the contact; it is already confirmed, so it is shown, not asked for. */}
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border rule bg-white/40 px-3.5 py-3">
+        <div className="min-w-0">
+          <div className="stamp-text text-navy-soft">Signed in as</div>
+          <div className="truncate text-sm font-medium">{user?.email}</div>
+        </div>
+        <button type="button" className="shrink-0 text-xs text-navy-soft underline" onClick={() => void signOut()}>Not you?</button>
+      </div>
 
       <form onSubmit={submit} className="mt-6 flex flex-col gap-5">
         <label className="block">
@@ -147,11 +156,6 @@ export default function Join() {
             </label>
           )}
         </div>
-
-        <label className="block">
-          <span className="stamp-text text-navy-soft">Phone or email</span>
-          <input className="field mt-1" required maxLength={120} autoComplete="email" inputMode="email" value={f.contact} onChange={(e) => set('contact', e.target.value)} placeholder="Only used to restore your passport" />
-        </label>
 
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" className="mt-1" checked={f.consent} onChange={(e) => set('consent', e.target.checked)} required />

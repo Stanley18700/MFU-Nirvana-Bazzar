@@ -8,9 +8,11 @@ import { Notice, Spinner } from '../../components/ui'
  */
 export default function RedeemLanding() {
   const { token = '' } = useParams()
-  const { ready, role } = useAuth()
+  const { ready, user, role } = useAuth()
 
   if (!ready) return <Spinner label="Checking…" />
+  // A prize-desk device that has been signed out: sign in, then land back on this code.
+  if (!user) return <Navigate to="/signin" state={{ from: `/r/${token}` }} replace />
   if (role === 'organizer' || role === 'admin') {
     return <Navigate to={`/redeem?code=${encodeURIComponent(token)}`} replace />
   }

@@ -17,7 +17,6 @@ export interface JoinInput {
   countryCode: string
   ethnicGroup?: string
   ethnicConsent?: boolean
-  contact: string
   consent: boolean
 }
 
@@ -26,7 +25,8 @@ export const api = {
   join: call<JoinInput, { ok: true; passportNo: string; existing: boolean }>('join'),
   scan: call<{ payload: string }, ScanResult>('scan'),
   redemptionCode: call<Record<string, never>, { code: string; counter: number; period: number; payload: string; serverTime: number }>('redemptionCode'),
-  requestRestore: call<{ contact: string }, { ok: true }>('requestRestore'),
+  /** Copies the address on the Auth account onto users/{uid} after an email change. */
+  syncAccount: call<Record<string, never>, { ok: true; synced: boolean; contact: string | null; contactVerified?: boolean }>('syncAccount'),
   requestErasure: call<Record<string, never>, { ok: true }>('requestErasure'),
   // organizer
   boothSession: call<{ boothId?: string }, { boothId: string; booth: Record<string, unknown>; secret: string; period: number; serverTime: number }>('boothSession'),

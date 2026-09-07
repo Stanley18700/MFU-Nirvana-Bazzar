@@ -3,7 +3,7 @@
  * against the local emulators. Uses the client SDK so it goes through the real rules.
  */
 import { initializeApp } from 'firebase/app'
-import { getAuth, connectAuthEmulator, signInAnonymously, signOut } from 'firebase/auth'
+import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword, signOut } from 'firebase/auth'
 import { getFirestore, connectFirestoreEmulator, doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore'
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'firebase/functions'
 import { createHmac } from 'node:crypto'
@@ -35,6 +35,22 @@ function boothToken(secretB64, boothId, counter) {
   return out
 }
 
+/**
+ * Anonymous sign-in is off (§4.1), so every actor here is a real email/password account.
+ * The Auth emulator creates them unverified and `join` insists on a confirmed address, so
+ * flip emailVerified through the emulator's owner API — the stand-in for clicking the link.
+ */
+async function signUpVerified(email, password = 'passw0rd!') {
+  await createUserWithEmailAndPassword(auth, email, password)
+  const localId = auth.currentUser.uid
+  await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/projects/mfu-passport/accounts:update', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+    body: JSON.stringify({ localId, emailVerified: true }),
+  })
+  await auth.currentUser.getIdToken(true)
+  return localId
+}
+
 /** boothSecrets is denied to every client by design, so read it as the emulator owner. */
 async function readSecret(boothId) {
   const r = await fetch(
@@ -48,8 +64,7 @@ async function readSecret(boothId) {
 
 async function main() {
   section('Admin bootstrap')
-  await signInAnonymously(auth)
-  const adminUid = auth.currentUser.uid
+  const adminUid = await signUpVerified('admin@example.com')
   await call('bootstrapAdmin')({ key: 'dev', displayName: 'Test Admin' })
   await auth.currentUser.getIdToken(true)
   ok('bootstrapAdmin sets the admin claim', (await auth.currentUser.getIdTokenResult()).claims.role === 'admin')
@@ -77,15 +92,27 @@ async function main() {
   try { await getDocs(collection(db, 'draws')) } catch (e) { drawsReadable = false; console.log('   ', e.code) }
   ok('admin can read draws', drawsReadable)
 
+  section('A passport needs a real, confirmed account')
+  await signOut(auth)
+  await createUserWithEmailAndPassword(auth, 'unconfirmed@example.com', 'passw0rd!')
+  let refused = ''
+  try {
+    await call('join')({ displayName: 'Unconfirmed', visitorType: 'guest', institution: 'MFU', countryCode: 'TH', consent: true })
+  } catch (e) { refused = e.message ?? '' }
+  ok('join refuses an unconfirmed email address', /confirm your email/i.test(refused), refused)
+
   section('Visitor registers, scans, unlocks')
   await signOut(auth)
-  await signInAnonymously(auth)
-  const visitorUid = auth.currentUser.uid
+  const visitorUid = await signUpVerified('visitor1@example.com')
+  // `contact` is no longer sent: join reads the confirmed address off the ID token.
   const joined = await call('join')({
     displayName: 'Test Visitor', visitorType: 'student', institution: 'MFU', school: 'School of Law',
-    countryCode: 'MM', contact: 'visitor1@example.com', consent: true,
+    countryCode: 'MM', consent: true,
   })
   ok('join issues a passport number with the event prefix', joined.passportNo?.startsWith('MFU-GG-'), joined.passportNo)
+  const visitorDoc = await getDoc(doc(db, 'users', visitorUid))
+  ok('join takes the contact from the signed-in account', visitorDoc.data().contact === 'visitor1@example.com', visitorDoc.data().contact)
+  ok('join marks the contact confirmed', visitorDoc.data().contactVerified === true)
   await auth.currentUser.getIdToken(true)
 
   // Visitors must be able to read live prize stock (the planners' request).
@@ -117,6 +144,18 @@ async function main() {
   const unlocks = await getDocs(query(collection(db, 'tierUnlocks'), where('visitorId', '==', visitorUid)))
   ok('tier unlocks created by the trigger', unlocks.size === 2, `${unlocks.size} unlocks at 140 points (50/100 reached, 150 not)`)
 
+  section('syncAccount follows an email change')
+  // Stands in for the "Email address change" link: Auth moves, Firestore has not heard yet.
+  await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/projects/mfu-passport/accounts:update', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
+    body: JSON.stringify({ localId: visitorUid, email: 'moved@example.com', emailVerified: true }),
+  })
+  await auth.currentUser.getIdToken(true)
+  const synced = await call('syncAccount')({})
+  ok('syncAccount reports the new address', synced.contact === 'moved@example.com', synced.contact)
+  const movedDoc = await getDoc(doc(db, 'users', visitorUid))
+  ok('users/{uid}.contact caught up with the account', movedDoc.data().contact === 'moved@example.com', movedDoc.data().contact)
+
   section('Prize desk redeems, stock drops live')
   const code = await call('redemptionCode')({})
   const before = 600
@@ -124,8 +163,7 @@ async function main() {
   section('Prize desk (second admin account)')
   // bootstrapAdmin refuses once an admin exists, so elevate a fresh account via the Auth emulator.
   await signOut(auth)
-  await signInAnonymously(auth)
-  const uid2 = auth.currentUser.uid
+  const uid2 = await signUpVerified('prizedesk@example.com')
   await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/projects/mfu-passport/accounts:update', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer owner' },
     body: JSON.stringify({ localId: uid2, customAttributes: JSON.stringify({ role: 'admin' }) }),
@@ -185,13 +223,13 @@ async function main() {
   ok('the new event has 2 days derived from its dates', nowLive.docs[0].data().days.length === 2, JSON.stringify(nowLive.docs[0].data().days))
 
   section('The next event reuses the booth ids safely')
-  await signOut(auth); await signInAnonymously(auth)
+  await signOut(auth); await signUpVerified('visitor2@example.com')
   const newSecret = await readSecret('booth-01')
   ok('booth secret was rotated', newSecret !== secrets['booth-01'])
 
   const nextPassport = await call('join')({
     displayName: 'Second Event Visitor', visitorType: 'guest', institution: 'MFU',
-    countryCode: 'TH', contact: 'visitor2@example.com', consent: true,
+    countryCode: 'TH', consent: true,
   })
   await auth.currentUser.getIdToken(true) // the app calls refreshClaims() here
   const reScan = await call('scan')({ payload: boothToken(newSecret, 'booth-01', Math.floor(Date.now() / 1000 / 30)) })

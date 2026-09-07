@@ -87,6 +87,10 @@ export default function Cover() {
           <span className="text-xs text-navy-soft">Far-corner booths pay 20 points</span>
         </Link>
       </section>
+
+      <p className="mt-6 text-center text-xs text-navy-soft">
+        <Link to="/account" className="underline">Your account</Link> · email, password, sign out
+      </p>
     </main>
   )
 }

@@ -33,6 +33,7 @@ export default function AdminLayout() {
           <NavLink to="/admin/wall" className="underline">Hall screen mode</NavLink>
           <NavLink to="/redeem" className="underline">Prize desk</NavLink>
           <NavLink to="/passport" className="underline">My passport (test as visitor)</NavLink>
+          <NavLink to="/account" className="underline">My account</NavLink>
           <div className="mt-2">{profile?.displayName} · admin</div>
           <button className="text-left underline" onClick={() => signOut(auth).then(() => window.location.assign('/'))}>Sign out</button>
         </div>

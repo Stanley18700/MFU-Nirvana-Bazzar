@@ -9,10 +9,20 @@ import {
 
 const VISITOR_TYPES: VisitorType[] = ['student', 'staff', 'alumni', 'guest']
 
-/** §4.1 — registration. The caller is already signed in anonymously. */
+/**
+ * §4.1 — registration. Anonymous sign-in is gone: the caller already holds a Google or
+ * email/password account, so the contact is the address on that account rather than
+ * something typed into the form, and it is provably theirs before a passport is issued.
+ */
 export const join = onCall(async (req) => {
   const uid = requireAuth(req)
   const d = req.data ?? {}
+
+  const email = (req.auth!.token.email as string | undefined)?.toLowerCase()
+  if (!email) throw new HttpsError('failed-precondition', 'Sign in with an email address first')
+  if (req.auth!.token.email_verified !== true) {
+    throw new HttpsError('failed-precondition', 'Confirm your email address first — check your inbox for the link')
+  }
 
   const displayName = str(d.displayName, 'displayName', { max: 80 })
   const visitorType = str(d.visitorType, 'visitorType') as VisitorType
@@ -23,7 +33,7 @@ export const join = onCall(async (req) => {
   const school = str(d.school, 'school', { required: false, max: 120 })
   const countryCode = str(d.countryCode, 'countryCode', { max: 2 }).toUpperCase()
   if (!/^[A-Z]{2}$/.test(countryCode)) throw new HttpsError('invalid-argument', 'Bad countryCode')
-  const contact = str(d.contact, 'contact', { max: 120 }).toLowerCase()
+  const contact = email
   if (d.consent !== true) throw new HttpsError('invalid-argument', 'Consent is required')
 
   // Sensitive field (PDPA s.26): stored only with its own separate consent.
@@ -42,10 +52,11 @@ export const join = onCall(async (req) => {
     return { ok: true, passportNo: (existing.data() as UserDoc).passportNo, existing: true }
   }
 
-  // One contact = one passport (§4.1). Same contact on a new device -> restore flow.
+  // One address = one passport (§4.1). Signing in on a new device reaches the same uid, so this
+  // only fires when a stale document from a previous account still holds the address.
   const dup = await db.collection('users').where('contact', '==', contact).limit(1).get()
   if (!dup.empty && dup.docs[0].id !== uid) {
-    throw new HttpsError('already-exists', 'This contact already has a passport. Use "Restore my passport".')
+    throw new HttpsError('already-exists', 'This email already has a passport. Sign in with it instead.')
   }
 
   const seq = await db.runTransaction(async (tx) => {
@@ -72,7 +83,7 @@ export const join = onCall(async (req) => {
     ethnicGroup,
     ethnicConsentAt: ethnicGroup ? FieldValue.serverTimestamp() : null,
     contact,
-    contactVerified: false,
+    contactVerified: true,
     boothId: null,
     passportNo: passportNo(seq, ev.passportPrefix),
     stampCount: 0,
@@ -235,17 +246,34 @@ export async function verifyRedemptionPayload(payload: string): Promise<{ uid: s
   return constantTimeEqual(expected, code.toUpperCase()) ? { uid } : null
 }
 
-/** §4.1 — restore on a new device. v1: issues a sign-in link via the mailer (see admin.ts). */
-export const requestRestore = onCall(async (req) => {
-  const contact = str(req.data?.contact, 'contact', { max: 120 }).toLowerCase()
-  const { ipPrefix } = clientFingerprint(req)
-  if (!(await rateLimit(`restore_${ipPrefix}`, 5, 3600))) throw new HttpsError('resource-exhausted', 'Too many attempts')
-  const q = await db.collection('users').where('contact', '==', contact).limit(1).get()
-  // Always answer the same way so contacts cannot be enumerated.
-  if (q.empty) return { ok: true }
-  const { sendRestoreLink } = await import('./mailer')
-  await sendRestoreLink(contact, q.docs[0].id).catch(() => undefined)
-  return { ok: true }
+/**
+ * Copies the address on the Auth account down onto users/{uid}.
+ *
+ * Firebase Auth owns the email: `verifyBeforeUpdateEmail` (the "Email address change" mail)
+ * swaps it without telling Firestore, so `contact` would otherwise drift and the organisers
+ * would be looking at an address that no longer signs in. The client calls this after any
+ * change, and again whenever it notices the two disagree.
+ */
+export const syncAccount = onCall(async (req) => {
+  const uid = requireAuth(req)
+  const rec = await auth.getUser(uid)
+  const email = rec.email?.toLowerCase() ?? null
+  const ref = db.doc(`users/${uid}`)
+  if (!(await ref.get()).exists) return { ok: true as const, synced: false, contact: email }
+
+  if (email) {
+    const dup = await db.collection('users').where('contact', '==', email).limit(1).get()
+    if (!dup.empty && dup.docs[0].id !== uid) {
+      throw new HttpsError('already-exists', 'Another passport already uses that email address')
+    }
+  }
+  await ref.set({
+    ...(email ? { contact: email } : {}),
+    contactVerified: !!rec.emailVerified,
+    ...(rec.displayName ? { displayName: rec.displayName } : {}),
+    lastSeenAt: FieldValue.serverTimestamp(),
+  }, { merge: true })
+  return { ok: true as const, synced: true, contact: email, contactVerified: !!rec.emailVerified }
 })
 
 /** §10 — self-service PDPA erasure request. */

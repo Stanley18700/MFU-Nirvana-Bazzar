@@ -18,14 +18,54 @@ npm --prefix functions install    # Cloud Functions
 
 1. https://console.firebase.google.com → **Add project**. Ours is **`mfu-passport`**, so the site is
    `https://mfu-passport.web.app`. (`.firebaserc` already points there.)
-2. **Authentication → Get started** → enable **Anonymous** and **Email/Password** (turn on
-   *Email link (passwordless sign-in)* inside it).
+2. **Authentication → Get started** → under *Sign-in method* enable exactly two providers:
+   - **Google** — pick a support email; nothing else to fill in.
+   - **Email/Password** — the top toggle only. Leave *Email link (passwordless sign-in)* **off**.
+
+   Leave **Anonymous** disabled. It used to be how a passport existed before the form was
+   filled in; the app now requires a real account, and `join` refuses a caller with no
+   confirmed email address.
+
+   Then, still under Authentication:
+   - **Settings → Authorised domains** — `mfu-passport.web.app`, `mfu-passport.firebaseapp.com`
+     and `localhost` are there by default. Add any other domain the app is served from, or
+     Google sign-in and every emailed link will be rejected.
+   - **Templates** — see §1a.
 3. **Firestore Database → Create database** → location **asia-southeast1** → production mode.
 4. **Storage → Get started** → same location → production mode.
 5. ~~Register a web app~~ — done (4 Sep 2026): app "MFU Passport", config below.
 6. **Upgrade to Blaze** (Cloud Functions require it). Then redeem the GCP coupon on that billing
    account (https://console.cloud.google.com/billing → *Credits*, or the link on the coupon) and set a
    **budget alert** at $20. Realistic cost for the event is a few dollars.
+
+## 1a. The three account emails **(you)**
+
+Firebase Auth sends these itself — they do **not** go through EmailJS or Cloud Functions.
+**Authentication → Templates** has one editable template each:
+
+| Template | Sent when | Triggered from |
+| --- | --- | --- |
+| **Email address verification** | someone signs up with an email and password, or asks for the link again | `sendVerification` in `src/lib/authActions.ts` |
+| **Password reset** | "Forgot your password?" on `/signin` | `sendReset` |
+| **Email address change** | a new address is entered on `/account`; the account only moves once the link in it is tapped | `changeEmail` (`verifyBeforeUpdateEmail`) |
+
+Changing an address also arms Firebase's fourth, non-optional mail — a notice to the **old**
+address with an undo link. That link lands on `/auth/action?mode=recoverEmail`, which the app
+handles; there is nothing to switch on.
+
+For each of the three, click the pencil and:
+
+1. Set the **sender name** to something recognisable (e.g. *MFU Go Global Passport*).
+2. Edit the subject and body — the defaults say "Firebase" and mention the project id.
+3. Click **Customise action URL** and set it to `https://mfu-passport.web.app/auth/action`.
+
+Step 3 is what keeps people inside the passport: `src/pages/auth/Action.tsx` handles
+`verifyEmail`, `resetPassword`, `verifyAndChangeEmail` and `recoverEmail` at that path. Skip it
+and the links still work, but on Google's own `firebaseapp.com/__/auth/action` page.
+
+Firebase's free tier sends these from `noreply@mfu-passport.firebaseapp.com`, which some
+university mail filters treat harshly. If delivery is poor, point *Templates → SMTP settings*
+at an MFU SMTP account and the sender becomes an mfu.ac.th address.
 
 ## 2. Point the repo at the project
 
@@ -50,8 +90,7 @@ Functions read their parameters from `functions/.env` (copy `functions/.env.exam
 ```ini
 APP_ORIGIN=https://mfu-passport.web.app
 EMAILJS_SERVICE_ID=service_glzv23b        # EmailJS account: Stanley's (Nyan Sint Zaw)
-EMAILJS_TEMPLATE_INVITE=template_yuoog5d  # "Booth invitation" template
-EMAILJS_TEMPLATE_RESTORE=                 # not created yet; restore-by-email stays disabled until it is
+EMAILJS_TEMPLATE_INVITE=template_yuoog5d  # "Booth invitation" template — the only mail EmailJS sends
 EMAILJS_PUBLIC_KEY=2mRZJpDrdwx4TIsjo
 ```
 
@@ -175,14 +214,24 @@ It drives the whole loop through the client SDK, so it goes through the real sec
 and Firestore triggers: bootstrap an admin, register a visitor, stamp nine booths, confirm a
 duplicate scan is refused, redeem a prize and watch stock drop, archive the event, purge it,
 create the next event, go live, and confirm a reused `booth-01` can be stamped again and
-passport numbering restarts with the new prefix. 32 checks; all should pass.
+passport numbering restarts with the new prefix. 37 checks; all should pass.
 
 Note `scan` is rate-limited to 10 calls per minute per visitor, which is why the script
 stamps nine booths and keeps one call in reserve for the duplicate-scan check.
 
 Set `VITE_USE_EMULATOR=true` in `.env.local` to force the emulators even with a real config present.
-Emulator Auth has no real email sending; use `/setup` with the bootstrap key set in
-`functions/.secret.local` (`ADMIN_BOOTSTRAP_KEY=dev`).
+
+The Auth emulator sends no mail and has no Google provider, so locally:
+
+- Sign up on `/signup` with any email and password. Nothing arrives in an inbox — the
+  verification link is printed in the **emulator's Auth log** and listed in the emulator UI at
+  http://127.0.0.1:4000/auth. Open it and the tab waiting on `/verify-email` moves on by itself.
+  The same holds for password-reset and email-change links.
+- "Continue with Google" opens the emulator's own account-picker page instead of Google's.
+- `npm run e2e` skips the inbox entirely: `signUpVerified()` flips `emailVerified` through the
+  emulator's owner API, which is the stand-in for clicking the link.
+- Make the first admin at `/setup` with the bootstrap key from `functions/.secret.local`
+  (`ADMIN_BOOTSTRAP_KEY=dev`) — sign in first, since it promotes the signed-in account.
 
 ## 8. Running the app again for the next event
 
@@ -257,8 +306,8 @@ Defects found and fixed:
 
 ## Known gaps versus spec/spec.md (prototype v0.1)
 
-- Organizer invites sign in the *device that opens the link* (anonymous account upgraded and
-  bound to the invited email), rather than a full Firebase email-link sign-in. Single-use and
+- Organizer invites are accepted by *an account signed in as the invited address* — the person
+  signs in with Google or an email and password first, then presses Accept. Single-use and
   email-bound, as the spec requires; upgrade path is one function.
 - Resize Images extension is not installed: badges are used at upload size (kept under 512 KB).
 - Ranks recompute every minute (Cloud Scheduler floor), not every 30 s.

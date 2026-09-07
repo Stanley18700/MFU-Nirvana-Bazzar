@@ -1,17 +1,24 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { onAuthStateChanged, signInAnonymously, type User } from 'firebase/auth'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { getRedirectResult, onAuthStateChanged, signOut as fbSignOut, type User } from 'firebase/auth'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { auth, db } from './firebase'
+import { api } from './api'
 import type { Role, UserDoc } from '../../shared/model'
 
 interface AuthState {
+  /** True once Firebase has told us whether anyone is signed in. `user` may still be null. */
   ready: boolean
   user: User | null
+  /** A Google account arrives verified; an email/password one only after the link is clicked. */
+  emailVerified: boolean
   role: Role | null
   boothId: string | null
   profile: (UserDoc & { id: string }) | null
   /** Force-refresh the ID token so a fresh custom claim takes effect now (§3). */
   refreshClaims: () => Promise<void>
+  /** Re-read the account from the server — how the app notices a just-clicked verify link. */
+  reloadUser: () => Promise<void>
+  signOut: () => Promise<void>
 }
 
 const Ctx = createContext<AuthState | null>(null)
@@ -19,6 +26,7 @@ const Ctx = createContext<AuthState | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [ready, setReady] = useState(false)
+  const [verified, setVerified] = useState(false)
   const [claims, setClaims] = useState<{ role: Role | null; boothId: string | null }>({ role: null, boothId: null })
   const [profile, setProfile] = useState<(UserDoc & { id: string }) | null>(null)
 
@@ -29,23 +37,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    // Google sign-in falls back to a redirect where popups are blocked; collect that result
+    // before the first onAuthStateChanged so a redirect error is not swallowed.
+    getRedirectResult(auth).catch((e) => console.warn('redirect sign-in', e?.code))
     const unsub = onAuthStateChanged(auth, async (u) => {
-      if (!u) {
-        // §4.1 — a passport exists before any form is filled.
-        try { await signInAnonymously(auth) } catch (e) { console.error('anonymous sign-in failed', e); setReady(true) }
-        return
-      }
       setUser(u)
+      setVerified(!!u?.emailVerified)
       await readClaims(u)
       setReady(true)
     })
     return unsub
   }, [readClaims])
 
-  // Claims refresh on focus and every 15 minutes (§3).
+  // Claims refresh on focus and every 15 minutes (§3). The same tick re-reads the account,
+  // so verifying the address in another tab lands here without a manual reload.
   useEffect(() => {
     if (!user) return
-    const onFocus = () => void readClaims(user, true)
+    const onFocus = async () => {
+      await user.reload().catch(() => undefined)
+      setVerified(user.emailVerified)
+      await readClaims(user, true)
+    }
     window.addEventListener('focus', onFocus)
     const id = setInterval(onFocus, 15 * 60 * 1000)
     return () => { window.removeEventListener('focus', onFocus); clearInterval(id) }
@@ -58,10 +70,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, (err) => console.warn('profile listener', err.code))
   }, [user])
 
+  /**
+   * Firebase Auth owns the email address; users/{uid}.contact is a copy the organisers read.
+   * An "email address change" link applied in another tab (or on another device) moves the
+   * first and not the second, so repair the copy the moment the two disagree.
+   */
+  const synced = useRef('')
+  useEffect(() => {
+    const email = user?.email?.toLowerCase()
+    if (!user || !email || !profile) return
+    if (profile.contact === email && profile.contactVerified === user.emailVerified) return
+    if (synced.current === `${user.uid}:${email}:${user.emailVerified}`) return
+    synced.current = `${user.uid}:${email}:${user.emailVerified}`
+    api.syncAccount({}).catch((e) => console.warn('syncAccount', e?.code))
+  }, [user, profile])
+
+  const reloadUser = useCallback(async () => {
+    const u = auth.currentUser
+    if (!u) return
+    await u.reload()
+    setUser(u)
+    setVerified(u.emailVerified)
+    await readClaims(u, true)
+  }, [readClaims])
+
   const value = useMemo<AuthState>(() => ({
-    ready, user, role: claims.role, boothId: claims.boothId, profile,
+    ready, user, emailVerified: verified, role: claims.role, boothId: claims.boothId, profile,
     refreshClaims: () => readClaims(auth.currentUser, true),
-  }), [ready, user, claims, profile, readClaims])
+    reloadUser,
+    signOut: async () => { await fbSignOut(auth) },
+  }), [ready, user, verified, claims, profile, readClaims, reloadUser])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

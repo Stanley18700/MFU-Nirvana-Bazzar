@@ -25,7 +25,7 @@ builds cleanly but **has never been run against a Firebase project.** That is th
 |---|---|
 | Spec, concept deck, clickable mock (`spec/`, `demo/`) | Done by the supervisor, unchanged, on `main` |
 | Application code (client + functions + rules + seed) | Written, `tsc` and `vite build` pass |
-| Runtime testing against the **emulator** | **Done, 7 Sep.** `npm run e2e` — 32 checks through the real rules and triggers, all passing. Eight defects found and fixed (SETUP.md, "Changes since v0.1") |
+| Runtime testing against the **emulator** | **Done, 7 Sep.** `npm run e2e` — 37 checks through the real rules and triggers, all passing. Eight defects found and fixed (SETUP.md, "Changes since v0.1") |
 | Reusable events (`/admin/event`, archive & restart) | **Built and tested.** The event is a document, not a constant |
 | Live prize stock on the visitor's side | **Built.** Exact count on every tier, always |
 | Mobile layout for every non-admin screen | **Done.** `xs` breakpoint added; booth kiosk, stamp grid, scanner, prize page and prize desk fixed at 320px |
@@ -51,7 +51,8 @@ builds cleanly but **has never been run against a Firebase project.** That is th
 > Firebase project later (§7).
 
 1. **Firebase console** (Stanley's account for now, university account later — see §7):
-   Authentication → enable *Anonymous* and *Email/Password* with *Email link* on; Firestore in
+   Authentication → enable *Google* and *Email/Password* (Anonymous stays off, *Email link* off),
+   customise the three account templates and point their action URL at `/auth/action` (SETUP.md §1a); Firestore in
    `asia-southeast1`, production mode; Storage, same region; upgrade to **Blaze** (Functions need it);
    redeem the $50 GCP coupon on that billing account; set a $20 budget alert.
 2. **Config.** Project settings → Your apps → copy `firebaseConfig`. Create `.env.local` from the
@@ -89,25 +90,33 @@ shared/model.ts        Firestore document types, constants (EVENT_ID, EVENT_DAYS
 
 functions/src/index.ts     exports + global options (region, cpu/memory caps)
 functions/src/lib.ts       admin SDK init, requireRole(), validators, rate limiter, audit(), shard refs
-functions/src/visitor.ts   join, scan (incl. manual-code brute-force match), redemptionCode, requestRestore, requestErasure
+functions/src/visitor.ts   join (contact + verification taken from the ID token), scan (incl. manual-code brute-force
+                           match), redemptionCode, syncAccount (Auth email -> users/{uid}.contact), requestErasure
 functions/src/organizer.ts boothSession (only path to a booth secret), lookupRedemption, confirmRedemption, voidRedemption
 functions/src/admin.ts     users/roles, booths (+rotateBoothSecret), prize policy (+preview), adjustStock, runDraw,
                            invites (inviteOrganizer/resend/revoke/inviteInfo/acceptInvite), bootstrapAdmin, refreshRanks
 functions/src/triggers.ts  onScanCreate (updates all counters + creates tierUnlocks), onUserWrite, rankBooths (1 min),
                            sweepActive (1 min), purgePersonalData (daily, no-op until 17 Dec 2026)
-functions/src/mailer.ts    EmailJS server-side; returns false when unconfigured so callers fall back to a link
+functions/src/mailer.ts    EmailJS server-side, booth invitations only; returns false when unconfigured so the
+                           caller falls back to a copyable link. The three account mails come from
+                           Firebase Auth's own templates instead (SETUP.md §1a)
 functions/src/seed.ts      12 booths + secrets, 3 tiers with stock, refData lists. `--emulator`, `--admin <uid>`
 
 src/lib/firebase.ts    SDK init from VITE_* env; auto-connects to emulators when no API key in dev
-src/lib/auth.tsx       AuthProvider: anonymous sign-in on load, custom-claim role/boothId, refresh on focus + 15 min
+src/lib/auth.tsx       AuthProvider: no sign-in of its own — reports {user, emailVerified, role, boothId},
+                       custom-claim refresh on focus + 15 min, repairs users/{uid}.contact after an email change
+src/lib/authActions.ts Google popup (redirect fallback), sign-up/in, verification, reset, email + password change,
+                       and the Firebase auth/* error-code -> plain-English table
 src/lib/api.ts         typed wrappers for every callable
 src/lib/data.ts        onSnapshot hooks; useEventStats() sums the 10 shards client-side
-src/pages/visitor/     Landing, Join, PassportLayout, Cover, Stamps, Prize, Scan, ScanResult, ScanLanding (/s/:token), Restore, Invite
+src/pages/visitor/     Landing, Join, PassportLayout, Cover, Stamps, Prize, Scan, ScanResult, ScanLanding (/s/:token), Invite
+src/pages/auth/        SignIn, SignUp, ForgotPassword, VerifyEmail, Account (email/password/sign-out/erasure),
+                       Action (/auth/action — verifyEmail, resetPassword, verifyAndChangeEmail, recoverEmail)
 src/pages/organizer/   Booth (rotating QR), BoothStats, Redeem (prize desk)
 src/pages/admin/       AdminLayout, Dashboard, Event (lifecycle + danger zone), Booths, Users (+invites),
                        Prizes (+stock, void), Draw, Audit, Wall, Setup
 src/lib/eventText.ts   visitor-facing event copy derived from the live event document
-scripts/e2e.mjs        32-check end-to-end run against the emulators (`npm run e2e`)
+scripts/e2e.mjs        37-check end-to-end run against the emulators (`npm run e2e`)
 src/components/        Stamp (generated fallback stamp SVG), QR, Scanner (BarcodeDetector → zxing-wasm), ui
 firestore.rules        clients never write users/scans/tierUnlocks/stats/auditLog; boothSecrets denied to all clients
 firestore.indexes.json composite indexes; add one if a query fails with "requires an index" (the error gives a link)
@@ -136,13 +145,19 @@ collection/document): `stats/event/shards/{0..9}`, `stats/booths/items/{boothId}
 
 Deviations from `spec/spec.md`, all deliberate for v0.1:
 
-- Invite acceptance upgrades the anonymous account on the device that opens the link (single-use,
-  bound to the invited email) instead of a Firebase email-link sign-in.
+- Invite acceptance promotes the account signed in on the device that opens the link. It is
+  single-use and refuses any address but the invited one, so the organizer must sign in as that
+  address (Google or a password) before pressing Accept.
 - No Resize Images extension — badge uploads are used at their uploaded size (client caps 512 KB).
 - Booth ranks recompute every 1 min (Cloud Scheduler floor), not 30 s.
 - App Check not enforced. Turn on reCAPTCHA Enterprise App Check before the real event.
 - No one-page PDF export of the dashboard (CSV per panel exists).
-- Restore-by-email path is wired but depends on EmailJS; untested.
+- An email/password account cannot reach the passport until the address is confirmed; a Google
+  account arrives confirmed and skips that step. Deliberate — but it means Firebase's mail
+  deliverability is on the critical path on day one. Test it to an mfu.ac.th address before the
+  event, and move Templates → SMTP settings to an MFU server if it lands in spam.
+- Restore-by-email is gone. Signing in *is* the restore: the passport hangs off the account,
+  not the device.
 
 Where to expect trouble on first run:
 

@@ -425,7 +425,10 @@ export const inviteInfo = onCall(async (req) => {
   return { status: 'ok' as const, displayName: inv.displayName, email: inv.email, role: inv.role, boothId: inv.boothId, boothName }
 })
 
-/** The caller is signed in (anonymously, or by email link); we upgrade that account. Single-use. */
+/**
+ * The caller has already signed in with Google or an email and password (§4.1 — there is no
+ * anonymous session to upgrade any more); this promotes that account. Single-use.
+ */
 export const acceptInvite = onCall(async (req) => {
   const uid = requireAuth(req)
   const token = str(req.data?.token, 'token', { max: 200 })
@@ -436,15 +439,16 @@ export const acceptInvite = onCall(async (req) => {
   if (inv.status === 'accepted' || inv.status === 'revoked') throw new HttpsError('failed-precondition', 'This invitation has already been used')
   if ((inv.expiresAt as Timestamp).toMillis() < Date.now()) throw new HttpsError('deadline-exceeded', 'This invitation has expired')
 
-  // Bound to the invited address: if the caller signed in with an email, it must match.
+  // Bound to the invited address, and to an address the caller has actually proved is theirs.
   const callerEmail = (req.auth!.token.email as string | undefined)?.toLowerCase()
-  if (callerEmail && callerEmail !== inv.email) throw new HttpsError('permission-denied', 'This invitation was sent to a different address')
+  if (!callerEmail) throw new HttpsError('failed-precondition', 'Sign in with the invited email address first')
+  if (callerEmail !== inv.email) throw new HttpsError('permission-denied', 'This invitation was sent to a different address')
+  if (req.auth!.token.email_verified !== true) throw new HttpsError('failed-precondition', 'Confirm your email address first')
 
   const claims = inv.role === 'organizer' ? { role: 'organizer', boothId: inv.boothId } : { role: 'admin' }
   await auth.setCustomUserClaims(uid, claims)
-  if (!callerEmail) await auth.updateUser(uid, { email: inv.email, displayName: inv.displayName }).catch(() => undefined)
   await db.doc(`users/${uid}`).set({
-    role: inv.role, displayName: inv.displayName, contact: inv.email, contactVerified: !!callerEmail,
+    role: inv.role, displayName: inv.displayName, contact: inv.email, contactVerified: true,
     boothId: inv.boothId, visitorType: 'staff', institution: 'MFU', countryCode: 'TH', isInternational: false,
     stampCount: 0, points: 0, stampedBoothIds: [], daysAttended: [],
     createdAt: FieldValue.serverTimestamp(), lastSeenAt: FieldValue.serverTimestamp(),
@@ -478,7 +482,8 @@ export const bootstrapAdmin = onCall({ secrets: [ADMIN_BOOTSTRAP_KEY] }, async (
   await auth.setCustomUserClaims(uid, { role: 'admin' })
   await db.doc(`users/${uid}`).set({
     role: 'admin', displayName: str(req.data?.displayName, 'displayName', { required: false }) || 'Admin',
-    contact: (req.auth!.token.email as string | undefined) ?? `admin-${uid}`,
+    contact: (req.auth!.token.email as string | undefined)?.toLowerCase() ?? `admin-${uid}`,
+    contactVerified: req.auth!.token.email_verified === true,
     visitorType: 'staff', institution: 'MFU', countryCode: 'TH', isInternational: false,
     stampCount: 0, points: 0, stampedBoothIds: [], daysAttended: [], createdAt: FieldValue.serverTimestamp(),
   }, { merge: true })
