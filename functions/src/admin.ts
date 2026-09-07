@@ -38,7 +38,19 @@ export const createUser = onCall(async (req) => {
   const role = str(d.role, 'role') as Role
   if (!ROLES.includes(role)) throw new HttpsError('invalid-argument', 'Bad role')
   const boothId = str(d.boothId, 'boothId', { required: false })
-  const user = await auth.createUser({ email: contact.includes('@') ? contact : undefined, displayName })
+  /**
+   * Without a password the account exists but can never sign in — Firebase has no credential to
+   * check — so a staff account created here was unusable. Optional, because an organizer
+   * normally arrives through an invitation (§6.4) and never sees a password field.
+   */
+  const password = str(d.password, 'password', { required: false, max: 128 })
+  if (password && password.length < 10) throw new HttpsError('invalid-argument', 'Password must be at least 10 characters')
+  if (password && !contact.includes('@')) throw new HttpsError('invalid-argument', 'A password needs an email address as the contact')
+  const user = await auth.createUser({
+    email: contact.includes('@') ? contact : undefined,
+    displayName,
+    ...(password ? { password } : {}),
+  })
   await auth.setCustomUserClaims(user.uid, role === 'organizer' ? { role, boothId } : { role })
   const doc: UserDoc = {
     role, displayName, contact, contactVerified: false, boothId: role === 'organizer' ? boothId : null,

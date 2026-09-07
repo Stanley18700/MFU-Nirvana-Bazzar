@@ -34,6 +34,9 @@ export default function Landing() {
         <Link to="/join" className="btn-gold py-3.5 text-lg">Start your passport</Link>
         <Link to="/restore" className="btn text-paper/80 hover:text-paper">I already have a passport</Link>
         <p className="mt-4 text-center text-xs text-paper/50">Nothing to install · works in your browser · under a minute</p>
+        <p className="text-center text-xs text-paper/40">
+          Event staff? <Link to="/signin" className="underline">Sign in here</Link>
+        </p>
       </div>
     </main></>
   )

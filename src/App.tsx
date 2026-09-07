@@ -29,6 +29,7 @@ import Draw from './pages/admin/Draw'
 import Audit from './pages/admin/Audit'
 import Wall from './pages/admin/Wall'
 import Setup from './pages/admin/Setup'
+import SignIn from './pages/SignIn'
 
 function Guard({ roles, children }: { roles: Role[]; children?: React.ReactNode }) {
   const { ready, role } = useAuth()
@@ -52,6 +53,7 @@ export default function App() {
       <Route path="/s/:token" element={<ScanLanding />} />
       <Route path="/r/:token" element={<RedeemLanding />} />
       <Route path="/setup" element={<Setup />} />
+      <Route path="/signin" element={<SignIn />} />
 
       <Route element={<Guard roles={['visitor', 'admin']} />}>
         <Route path="/passport" element={<PassportLayout />}>

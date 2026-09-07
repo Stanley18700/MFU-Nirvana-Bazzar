@@ -4,6 +4,7 @@ import { db } from '../../lib/firebase'
 import { api, errorMessage } from '../../lib/api'
 import { useBooths, useCollection } from '../../lib/data'
 import { Notice } from '../../components/ui'
+import { PermanentLogin } from '../../components/PermanentLogin'
 import { countryName } from '../../lib/countries'
 import type { InviteDoc, Role, ScanDoc, UserDoc } from '../../../shared/model'
 
@@ -56,6 +57,9 @@ export default function Users() {
     <div className="page-in">
       <h1 className="text-2xl font-bold">Users & invitations</h1>
       {msg && <div className="mt-3"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
+
+      {/* Only renders while the signed-in admin is still an anonymous /setup account. */}
+      <PermanentLogin />
 
       <section className="card mt-4">
         <h2 className="stamp-text text-navy-soft">Invite booth organizers</h2>

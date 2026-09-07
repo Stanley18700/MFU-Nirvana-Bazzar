@@ -35,7 +35,8 @@ export const api = {
   voidRedemption: call<{ visitorId: string; tierId: string; reason: string }, { ok: true }>('voidRedemption'),
   // admin
   setUserRole: call<{ uid: string; role: Role; boothId?: string }, { ok: true }>('setUserRole'),
-  createUser: call<{ displayName: string; contact: string; role: Role; boothId?: string; institution?: string }, { uid: string }>('createUser'),
+  /** `password` is optional; without one the account exists but cannot sign in. */
+  createUser: call<{ displayName: string; contact: string; role: Role; boothId?: string; institution?: string; password?: string }, { uid: string }>('createUser'),
   updateUser: call<Record<string, unknown> & { uid: string }, { ok: true }>('updateUser'),
   deleteUser: call<{ uid: string; hard?: boolean }, { ok: true }>('deleteUser'),
   createBooth: call<BoothInput, { id: string }>('createBooth'),
