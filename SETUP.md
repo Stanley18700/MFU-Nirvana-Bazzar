@@ -186,6 +186,22 @@ Include `hosting` in that retry: a functions failure aborts the deploy **before 
 release**, so the site serves Firebase's "Site Not Found" 404 until you deploy hosting again,
 even though the file upload reported success.
 
+### "Cannot determine backend specification. Timeout after 10000"
+
+Seen on 7 Sep 2026 deploying from a Windows machine running Node 24. Before uploading anything,
+the CLI starts the functions bundle locally on a spare port to ask it which functions exist, and
+gives that handshake 10 seconds. The bundle itself loads in well under a second (check with
+`node -e "require('./functions/lib/index.js')"`), so this is the CLI being slow to reach it, not
+a fault in the code — the same thing the emulator section below describes. Give it a bigger
+budget; the value is in **seconds**:
+
+```bash
+FUNCTIONS_DISCOVERY_TIMEOUT=120 npm run deploy
+```
+
+As with the Eventarc case, the failure happens before the hosting release, so nothing has
+changed on the live site when you see it; rerunning the whole deploy is safe.
+
 ## 4. Seed the event (12 booths, prize tiers, reference lists)
 
 ```bash
@@ -250,7 +266,8 @@ npm run dev              # http://localhost:5173 — auto-connects to the emulat
 
 If the Functions emulator reports *"Cannot determine backend specification. Timeout after
 10000"*, that is the discovery step timing out because the machine's Node is newer than the
-`nodejs20` runtime the functions declare. It is not a code problem — raise the budget:
+`nodejs20` runtime the functions declare. It is not a code problem — raise the budget (seconds;
+the same variable fixes the identical error from `firebase deploy`, see §3):
 
 ```bash
 FUNCTIONS_DISCOVERY_TIMEOUT=120 firebase emulators:start
