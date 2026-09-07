@@ -1,0 +1,17 @@
+{
+  "indexes": [
+    { "collectionGroup": "scans", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "boothId", "order": "ASCENDING" }, { "fieldPath": "scannedAt", "order": "DESCENDING" } ] },
+    { "collectionGroup": "scans", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "visitorId", "order": "ASCENDING" }, { "fieldPath": "scannedAt", "order": "ASCENDING" } ] },
+    { "collectionGroup": "scans", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "eventId", "order": "ASCENDING" }, { "fieldPath": "scannedAt", "order": "DESCENDING" } ] },
+    { "collectionGroup": "users", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "role", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" } ] },
+    { "collectionGroup": "users", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "role", "order": "ASCENDING" }, { "fieldPath": "points", "order": "ASCENDING" } ] },
+    { "collectionGroup": "tierUnlocks", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "tierId", "order": "ASCENDING" }, { "fieldPath": "redeemedAt", "order": "ASCENDING" } ] }
+  ],
+  "fieldOverrides": []
+}

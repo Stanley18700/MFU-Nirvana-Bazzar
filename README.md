@@ -58,6 +58,19 @@ their own screens. There is one copy of the code, not three.
 - **Organizer** — runs one booth's screen; it operates itself all day.
 - **Admin** — live statistics, user CRUD and roles, booth CRUD, prize policy.
 
+## The app (`proto1.0`)
+
+The real application now lives at the repo root — Vite + React + TypeScript client in `src/`,
+Cloud Functions in `functions/`, shared token/model code in `shared/`, Firestore rules and indexes
+alongside. **See `SETUP.md`** for creating the Firebase project, deploying, seeding the twelve booths
+and making the first admin. `spec/` and `demo/` are unchanged.
+
+```bash
+npm install && npm --prefix functions install
+npm run dev          # against the local emulators (see SETUP.md §7)
+npm run deploy       # build client + functions, deploy everything
+```
+
 ## Planned stack
 
 Firebase throughout: Cloud Firestore, Firebase Hosting (`mfupassport.web.app`), Cloud Functions v2,

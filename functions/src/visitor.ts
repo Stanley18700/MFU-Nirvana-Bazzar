@@ -1,0 +1,237 @@
+import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import {
+  db, auth, FieldValue, Timestamp, requireAuth, str, rateLimit, clientFingerprint, redemptionSecret,
+} from './lib'
+import { computeToken, constantTimeEqual, counterFor, normaliseManualCode, parsePayload, DEFAULT_PERIOD_SECONDS, ParsedToken } from './shared/token'
+import {
+  BoothDoc, EVENT_ID, EventDoc, PrizeTierDoc, ScanResult, UserDoc, VisitorType, dayOf, passportNo,
+} from './shared/model'
+
+const VISITOR_TYPES: VisitorType[] = ['student', 'staff', 'alumni', 'guest']
+
+/** §4.1 — registration. The caller is already signed in anonymously. */
+export const join = onCall(async (req) => {
+  const uid = requireAuth(req)
+  const d = req.data ?? {}
+
+  const displayName = str(d.displayName, 'displayName', { max: 80 })
+  const visitorType = str(d.visitorType, 'visitorType') as VisitorType
+  if (!VISITOR_TYPES.includes(visitorType)) throw new HttpsError('invalid-argument', 'Bad visitorType')
+  const studentId = str(d.studentId, 'studentId', { required: false, max: 40 })
+  const institution = str(d.institution, 'institution', { max: 120 })
+  const institutionOther = str(d.institutionOther, 'institutionOther', { required: false, max: 120 })
+  const school = str(d.school, 'school', { required: false, max: 120 })
+  const countryCode = str(d.countryCode, 'countryCode', { max: 2 }).toUpperCase()
+  if (!/^[A-Z]{2}$/.test(countryCode)) throw new HttpsError('invalid-argument', 'Bad countryCode')
+  const contact = str(d.contact, 'contact', { max: 120 }).toLowerCase()
+  if (d.consent !== true) throw new HttpsError('invalid-argument', 'Consent is required')
+
+  // Sensitive field (PDPA s.26): stored only with its own separate consent.
+  const ethnicConsent = d.ethnicConsent === true
+  const ethnicGroupRaw = str(d.ethnicGroup, 'ethnicGroup', { required: false, max: 80 })
+  const ethnicGroup = ethnicConsent && ethnicGroupRaw && ethnicGroupRaw !== 'Prefer not to say' ? ethnicGroupRaw : null
+
+  const { ipPrefix } = clientFingerprint(req)
+  if (!(await rateLimit(`join_${ipPrefix}`, 5, 3600))) {
+    throw new HttpsError('resource-exhausted', 'Too many registrations from this network, try again later')
+  }
+
+  const userRef = db.doc(`users/${uid}`)
+  const existing = await userRef.get()
+  if (existing.exists && (existing.data() as UserDoc).role) {
+    return { ok: true, passportNo: (existing.data() as UserDoc).passportNo, existing: true }
+  }
+
+  // One contact = one passport (§4.1). Same contact on a new device -> restore flow.
+  const dup = await db.collection('users').where('contact', '==', contact).limit(1).get()
+  if (!dup.empty && dup.docs[0].id !== uid) {
+    throw new HttpsError('already-exists', 'This contact already has a passport. Use "Restore my passport".')
+  }
+
+  const seq = await db.runTransaction(async (tx) => {
+    const cRef = db.doc('counters/passport')
+    const c = await tx.get(cRef)
+    const next = ((c.data()?.value as number | undefined) ?? 0) + 1
+    tx.set(cRef, { value: next }, { merge: true })
+    return next
+  })
+
+  const today = dayOf(new Date())
+  const user: UserDoc = {
+    role: 'visitor',
+    displayName,
+    studentId: studentId || null,
+    visitorType,
+    institution,
+    institutionOther: institutionOther || null,
+    school: school || null,
+    countryCode,
+    isInternational: countryCode !== 'TH',
+    ethnicGroup,
+    ethnicConsentAt: ethnicGroup ? FieldValue.serverTimestamp() : null,
+    contact,
+    contactVerified: false,
+    boothId: null,
+    passportNo: passportNo(seq),
+    stampCount: 0,
+    points: 0,
+    stampedBoothIds: [],
+    daysAttended: [today],
+    consentAt: FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
+    lastSeenAt: FieldValue.serverTimestamp(),
+  }
+  await userRef.set(user)
+  await auth.setCustomUserClaims(uid, { role: 'visitor' })
+  return { ok: true, passportNo: user.passportNo, existing: false }
+})
+
+/** §4.3 / §5.2 — verify a booth token and stamp the passport, exactly once per booth. */
+export const scan = onCall(async (req): Promise<ScanResult> => {
+  const uid = requireAuth(req)
+  if (req.auth!.token.role !== 'visitor' && req.auth!.token.role !== 'admin') return { status: 'not_registered' }
+
+  const raw = str(req.data?.payload, 'payload', { max: 400 })
+  if (!(await rateLimit(`scan_${uid}`, 10, 60))) return { status: 'rate_limited' }
+
+  const [eventSnap, userSnap] = await Promise.all([db.doc(`events/${EVENT_ID}`).get(), db.doc(`users/${uid}`).get()])
+  if (!userSnap.exists) return { status: 'not_registered' }
+  const user = userSnap.data() as UserDoc
+  const period = (eventSnap.data() as EventDoc | undefined)?.qrPeriodSeconds ?? DEFAULT_PERIOD_SECONDS
+  const nowCounter = counterFor(Date.now(), period)
+
+  let parsed = parsePayload(raw)
+  if (!parsed) {
+    // Manual entry (§4.3): a bare 6-character code. Match it against every active booth for the
+    // current and previous period — 12 booths x 2 counters = 24 HMACs, trivially cheap.
+    const code = normaliseManualCode(raw)
+    if (code.length !== 6) return { status: 'invalid' }
+    parsed = await matchManualCode(code, nowCounter)
+    if (!parsed) return { status: 'invalid' }
+  }
+
+  const [boothSnap, secretSnap] = await Promise.all([
+    db.doc(`booths/${parsed.boothId}`).get(),
+    db.doc(`boothSecrets/${parsed.boothId}`).get(),
+  ])
+  if (!boothSnap.exists || !secretSnap.exists) return { status: 'invalid' }
+  const booth = boothSnap.data() as BoothDoc
+  if (!booth.active) return { status: 'invalid' }
+  // Grace window of one period (§5.2): current or previous counter only.
+  if (parsed.counter !== nowCounter && parsed.counter !== nowCounter - 1) {
+    // A well-formed but stale token: tell the visitor to rescan rather than "invalid".
+    const expected = await computeToken(secretSnap.data()!.secret, parsed.boothId, parsed.counter)
+    return constantTimeEqual(expected, parsed.token) ? { status: 'expired' } : { status: 'invalid' }
+  }
+  const expected = await computeToken(secretSnap.data()!.secret, parsed.boothId, parsed.counter)
+  if (!constantTimeEqual(expected, parsed.token)) return { status: 'invalid' }
+
+  const scanId = `${uid}_${parsed.boothId}`
+  const scanRef = db.doc(`scans/${scanId}`)
+  const now = new Date()
+  const { uaHash, ipPrefix } = clientFingerprint(req)
+
+  try {
+    await db.runTransaction(async (tx) => {
+      const s = await tx.get(scanRef)
+      if (s.exists) throw new HttpsError('already-exists', 'already')
+      tx.create(scanRef, {
+        visitorId: uid,
+        boothId: parsed.boothId,
+        eventId: EVENT_ID,
+        scannedAt: Timestamp.fromDate(now),
+        day: dayOf(now),
+        pointsAwarded: booth.points, // frozen at scan time (§6.6)
+        counter: parsed.counter,
+        uaHash, ipPrefix,
+        visitorType: user.visitorType ?? 'guest',
+        institution: user.institution ?? '',
+        school: user.school ?? null,
+        countryCode: user.countryCode ?? 'XX',
+        isInternational: user.isInternational ?? false,
+        // ethnicGroup deliberately NOT copied (§7.1)
+      })
+    })
+  } catch (e) {
+    if (e instanceof HttpsError && e.code === 'already-exists') return { status: 'already', boothId: parsed.boothId }
+    throw e
+  }
+
+  // Counters are updated by the onScanCreate trigger; return an optimistic total so the
+  // visitor sees "+N points" instantly. Tier unlocks are also created by the trigger.
+  const points = (user.points ?? 0) + booth.points
+  const tiers = await db.collection('prizeTiers').where('active', '==', true).get()
+  const unlockedTierIds = tiers.docs
+    .filter((t) => {
+      const tier = t.data() as PrizeTierDoc
+      return tier.thresholdPoints > (user.points ?? 0) && tier.thresholdPoints <= points
+    })
+    .map((t) => t.id)
+
+  return {
+    status: 'success',
+    boothId: parsed.boothId,
+    pointsAwarded: booth.points,
+    points,
+    stampCount: (user.stampCount ?? 0) + 1,
+    unlockedTierIds,
+  }
+})
+
+async function matchManualCode(code: string, nowCounter: number): Promise<ParsedToken | null> {
+  const [booths, secrets] = await Promise.all([
+    db.collection('booths').where('active', '==', true).get(),
+    db.collection('boothSecrets').get(),
+  ])
+  const secretOf = new Map(secrets.docs.map((d) => [d.id, d.data().secret as string]))
+  for (const b of booths.docs) {
+    const secret = secretOf.get(b.id)
+    if (!secret) continue
+    for (const counter of [nowCounter, nowCounter - 1]) {
+      if (constantTimeEqual(await computeToken(secret, b.id, counter), code)) return { boothId: b.id, counter, token: code }
+    }
+  }
+  return null
+}
+
+/** §4.4 — rotating 8-character redemption code for the caller (30 s period). */
+export const REDEMPTION_PERIOD = 30
+export const redemptionCode = onCall(async (req) => {
+  const uid = requireAuth(req)
+  const secret = await redemptionSecret()
+  const counter = counterFor(Date.now(), REDEMPTION_PERIOD)
+  const code = (await computeToken(secret, `r:${uid}`, counter)) + (await computeToken(secret, `r2:${uid}`, counter)).slice(0, 2)
+  return { code, counter, period: REDEMPTION_PERIOD, payload: `${uid}.${counter}.${code}`, serverTime: Date.now() }
+})
+
+export async function verifyRedemptionPayload(payload: string): Promise<{ uid: string } | null> {
+  const m = payload.trim().match(/(?:^|\/r\/)([A-Za-z0-9]+)\.(\d+)\.([A-Z2-7]{8})(?:[/?#]|$)/i)
+  if (!m) return null
+  const [, uid, counterStr, code] = m
+  const counter = Number(counterStr)
+  const now = counterFor(Date.now(), REDEMPTION_PERIOD)
+  if (counter !== now && counter !== now - 1) return null
+  const secret = await redemptionSecret()
+  const expected = (await computeToken(secret, `r:${uid}`, counter)) + (await computeToken(secret, `r2:${uid}`, counter)).slice(0, 2)
+  return constantTimeEqual(expected, code.toUpperCase()) ? { uid } : null
+}
+
+/** §4.1 — restore on a new device. v1: issues a sign-in link via the mailer (see admin.ts). */
+export const requestRestore = onCall(async (req) => {
+  const contact = str(req.data?.contact, 'contact', { max: 120 }).toLowerCase()
+  const { ipPrefix } = clientFingerprint(req)
+  if (!(await rateLimit(`restore_${ipPrefix}`, 5, 3600))) throw new HttpsError('resource-exhausted', 'Too many attempts')
+  const q = await db.collection('users').where('contact', '==', contact).limit(1).get()
+  // Always answer the same way so contacts cannot be enumerated.
+  if (q.empty) return { ok: true }
+  const { sendRestoreLink } = await import('./mailer')
+  await sendRestoreLink(contact, q.docs[0].id).catch(() => undefined)
+  return { ok: true }
+})
+
+/** §10 — self-service PDPA erasure request. */
+export const requestErasure = onCall(async (req) => {
+  const uid = requireAuth(req)
+  await db.collection('erasureRequests').doc(uid).set({ uid, requestedAt: FieldValue.serverTimestamp(), status: 'open' })
+  return { ok: true }
+})

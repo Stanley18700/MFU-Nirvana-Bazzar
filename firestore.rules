@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function role() { return request.auth.token.get('role', ''); }
+    function isAdmin() { return signedIn() && role() == 'admin'; }
+    function isOrganizer() { return signedIn() && role() == 'organizer'; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+
+    // Spec §7.4 — every consequential write goes through Cloud Functions.
+
+    match /events/{eventId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if false;
+    }
+
+    match /booths/{boothId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /boothSecrets/{boothId} {
+      allow read, write: if false;
+    }
+
+    match /invites/{inviteId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /refData/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /scans/{scanId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.visitorId == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /prizeTiers/{tierId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /stockAdjustments/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /tierUnlocks/{id} {
+      allow read: if isAdmin() || isOrganizer()
+                  || (signedIn() && resource.data.visitorId == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /auditLog/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /rateLimits/{id} {
+      allow read, write: if false;
+    }
+
+    // Live counters. Organizers may read booth counters and the event shards
+    // (booth screen shows own count + event total); admins read everything.
+    match /stats/event {
+      allow read: if isAdmin() || isOrganizer();
+      allow write: if false;
+      match /shards/{shard} {
+        allow read: if isAdmin() || isOrganizer();
+        allow write: if false;
+      }
+    }
+    match /stats/booths/items/{boothId} {
+      allow read: if isAdmin() || isOrganizer();
+      allow write: if false;
+    }
+    match /stats/buckets/items/{bucketId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -13,3 +13,17 @@ node_modules/
 dist/
 .env
 .env.local
+
+# app secrets and build output
+.env.local
+functions/.env
+functions/.secret.local
+functions/lib/
+functions/src/shared/
+.firebase/
+.emulator-data/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*.tgz
+*.tsbuildinfo
