@@ -67,8 +67,31 @@ body {
 @keyframes seal-draw { from { stroke-dashoffset: 600; } to { stroke-dashoffset: 0; } }
 .seal-draw { stroke-dasharray: 600; animation: seal-draw 900ms ease-out both; }
 
+/**
+ * §5.2 — the booth code changes every period. Animate the swap so the screen reads as live
+ * rather than a printed sticker. Deliberately short: a camera must not sit on a half-faded
+ * frame for long, though the server's one-period grace window covers a missed read anyway.
+ */
+@keyframes qr-swap {
+  /* Starts at 0.55/0.98, not 0 — a phone pointed at the screen mid-swap must still decode. */
+  from { opacity: 0.55; transform: scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+.qr-swap { animation: qr-swap 260ms cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+
+@keyframes code-swap {
+  from { opacity: 0; transform: translateY(-0.14em); }
+  to   { opacity: 1; transform: none; }
+}
+.code-swap { animation: code-swap 260ms ease-out both; }
+
+/* The countdown border eases between the 100 ms ticks that drive it. */
+.qr-countdown { transition: stroke-dashoffset 110ms linear, stroke 300ms ease; }
+
 @media (prefers-reduced-motion: reduce) {
-  .stamp-land, .page-in, .pulse-once, .seal-draw { animation-duration: 1ms !important; }
+  .stamp-land, .page-in, .pulse-once, .seal-draw,
+  .qr-swap, .code-swap { animation-duration: 1ms !important; }
+  .qr-countdown { transition: none; }
 }
 
 /* Booth screen must be legible at 3 m (§2.6) — on a kiosk. */

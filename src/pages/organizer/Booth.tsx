@@ -87,9 +87,21 @@ export default function Booth() {
   const b = session.booth
   // Fit inside the white frame (p-5) + accent ring (10px) + section padding (px-4) — ~96px total.
   const size = Math.max(160, Math.round(Math.min(vp.w - 96, vp.h * 0.5, 520)))
-  const ringR = 46, ringC = 2 * Math.PI * ringR
   const fresh = !offline && !stat.fromCache && !ev.fromCache
   const dot = offline ? '#E0533D' : (stat.fromCache || ev.fromCache) ? '#D4762A' : '#1E8A6E'
+
+  /**
+   * §5.2 — the countdown traces the frame's own border rather than an inscribed circle, so it
+   * reads along every edge instead of hiding behind the corners. It sits just outside the
+   * accent ring rather than on top of it, so the booth's accent still dominates the screen
+   * (§2.2). `pathLength={1}` normalises the perimeter, so the dash offset is simply the
+   * fraction of the period spent.
+   */
+  const FRAME_PAD = 20, ACCENT = 10, GAP = 4, RING = 4, CORNER = 32
+  const inset = ACCENT + GAP + RING              // how far the svg extends past the white frame
+  const box = size + 2 * FRAME_PAD + 2 * inset
+  const left = Math.max(0, Math.min(1, msLeft / (session.period * 1000)))
+  const urgent = msLeft <= 3000
 
   return (
     <main className="booth-screen relative flex min-h-full flex-col bg-navy-deep text-paper">
@@ -107,17 +119,33 @@ export default function Booth() {
       </header>
 
       <section className="flex flex-1 flex-col items-center justify-center gap-[3vh] px-4">
-        <div className="relative rounded-[2rem] bg-white p-5" style={{ boxShadow: `0 0 0 10px ${b.accentColor}, 0 30px 80px rgba(0,0,0,.5)` }}>
-          <QR value={token.payload} size={size} />
-          <svg className="pointer-events-none absolute -inset-3" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-            <circle cx="50" cy="50" r={ringR} fill="none" stroke="rgba(255,255,255,.35)" strokeWidth="1.2" vectorEffect="non-scaling-stroke"
-              strokeDasharray={ringC} strokeDashoffset={ringC * (1 - msLeft / (session.period * 1000))} transform="rotate(-90 50 50)" />
+        <div className="relative rounded-[2rem] bg-white p-5" style={{ boxShadow: `0 0 0 ${ACCENT}px ${b.accentColor}, 0 30px 80px rgba(0,0,0,.5)` }}>
+          {/* Keyed on the counter so the swap animation replays on every rotation. */}
+          <div key={token.counter} className="qr-swap">
+            <QR value={token.payload} size={size} />
+          </div>
+          <svg
+            className="pointer-events-none absolute overflow-visible"
+            style={{ top: -inset, left: -inset, width: box, height: box }}
+            viewBox={`0 0 ${box} ${box}`} aria-hidden
+          >
+            <rect
+              className="qr-countdown"
+              x={RING / 2} y={RING / 2} width={box - RING} height={box - RING}
+              rx={CORNER + inset - RING / 2} fill="none" strokeWidth={RING} strokeLinecap="butt"
+              stroke={urgent ? '#D4762A' : 'rgba(233,229,220,.8)'}
+              pathLength={1} strokeDasharray={1} strokeDashoffset={1 - left}
+            />
           </svg>
         </div>
         <div className="text-center">
           <div className="stamp-text text-[0.55em] text-paper/60">Manual code</div>
-          <div className="fig text-[2em] tracking-[0.15em] sm:text-[2.4em] sm:tracking-[0.25em]" style={{ color: b.accentColor }}>{formatManualCode(token.token)}</div>
-          <div className="text-[0.5em] text-paper/50">Rotates in {Math.ceil(msLeft / 1000)} s</div>
+          <div key={token.counter} className="code-swap fig text-[2em] tracking-[0.15em] sm:text-[2.4em] sm:tracking-[0.25em]" style={{ color: b.accentColor }}>
+            {formatManualCode(token.token)}
+          </div>
+          <div className="text-[0.5em] text-paper/50">
+            Rotates in <span className="tabular-nums">{Math.ceil(msLeft / 1000)}</span> s
+          </div>
         </div>
       </section>
 
