@@ -69,9 +69,13 @@ at an MFU SMTP account and the sender becomes an mfu.ac.th address.
 
 ## 1b. Migrating a project that already ran on anonymous accounts
 
-Skip this on a fresh project. It matters on `mfu-passport`, where every existing account is
-anonymous — the admin among them, because `/setup` promoted the anonymous account of whichever
-browser used the one-shot bootstrap key.
+Skip this on a fresh project. It mattered on `mfu-passport`, where `/setup` promoted the
+anonymous account of whichever browser used the one-shot bootstrap key.
+
+> **Already done on `mfu-passport`** (7 Sep 2026). The admin, `kq0X8iI6ySU3JfQDrBuNyaGjIVR2`,
+> now carries `6731503077@lamduan.mfu.ac.th` with a password and a verified address, keeping its
+> uid and claim. Two anonymous visitor passports remain and cannot be recovered; two further
+> anonymous accounts never registered. Read on only when standing this up somewhere new.
 
 Turning Anonymous off does not delete those accounts; it stops anyone signing back into one.
 They have no email and no password, so:
