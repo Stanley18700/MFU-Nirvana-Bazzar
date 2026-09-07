@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { useBooths, useBoothStats, useBuckets, useEvent, useEventStats } from '../../lib/data'
-import { Crest, fmt } from '../../components/ui'
+import { Crest, DataErrors, fmt } from '../../components/ui'
 
 /** §6.1 — presentation mode for a hall screen: dark navy, oversized figures, auto-rotating. */
 export default function Wall() {
@@ -13,16 +14,40 @@ export default function Wall() {
   const [view, setView] = useState<0 | 1>(0)
   useEffect(() => { const id = setInterval(() => setView((v) => (v ? 0 : 1)), 15000); return () => clearInterval(id) }, [])
 
+  // Full screen is an explicit button (and the F key), not a click anywhere: the old page-wide
+  // handler gave no hint it existed and threw an unhandled rejection when the browser refused.
+  const [fs, setFs] = useState(!!document.fullscreenElement)
+  const [hint, setHint] = useState<string | null>(null)
+  useEffect(() => {
+    const on = () => setFs(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', on)
+    return () => document.removeEventListener('fullscreenchange', on)
+  }, [])
+  const goFull = useCallback(() => {
+    const el = document.documentElement
+    if (!el.requestFullscreen) { setHint('Full screen is not available in this browser — press F11.'); return }
+    el.requestFullscreen().then(() => setHint(null)).catch(() => setHint('Full screen was blocked — press F11 (⌃⌘F on a Mac).'))
+  }, [])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) goFull() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [goFull])
+
   const board = booths.map((b) => ({ ...b, stamps: bstats.find((s) => s.id === b.id)?.stamps ?? 0 })).sort((a, b) => b.stamps - a.stamps)
   const max = Math.max(1, ...board.map((b) => b.stamps))
   const timeline = [...buckets].sort((a, b) => (a.startsAt as { toMillis(): number }).toMillis() - (b.startsAt as { toMillis(): number }).toMillis()).map((b) => ({ t: new Date((b.startsAt as { toMillis(): number }).toMillis()).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }), stamps: b.total }))
 
   return (
-    <main className="flex min-h-screen flex-col bg-navy-deep p-[4vw] text-paper" onClick={() => document.documentElement.requestFullscreen?.()}>
+    <main className="flex min-h-screen flex-col bg-navy-deep p-[4vw] text-paper">
       <header className="flex items-center justify-between">
         <div><div className="stamp-text text-[1.2vw] text-gold">{event.nameEn}</div><h1 className="text-[3vw] font-bold leading-none">Passport live</h1></div>
-        <Crest className="h-[8vw] w-[8vw] text-gold" />
+        <div className="flex items-center gap-[1.5vw]">
+          {!fs && <button className="rounded-lg border border-white/20 px-[1.2vw] py-[0.6vh] text-[1.1vw] text-paper/80 hover:bg-white/10" onClick={goFull}>Full screen</button>}
+          <Crest className="h-[8vw] w-[8vw] text-gold" />
+        </div>
       </header>
+      <DataErrors dark className="mt-[2vh] text-[1.2vw]" />
       <section className="mt-[3vh] grid grid-cols-3 gap-[2vw]">
         {[['Visitors', ev.totals.visitors], ['Stamps', ev.totals.stamps], ['Prizes', ev.totals.redeemed]].map(([l, v]) => (
           <div key={l as string} className="rounded-[2vw] bg-white/5 p-[2vw]"><div className="fig text-[7vw] text-gold">{fmt(v as number)}</div><div className="stamp-text text-[1.2vw] text-paper/60">{l as string}</div></div>
@@ -52,7 +77,10 @@ export default function Wall() {
           </div>
         )}
       </section>
-      <footer className="stamp-text text-[1vw] text-paper/40">Scan the QR at the welcome sign to start your passport · mfupassport.web.app</footer>
+      <footer className="stamp-text flex items-center justify-between gap-4 text-[1vw] text-paper/40">
+        <span>Scan the QR at the welcome sign to start your passport · mfupassport.web.app</span>
+        <span>{hint ?? (fs ? 'Esc leaves full screen' : 'Press F for full screen')} · <Link to="/admin" className="underline">admin</Link></span>
+      </footer>
     </main>
   )
 }

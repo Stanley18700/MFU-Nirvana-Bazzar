@@ -1,10 +1,11 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { Icon, TabBar } from '../../components/ui'
+import { DataErrors, Icon, TabBar } from '../../components/ui'
 
 export default function PassportLayout() {
   const loc = useLocation()
   return (
     <div className="mx-auto min-h-full max-w-md pb-24" style={{ paddingBottom: 'calc(6rem + env(safe-area-inset-bottom))' }}>
+      <DataErrors className="mx-4 mt-3" />
       <div key={loc.pathname} className="page-in">
         <Outlet />
       </div>

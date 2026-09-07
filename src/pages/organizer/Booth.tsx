@@ -4,7 +4,8 @@ import { useAuth } from '../../lib/auth'
 import { api, errorMessage } from '../../lib/api'
 import { useBoothStat, useBooths, useEventStats } from '../../lib/data'
 import { QR } from '../../components/QR'
-import { Notice, Spinner, fmt } from '../../components/ui'
+import { BoothCard } from '../../components/BoothCard'
+import { DataErrors, Notice, Spinner, fmt } from '../../components/ui'
 import { APP_ORIGIN } from '../../lib/firebase'
 import { buildPayload, computeToken, counterFor, formatManualCode, msUntilRotation } from '../../../shared/token'
 import type { BoothDoc } from '../../../shared/model'
@@ -104,7 +105,8 @@ export default function Booth() {
   const urgent = msLeft <= 3000
 
   return (
-    <main className="booth-screen relative flex min-h-full flex-col bg-navy-deep text-paper">
+    <>
+    <main className="booth-screen relative flex min-h-full flex-col bg-navy-deep text-paper print:hidden">
       <header className="flex items-start justify-between gap-3 px-[4vw] pt-[3vh]">
         <div className="min-w-0">
           <div className="stamp-text text-[0.55em]" style={{ color: b.accentColor }}>{b.location} · This badge is worth {b.points} points</div>
@@ -115,8 +117,10 @@ export default function Booth() {
           <span className="inline-block h-3 w-3 rounded-full" style={{ background: dot }} />
           <span className="hidden xs:inline">{offline ? 'Offline — codes still valid' : fresh ? 'Live' : 'Reconnecting — codes still valid'}</span>
           <button onClick={requestWake} className="rounded border border-white/20 px-2 py-1 text-paper/70" title="Full screen">⛶</button>
+          <button onClick={() => window.print()} className="rounded border border-white/20 px-2 py-1 text-paper/70" title="Print a table card for this booth">Print card</button>
         </div>
       </header>
+      <DataErrors dark className="mx-[4vw] mt-2 text-[0.5em]" />
 
       <section className="flex flex-1 flex-col items-center justify-center gap-[3vh] px-4">
         <div className="relative rounded-[2rem] bg-white p-5" style={{ boxShadow: `0 0 0 ${ACCENT}px ${b.accentColor}, 0 30px 80px rgba(0,0,0,.5)` }}>
@@ -158,5 +162,8 @@ export default function Booth() {
         </div>
       </footer>
     </main>
+    {/* Only exists on paper: a static card, since the rotating QR above cannot be printed. */}
+    <div className="hidden print:block"><BoothCard booth={b} origin={APP_ORIGIN} period={session.period} /></div>
+    </>
   )
 }

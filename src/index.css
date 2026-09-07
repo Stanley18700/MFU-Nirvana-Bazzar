@@ -113,3 +113,10 @@ input, select, textarea, button { font: inherit; }
 .btn-gold { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-semibold transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none bg-gold text-navy-deep hover:brightness-105; }
 .btn-danger { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-semibold transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none bg-vermilion text-white hover:brightness-95; }
 .card { @apply rounded-2xl bg-paper-2 p-4 shadow-[0_1px_0_rgba(23,38,63,.08)]; }
+
+/* Paper: the booth table card (organizer/Booth.tsx) and the dashboard summary (admin/Print.tsx). */
+@page { size: A4; margin: 12mm; }
+@media print {
+  body { background: #fff !important; color: #000; }
+  .card { box-shadow: none; break-inside: avoid; }
+}

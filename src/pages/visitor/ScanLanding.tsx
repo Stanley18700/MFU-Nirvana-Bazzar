@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { api, errorMessage } from '../../lib/api'
 import type { ScanResult } from '../../../shared/model'
@@ -10,14 +10,17 @@ import { Notice, Spinner } from '../../components/ui'
 export default function ScanLanding() {
   const { token = '' } = useParams()
   const { ready, user, emailVerified, role } = useAuth()
+  const nav = useNavigate()
   const [result, setResult] = useState<ScanResult | null>(null)
   const [err, setErr] = useState<string | null>(null)
-  const fired = useRef(false)
+  // Keyed on the token, not a boolean: navigating /s/A -> /s/B keeps this element mounted, and
+  // the second booth must still be stamped.
+  const fired = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!ready || fired.current) return
+    if (!ready || fired.current === token) return
     if (role !== 'visitor' && role !== 'admin') return
-    fired.current = true
+    fired.current = token
     api.scan({ payload: `/s/${token}` }).then((r) => {
       setResult(r)
       if (r.status === 'success') navigator.vibrate?.(18)
@@ -41,7 +44,9 @@ export default function ScanLanding() {
       </header>
       <div className="rounded-3xl bg-paper text-navy">
         {err ? <div className="p-6"><Notice tone="red">{err}</Notice></div>
-          : result ? <ScanResultView result={result} onRetry={() => window.location.assign('/scan')} />
+          // `replace`: from a camera-opened tab the history is just [/s/token], and Back landing
+          // there would re-fire the scan and show "already stamped".
+          : result ? <ScanResultView result={result} onRetry={() => nav('/scan', { replace: true })} />
           : <Spinner label="Stamping…" />}
       </div>
     </main></>

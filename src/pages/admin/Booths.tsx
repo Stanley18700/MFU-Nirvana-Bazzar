@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ref as sref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { ref as sref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { storage } from '../../lib/firebase'
 import { api, errorMessage, type BoothInput } from '../../lib/api'
 import { useBooths, useEvent } from '../../lib/data'
@@ -31,7 +31,7 @@ export default function Booths() {
     setMsg(null)
     if (!b) { setEditing({ ...empty, activeDays: [...eventDays], points: zonePoints.entrance }); setEditId(null); return }
     setEditId(b.id)
-    setEditing({ nameEn: b.nameEn, nameTh: b.nameTh, shortName: b.shortName, hostUnit: b.hostUnit, location: b.location, descriptionEn: b.descriptionEn, zone: b.zone, points: b.points, activeDays: b.activeDays, isPrizeDesk: b.isPrizeDesk, active: b.active, accentColor: b.accentColor })
+    setEditing({ nameEn: b.nameEn, nameTh: b.nameTh, shortName: b.shortName, hostUnit: b.hostUnit, location: b.location, descriptionEn: b.descriptionEn, zone: b.zone, points: b.points, activeDays: b.activeDays, isPrizeDesk: b.isPrizeDesk, active: b.active, accentColor: b.accentColor, sortOrder: b.sortOrder })
   }
 
   async function save() {
@@ -69,6 +69,18 @@ export default function Booths() {
     } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
   }
 
+  /** Clears the URL on the booth (the server treats an explicit null as "remove") and, best effort, the file behind it. */
+  async function removeImage(b: Row, kind: 'badge' | 'photo') {
+    if (!window.confirm(kind === 'badge' ? 'Remove the badge? The generated stamp takes over.' : 'Remove the photo?')) return
+    setBusy(true); setMsg(null)
+    try {
+      const url = kind === 'badge' ? b.badgeUrl : b.photoUrl
+      await api.updateBooth(kind === 'badge' ? { id: b.id, badgeUrl: null, badgeThumbUrl: null } : { id: b.id, photoUrl: null, photoThumbUrl: null })
+      if (url) await deleteObject(sref(storage, url)).catch(() => undefined)
+      setMsg({ tone: 'green', text: `${kind} removed.` })
+    } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
+  }
+
   return (
     <div className="page-in">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -95,6 +107,7 @@ export default function Booths() {
             </select>
           </label>
           <label>Points (override)<input className="field mt-1" type="number" min={1} max={100} value={editing.points ?? 10} onChange={(e) => setEditing({ ...editing, points: Number(e.target.value) })} /></label>
+          <label>Order in the grid<input className="field mt-1" type="number" min={1} placeholder="next free" value={editing.sortOrder ?? ''} onChange={(e) => setEditing({ ...editing, sortOrder: e.target.value === '' ? undefined : Number(e.target.value) })} /></label>
           <label>Accent
             <div className="mt-1 flex flex-wrap gap-2">{ACCENTS.map((c) => <button key={c} type="button" onClick={() => setEditing({ ...editing, accentColor: c })} className={`h-8 w-8 rounded-full ${editing.accentColor === c ? 'ring-2 ring-offset-2 ring-navy' : ''}`} style={{ background: c }} aria-label={c} />)}</div>
           </label>
@@ -117,6 +130,7 @@ export default function Booths() {
         {booths.map((b) => (
           <li key={b.id} className={`card flex gap-3 ${b.active ? '' : 'opacity-60'}`}>
             <Stamp booth={b} collected tilt={-4} size={72} {...marks} />
+            {b.photoUrl && <img src={b.photoThumbUrl ?? b.photoUrl} alt="" className="h-[72px] w-[72px] shrink-0 rounded-xl object-cover" />}
             <div className="min-w-0 flex-1 text-sm">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0"><div className="truncate font-semibold">{b.nameEn}</div><div className="truncate text-xs text-navy-soft">{b.hostUnit}</div></div>
@@ -127,7 +141,10 @@ export default function Booths() {
                 <button className="underline" onClick={() => startEdit(b)}>Edit</button>
                 <Link className="underline" to={`/booth?boothId=${b.id}`}>Open screen</Link>
                 <Link className="underline" to={`/booth/stats?boothId=${b.id}`}>Stats</Link>
-                <label className="cursor-pointer underline">Badge<input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(b, 'badge', e.target.files[0])} /></label>
+                <label className="cursor-pointer underline">{b.badgeUrl ? 'Replace badge' : 'Badge'}<input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(b, 'badge', e.target.files[0])} /></label>
+                {b.badgeUrl && <button className="underline" disabled={busy} onClick={() => removeImage(b, 'badge')}>Remove badge</button>}
+                <label className="cursor-pointer underline">{b.photoUrl ? 'Replace photo' : 'Photo'}<input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(b, 'photo', e.target.files[0])} /></label>
+                {b.photoUrl && <button className="underline" disabled={busy} onClick={() => removeImage(b, 'photo')}>Remove photo</button>}
                 <button className="underline text-amber" onClick={() => rotate(b.id)}>Rotate secret</button>
                 <button className="underline text-vermilion" onClick={() => remove(b.id)}>Delete</button>
               </div>

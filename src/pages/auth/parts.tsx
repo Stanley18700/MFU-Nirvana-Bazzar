@@ -4,6 +4,9 @@ import { useEvent } from '../../lib/data'
 import { eventDateLine } from '../../lib/eventText'
 import { Crest } from '../../components/ui'
 
+// DarkNotice moved to components/ui so the booth screen and shared notices can use it; kept here for the auth pages.
+export { DarkNotice } from '../../components/ui'
+
 /** The navy card every signed-out screen sits in, so /signin matches the landing page. */
 export function AuthShell({ title, lead, children, foot, back = '/' }: {
   title: string
@@ -65,17 +68,6 @@ export function Divider({ children }: { children: ReactNode }) {
       <span className="h-px flex-1 bg-paper/15" />{children}<span className="h-px flex-1 bg-paper/15" />
     </div>
   )
-}
-
-/** Notice from components/ui is tuned for the paper background; this one for navy. */
-export function DarkNotice({ tone = 'info', children }: { tone?: 'info' | 'amber' | 'red' | 'green'; children: ReactNode }) {
-  const cls = {
-    info: 'bg-paper/10 text-paper/90',
-    amber: 'bg-amber/20 text-amber',
-    red: 'bg-vermilion/20 text-[#ffc9bf]',
-    green: 'bg-jade/20 text-[#9fe3cd]',
-  }[tone]
-  return <div className={`rounded-xl px-4 py-3 text-sm ${cls}`} role="status">{children}</div>
 }
 
 /** White-on-navy text input; `field` in index.css assumes the paper background. */

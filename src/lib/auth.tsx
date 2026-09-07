@@ -98,7 +98,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ready, user, emailVerified: verified, role: claims.role, boothId: claims.boothId, profile,
     refreshClaims: () => readClaims(auth.currentUser, true),
     reloadUser,
-    signOut: async () => { await fbSignOut(auth) },
+    // Never rejects: signing out only clears local persistence, and a failure there must not
+    // trap someone on a page (five callers navigate straight after this).
+    signOut: async () => {
+      try { await fbSignOut(auth) } catch (e) { console.warn('signOut', (e as { code?: string })?.code) }
+    },
   }), [ready, user, verified, claims, profile, readClaims, reloadUser])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

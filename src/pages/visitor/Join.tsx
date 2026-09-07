@@ -4,7 +4,7 @@ import { useAuth } from '../../lib/auth'
 import { api, errorMessage } from '../../lib/api'
 import { useEthnicGroups, useRefList } from '../../lib/data'
 import { COUNTRIES, PINNED_COUNTRIES, countryName } from '../../lib/countries'
-import { Notice, Spinner } from '../../components/ui'
+import { DataErrors, Notice, Spinner } from '../../components/ui'
 import type { VisitorType } from '../../../shared/model'
 
 const TYPES: Array<{ v: VisitorType; label: string }> = [
@@ -83,6 +83,8 @@ export default function Join() {
         </div>
         <button type="button" className="shrink-0 text-xs text-navy-soft underline" onClick={() => void signOut()}>Not you?</button>
       </div>
+
+      <DataErrors className="mt-4" />
 
       <form onSubmit={submit} className="mt-6 flex flex-col gap-5">
         <label className="block">

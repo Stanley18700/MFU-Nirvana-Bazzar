@@ -127,6 +127,17 @@ export default function EventAdmin() {
     catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
   }
 
+  async function deleteDraft(r: EventRow) {
+    if (!window.confirm(`Delete the draft "${r.nameEn}"? This cannot be undone.`)) return
+    setBusy(true); setMsg(null)
+    try {
+      await api.deleteEvent({ id: r.id })
+      if (form?.id === r.id) setForm(blank())
+      setMsg({ tone: 'green', text: `Draft "${r.id}" deleted.` })
+      await load()
+    } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
+  }
+
   const live = rows?.find((e) => e.id === liveId) ?? null
 
   if (!rows || !form) return <Spinner label="Loading events…" />
@@ -218,6 +229,7 @@ export default function EventAdmin() {
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
                 <button className="underline" onClick={() => { setForm(fromRow(r)); setMsg(null) }}>Edit</button>
                 {r.status !== 'live' && <button className="underline" disabled={busy} onClick={() => goLive(r.id)}>Go live</button>}
+                {r.status === 'draft' && <button className="text-vermilion underline" disabled={busy} onClick={() => deleteDraft(r)}>Delete draft</button>}
               </div>
             </li>
           ))}
@@ -248,11 +260,19 @@ function DangerZone({ live, onDone }: { live: EventRow; onDone: () => Promise<vo
 
   async function drain(scope: PurgeScope, label: string, hard = false) {
     say(`${label}…`)
-    let total = 0
-    for (let guard = 0; guard < 500; guard++) {
+    let total = 0, idle = 0, remaining = 0, done = false
+    for (let guard = 0; guard < 500 && !done; guard++) {
       const r = await api.purgeEventData({ eventId: live.id, scope, hard })
-      total += r.deleted
-      if (r.done) break
+      total += r.deleted; remaining = r.remaining; done = r.done
+      // A scope that reports work left but clears nothing three times running is stuck; stop
+      // rather than spend the whole budget on it.
+      idle = r.deleted === 0 && !r.done ? idle + 1 : 0
+      if (idle >= 3) break
+    }
+    if (!done) {
+      // Used to fall out of the loop and log the step as cleared; an unfinished purge must say so.
+      setLog((l) => [...l.slice(0, -1), `${label} — incomplete, ${fmt(remaining)} still to clear`])
+      throw new Error(`${label}: stopped with ${fmt(remaining)} item${remaining === 1 ? '' : 's'} still to clear. Wait a moment and run the archive again; steps already cleared will report nothing to clear.`)
     }
     setLog((l) => [...l.slice(0, -1), `${label} — ${total ? `${total} cleared` : 'nothing to clear'}`])
   }

@@ -1,9 +1,10 @@
+import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useAuth } from '../../lib/auth'
-import { useBoothStat, useBooths, useEvent, useEventStats } from '../../lib/data'
-import { Fig, Spinner, fmt } from '../../components/ui'
-import { dayOf } from '../../../shared/model'
+import { ms, useBoothStat, useBooths, useEvent, useEventStats } from '../../lib/data'
+import { CsvButton, DataErrors, Fig, Spinner, fmt } from '../../components/ui'
+import { dayOf, hourOf } from '../../../shared/model'
 
 /** §5.3 — the organizer sees their own booth only. */
 export default function BoothStats() {
@@ -15,12 +16,23 @@ export default function BoothStats() {
   const { data: stat } = useBoothStat(boothId)
   const ev = useEventStats()
   const event = useEvent()
+  const days = event.days
+  const todayStr = dayOf(new Date())
+  const [picked, setPicked] = useState(days.includes(todayStr) ? todayStr : days[0])
   if (!booth) return <Spinner />
 
-  const days = event.days
-  const today = days.includes(dayOf(new Date())) ? dayOf(new Date()) : days[0]
-  const hours = Array.from({ length: 8 }, (_, i) => `${String(9 + i).padStart(2, '0')}`)
-  const hourly = hours.map((h) => ({ hour: `${h}:00`, visitors: stat?.byHour?.[`${today}T${h}`] ?? 0 }))
+  const day = days.includes(picked) ? picked : days[0]
+  const dayIndex = days.indexOf(day) + 1
+
+  // Hours follow the event's opening times rather than a fixed 09–16, and any hour that
+  // recorded a stamp outside them is shown too, so an early or late scan is never hidden.
+  const start = ms(event.startsAt), end = ms(event.endsAt)
+  const h0 = start ? Number(hourOf(new Date(start))) : 9
+  const h1 = end ? Number(hourOf(new Date(end))) : 16
+  const inRange = Array.from({ length: Math.max(1, h1 - h0 + 1) }, (_, i) => String(h0 + i).padStart(2, '0'))
+  const recorded = Object.keys(stat?.byHour ?? {}).filter((k) => k.startsWith(`${day}T`)).map((k) => k.slice(day.length + 1))
+  const hours = [...new Set([...inRange, ...recorded])].sort()
+  const hourly = hours.map((h) => ({ hour: `${h}:00`, visitors: stat?.byHour?.[`${day}T${h}`] ?? 0 }))
   const vt = stat?.byVisitorType ?? {}
 
   return (
@@ -28,6 +40,7 @@ export default function BoothStats() {
       <Link to={role === 'admin' ? `/booth?boothId=${boothId}` : '/booth'} className="text-sm text-navy-soft">← Booth screen</Link>
       <div className="stamp-text mt-3" style={{ color: booth.accentColor }}>{booth.location} · worth {booth.points} points</div>
       <h1 className="text-2xl font-bold">{booth.nameEn}</h1>
+      <DataErrors className="mt-3" />
 
       <section className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
         <Fig value={fmt(stat?.stamps)} label="Visitors stamped" accent={booth.accentColor} />
@@ -36,7 +49,20 @@ export default function BoothStats() {
       </section>
 
       <section className="card mt-4">
-        <h2 className="stamp-text text-navy-soft">Visitors per hour · {today}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="stamp-text text-navy-soft">Visitors per hour · Day {dayIndex}</h2>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1" role="tablist" aria-label="Day">
+              {days.map((d, i) => (
+                <button key={d} role="tab" aria-selected={d === day} onClick={() => setPicked(d)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium ${d === day ? 'bg-navy text-paper' : 'bg-navy/5 text-navy-soft hover:bg-navy/10'}`}>
+                  Day {i + 1}
+                </button>
+              ))}
+            </div>
+            <CsvButton rows={hourly.map((h) => ({ day, hour: h.hour, visitors: h.visitors }))} name={`${boothId}-hourly-${day}`} />
+          </div>
+        </div>
         <div className="mt-3 h-52">
           <ResponsiveContainer>
             <BarChart data={hourly} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>

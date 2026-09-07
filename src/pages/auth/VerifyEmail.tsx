@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCooldown } from '../../lib/useCooldown'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { authError, sendVerification } from '../../lib/authActions'
@@ -18,7 +19,8 @@ export default function VerifyEmail() {
   const nav = useNavigate()
   const loc = useLocation()
   const from = (loc.state as { from?: string } | null)?.from
-  const [left, setLeft] = useState(COOLDOWN)
+  // A mail has just gone out (sign-up sent it), so the countdown is running on arrival.
+  const { left, start } = useCooldown(COOLDOWN, true)
   const [note, setNote] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -36,12 +38,6 @@ export default function VerifyEmail() {
     return () => clearInterval(id)
   }, [user, emailVerified, check])
 
-  useEffect(() => {
-    if (left <= 0) return
-    const id = setTimeout(() => setLeft((n) => n - 1), 1000)
-    return () => clearTimeout(id)
-  }, [left])
-
   if (!ready) return <Spinner label="Checking your account…" />
   if (!user) return <Navigate to="/signin" replace />
   if (emailVerified) return <Navigate to={from ?? '/'} replace />
@@ -51,7 +47,7 @@ export default function VerifyEmail() {
     try {
       await sendVerification(auth.currentUser!)
       setNote('Sent. Give it a minute, then check your spam folder too.')
-      setLeft(COOLDOWN)
+      start()
     } catch (e) { setErr(authError(e)) } finally { setBusy(false) }
   }
 

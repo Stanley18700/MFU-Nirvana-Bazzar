@@ -2,8 +2,10 @@ import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { addPassword, authError, changeEmail, changePassword, hasGoogle, hasPassword, reauthenticate, sendVerification } from '../../lib/authActions'
-import { auth } from '../../lib/firebase'
-import { api } from '../../lib/api'
+import { doc } from 'firebase/firestore'
+import { auth, db } from '../../lib/firebase'
+import { api, errorMessage } from '../../lib/api'
+import { ms, useDoc } from '../../lib/data'
 import { Notice, Spinner } from '../../components/ui'
 
 const MIN_PASSWORD = 8
@@ -232,19 +234,41 @@ function AddPassword() {
   )
 }
 
-/** §10 — the PDPA erasure request already wired to a callable; the account page is where people look for it. */
+/**
+ * §10 — the PDPA erasure request. The request document is read back, so a filed request is
+ * shown (with its date) instead of the button on every device, and a failed call is reported
+ * rather than dressed up as success.
+ */
 function EraseData() {
-  const [state, setState] = useState<'idle' | 'confirm' | 'busy' | 'sent'>('idle')
-  if (state === 'sent') return <Notice tone="green">Erasure requested. The organisers will remove your details after the event.</Notice>
-  if (state === 'idle') return <button className="text-xs text-navy-soft underline" onClick={() => setState('confirm')}>Ask for my data to be deleted</button>
+  const { user } = useAuth()
+  const { data: req, loading } = useDoc<{ status: string; requestedAt: unknown }>(user ? doc(db, 'erasureRequests', user.uid) : null, [user?.uid], 'your erasure request')
+  const [state, setState] = useState<'idle' | 'confirm' | 'busy'>('idle')
+  const [err, setErr] = useState<string | null>(null)
+
+  if (req) {
+    const when = ms(req.requestedAt)
+    const date = when ? new Date(when).toLocaleDateString('en-GB', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', year: 'numeric' }) : null
+    return (
+      <Notice tone="amber">
+        Erasure requested{date ? ` on ${date}` : ''}. The organisers will delete your account; you can keep using your passport until then.
+      </Notice>
+    )
+  }
+  if (state === 'idle') return <button className="text-xs text-navy-soft underline" disabled={loading} onClick={() => setState('confirm')}>Ask for my data to be deleted</button>
   return (
     <div className="flex flex-col gap-2">
-      <Notice tone="amber">This asks the organisers to erase your registration and stamps. It cannot be undone.</Notice>
+      <Notice tone="amber">
+        What happens next: the organisers see your request in the admin console and delete your registration,
+        your stamps and your sign-in account. Booth totals stay — they hold nothing about you. You will be
+        signed out when it is done. This cannot be undone.
+      </Notice>
+      {err && <Notice tone="red">{err}</Notice>}
       <div className="flex gap-2">
         <button className="btn-danger flex-1" disabled={state === 'busy'} onClick={async () => {
-          setState('busy'); await api.requestErasure({}).catch(() => undefined); setState('sent')
-        }}>Request erasure</button>
-        <button className="btn-ghost" onClick={() => setState('idle')}>Cancel</button>
+          setState('busy'); setErr(null)
+          try { await api.requestErasure({}) } catch (e) { setErr(errorMessage(e)); setState('confirm') }
+        }}>{state === 'busy' ? 'Sending…' : 'Request erasure'}</button>
+        <button className="btn-ghost" disabled={state === 'busy'} onClick={() => setState('idle')}>Cancel</button>
       </div>
     </div>
   )

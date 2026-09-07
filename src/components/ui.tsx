@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode, type RefObject } from 'react'
 import { NavLink } from 'react-router-dom'
+import { downloadCsv, type CsvRow } from '../lib/csv'
+import { useDataErrors } from '../lib/data'
 
 export function Fig({ value, label, accent, sub }: { value: ReactNode; label: string; accent?: string; sub?: ReactNode }) {
   return (
@@ -28,6 +30,96 @@ export function Notice({ tone = 'info', children }: { tone?: 'info' | 'amber' | 
     green: 'bg-jade/12 text-[#125a47]',
   }[tone]
   return <div className={`rounded-xl px-4 py-3 text-sm ${cls}`} role="status">{children}</div>
+}
+
+/** Notice is tuned for the paper background; this one for the navy auth screens and the booth display. */
+export function DarkNotice({ tone = 'info', children }: { tone?: 'info' | 'amber' | 'red' | 'green'; children: ReactNode }) {
+  const cls = {
+    info: 'bg-paper/10 text-paper/90',
+    amber: 'bg-amber/20 text-amber',
+    red: 'bg-vermilion/20 text-[#ffc9bf]',
+    green: 'bg-jade/20 text-[#9fe3cd]',
+  }[tone]
+  return <div className={`rounded-xl px-4 py-3 text-sm ${cls}`} role="status">{children}</div>
+}
+
+/**
+ * Download a panel as CSV. Disabled, with the reason in the tooltip, when there is nothing to
+ * export — clicking used to do nothing at all, which read as a broken button. `confirm` asks
+ * before exporting anything that carries personal or sensitive data (spec §4.1, §10).
+ */
+export function CsvButton({ rows, name, label = 'CSV', confirm, columns, className = '' }: {
+  rows: CsvRow[]; name: string; label?: string; confirm?: string; columns?: string[]; className?: string
+}) {
+  const empty = rows.length === 0
+  const title = empty ? 'Nothing to export yet' : `Download ${rows.length} row${rows.length === 1 ? '' : 's'} as CSV`
+  return (
+    <span title={title} className="inline-flex">
+      <button type="button" disabled={empty} aria-label={`${label}: ${title}`}
+        className={`text-xs font-medium text-navy-soft underline hover:text-navy disabled:cursor-not-allowed disabled:no-underline disabled:opacity-45 ${className}`}
+        onClick={() => { if (confirm && !window.confirm(confirm)) return; downloadCsv(rows, name, columns) }}>
+        {label}
+      </button>
+    </span>
+  )
+}
+
+/**
+ * Copy to the clipboard with feedback. The clipboard API needs a secure context and a user
+ * gesture; when it refuses, the text in `inputRef` is selected (and the legacy copy command
+ * tried) so the user can still copy by hand.
+ */
+export function CopyButton({ text, inputRef, className = 'btn-ghost' }: { text: string; inputRef?: RefObject<HTMLInputElement | null>; className?: string }) {
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
+  useEffect(() => {
+    if (state === 'idle') return
+    const id = setTimeout(() => setState('idle'), 2500)
+    return () => clearTimeout(id)
+  }, [state])
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text)
+      setState('copied')
+    } catch {
+      const el = inputRef?.current
+      el?.focus(); el?.select()
+      let ok = false
+      try { ok = document.execCommand('copy') } catch { /* not available */ }
+      setState(ok ? 'copied' : 'failed')
+    }
+  }
+  return (
+    <button type="button" className={className} onClick={copy} aria-live="polite">
+      {state === 'copied' ? 'Copied' : state === 'failed' ? 'Select and copy' : 'Copy'}
+    </button>
+  )
+}
+
+const DATA_ERROR_TEXT: Record<string, (what: string) => string> = {
+  'permission-denied': (w) => `You are not allowed to read ${w}. Sign out and back in; if it persists, the security rules need a fix.`,
+  'failed-precondition': (w) => `Loading ${w} needs a database index that is not deployed yet (see firestore.indexes.json).`,
+  unavailable: (w) => `Offline — showing the last saved copy of ${w}.`,
+}
+
+/** One listener's failure, as a sentence a tester can act on. Renders nothing when there is no error. */
+export function DataError({ error, what = 'this data', dark }: { error: string | null | undefined; what?: string; dark?: boolean }) {
+  if (!error) return null
+  const text = (DATA_ERROR_TEXT[error] ?? ((w: string) => `Could not load ${w} (${error}).`))(what)
+  const tone = error === 'unavailable' ? 'amber' : 'red'
+  return dark ? <DarkNotice tone={tone}>{text}</DarkNotice> : <Notice tone={tone}>{text}</Notice>
+}
+
+/** Every live listener on the page that is currently failing (see useDataErrors in lib/data). */
+export function DataErrors({ dark, className = '' }: { dark?: boolean; className?: string }) {
+  const errs = useDataErrors()
+  const seen = new Set<string>()
+  const list = errs.filter((e) => { const k = `${e.code}|${e.what}`; if (seen.has(k)) return false; seen.add(k); return true })
+  if (!list.length) return null
+  return (
+    <div className={`flex flex-col gap-2 ${className}`}>
+      {list.map((e) => <DataError key={`${e.code}|${e.what}`} error={e.code} what={e.what} dark={dark} />)}
+    </div>
+  )
 }
 
 export function TabBar({ tabs }: { tabs: Array<{ to: string; label: string; icon: ReactNode; end?: boolean }> }) {
