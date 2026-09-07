@@ -1,6 +1,7 @@
 # Handover — MFU Go Global Passport
 
 **Status date:** 7 September 2026 · **Branch:** `proto1.0` · **Event:** 16–18 September 2026
+**Live:** https://mfu-passport.web.app — deployed and seeded 7 September 2026
 **Deadline that matters:** a live demo for the supervisor, ~7–9 September.
 
 Read this first, then `SETUP.md` (deploy steps) and `spec/spec.md` (the product spec, which the
@@ -29,19 +30,25 @@ builds cleanly but **has never been run against a Firebase project.** That is th
 | Live prize stock on the visitor's side | **Built.** Exact count on every tier, always |
 | Mobile layout for every non-admin screen | **Done.** `xs` breakpoint added; booth kiosk, stamp grid, scanner, prize page and prize desk fixed at 320px |
 | Firebase project | Exists: **`mfu-passport`** (Stanley's personal Google account). Web app config partly known — see §5 |
-| Console setup (Auth providers, Firestore, Storage, Blaze) | **Unverified** — nobody has confirmed these are enabled |
-| `.env.local`, `functions/.env` | `functions/.env` exists. `.env.local` still to be copied from `.env.local.example`, which now has the full web config |
-| Secrets (`ADMIN_BOOTSTRAP_KEY`, `EMAILJS_PRIVATE_KEY`) | Not set |
+| Console setup (Auth providers, Firestore, Storage, Blaze) | **Done** — verified by a successful deploy and seed |
+| `.env.local`, `functions/.env` | Both exist and are correct |
+| Secrets (`ADMIN_BOOTSTRAP_KEY`, `EMAILJS_PRIVATE_KEY`) | Both set in Secret Manager. `EMAILJS_PRIVATE_KEY` is the placeholder `none`, so invites show a copyable link instead of emailing — replace it and redeploy the functions when the real key is available |
 | Dependencies installed on the dev machine | Installed in both root and `functions/`. Firebase CLI 15.29, Java 21 present |
-| Deployed | **Never** |
-| Seeded (12 booths, 3 tiers, reference lists) | Emulator yes; real project never |
-| Runtime testing against **real Firestore** | **Still none.** The emulator pass above removes most of the risk, but expect a missing composite index or a rules surprise on first deploy |
+| Deployed | **Yes, 7 Sep** — https://mfu-passport.web.app. All 38 functions, rules, indexes, storage rules |
+| Seeded (12 booths, 3 tiers, reference lists) | **Yes, 7 Sep** — 12 booths (190 points on the floor, see SETUP.md §4), 3 tiers at full stock, all three refData lists |
+| Runtime testing against **real Firestore** | **Partial.** Verified live: the live event document reads without auth, 12 booths, 3 tiers, refData, and `boothSecrets` + `stats` correctly denied to a visitor. The scan/redeem loop on real devices is still untested |
 | Tested on a real phone camera | No |
 | Committed to git | Committed on `proto1.0`. Push to `github.com/cnacha-mfu/mfupassport` tree `proto1.0` |
 | Stray files to delete | `app-src.tgz`, `mfupassport-app.tgz` in the repo root (transfer leftovers, gitignored) |
-| Remaining blockers | The Firebase console work in §3 — Auth providers, Firestore + Storage in `asia-southeast1`, Blaze billing, and the two secrets. All of it is yours to do; none of it is code |
+| Remaining blockers | None for the demo. Open: the first admin still has to be created at `/setup`, and the loop has not been walked on real phones |
 
 ## 3. Steps left, in order
+
+> **Steps 1–6 are done as of 7 September** — the project is deployed and seeded at
+> https://mfu-passport.web.app. What is actually left is step 7 onward: create the first admin
+> at `/setup`, walk the loop on real devices, and prepare the demo. The list below is kept as
+> the record of what was done, and as the recipe for standing the app up on the university's
+> Firebase project later (§7).
 
 1. **Firebase console** (Stanley's account for now, university account later — see §7):
    Authentication → enable *Anonymous* and *Email/Password* with *Email link* on; Firestore in

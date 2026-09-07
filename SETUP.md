@@ -73,12 +73,57 @@ firebase deploy                        # hosting + functions + rules + indexes +
 First deploy of functions takes 3–6 minutes and may ask you to enable APIs — answer yes.
 If it complains about **App Check**, that is fine for the prototype; it is not enforced yet.
 
+### The first deploy will probably half-fail — this is normal
+
+On the very first deploy the two Firestore-triggered functions fail while everything else
+succeeds:
+
+```
+Validation failed for trigger …/onuserwrite-…: Invalid resource state for "":
+Permission denied while using the Eventarc Service Agent.
+```
+
+Eventarc's service agent is created on demand and its IAM binding takes a couple of minutes to
+propagate. It is not a code fault. **Wait ~2 minutes and redeploy** — the second attempt
+succeeds:
+
+```bash
+firebase deploy --only functions:onScanCreate,functions:onUserWrite,hosting --force
+```
+
+Include `hosting` in that retry: a functions failure aborts the deploy **before the hosting
+release**, so the site serves Firebase's "Site Not Found" 404 until you deploy hosting again,
+even though the file upload reported success.
+
 ## 4. Seed the event (12 booths, prize tiers, reference lists)
 
 ```bash
 gcloud auth application-default login     # once; or set GOOGLE_APPLICATION_CREDENTIALS to a service-account key
 npm run seed
 ```
+
+The seed writes through the Admin SDK, so it uses **application-default credentials, not your
+`firebase login`**. Those are two separate identities: if ADC belongs to a different Google
+account you get `7 PERMISSION_DENIED — Missing or insufficient permissions`, even though
+`firebase deploy` works perfectly. Check with `gcloud auth list` before blaming the code, and
+re-authenticate for the right account:
+
+```bash
+gcloud auth application-default login --account=<you>@mfu.ac.th
+```
+
+Note this overwrites the machine's ADC for every tool that uses it, so if the existing
+credentials matter, copy `%APPDATA%\gcloud\application_default_credentials.json` aside first
+and put it back afterwards.
+
+> **The seed puts 190 points on the floor, not the 170 the spec claims.** Its zone split is
+> 3 entrance / 4 middle / 5 far (3x10 + 4x15 + 5x20 = 190); `spec/spec.md` §6.6 describes
+> 170, which implies 5 / 4 / 3. Nothing breaks — every tier is still reachable, with 40 points
+> of slack above the top threshold instead of 20 — but more of the hall's value sits in the far
+> corner than the spec's design intended. This is spec §13's open "sanity-check zone/point
+> values against the real floor plan", and it needs the planners to settle it: either re-zone
+> the booths in **Admin → Booths** or correct the spec and README. Points are now event data,
+> so either fix is a few clicks, not a redeploy.
 
 (`gcloud` comes with the Google Cloud SDK. Alternative without it: in the Firebase console →
 Project settings → Service accounts → *Generate new private key*, save it outside the repo, then
