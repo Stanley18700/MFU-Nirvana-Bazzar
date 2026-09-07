@@ -22,6 +22,7 @@ import RedeemLanding from './pages/organizer/RedeemLanding'
 import AdminLayout from './pages/admin/AdminLayout'
 import Dashboard from './pages/admin/Dashboard'
 import EventAdmin from './pages/admin/Event'
+import RefData from './pages/admin/RefData'
 import Users from './pages/admin/Users'
 import Booths from './pages/admin/Booths'
 import Prizes from './pages/admin/Prizes'
@@ -78,6 +79,7 @@ export default function App() {
           <Route path="event" element={<EventAdmin />} />
           <Route path="booths" element={<Booths />} />
           <Route path="prizes" element={<Prizes />} />
+          <Route path="refdata" element={<RefData />} />
           <Route path="draw" element={<Draw />} />
           <Route path="audit" element={<Audit />} />
         </Route>

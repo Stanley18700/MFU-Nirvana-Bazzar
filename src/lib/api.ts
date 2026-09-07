@@ -26,7 +26,8 @@ export const api = {
   join: call<JoinInput, { ok: true; passportNo: string; existing: boolean }>('join'),
   scan: call<{ payload: string }, ScanResult>('scan'),
   redemptionCode: call<Record<string, never>, { code: string; counter: number; period: number; payload: string; serverTime: number }>('redemptionCode'),
-  requestRestore: call<{ contact: string }, { ok: true }>('requestRestore'),
+  /** Deprecated — /restore uses Firebase's own password-reset mail. See functions/src/visitor.ts. */
+  requestRestore: call<{ contact: string }, { ok: true; mailed: boolean }>('requestRestore'),
   requestErasure: call<Record<string, never>, { ok: true }>('requestErasure'),
   // organizer
   boothSession: call<{ boothId?: string }, { boothId: string; booth: Record<string, unknown>; secret: string; period: number; serverTime: number }>('boothSession'),
@@ -45,6 +46,11 @@ export const api = {
   rotateBoothSecret: call<{ id: string }, { ok: true }>('rotateBoothSecret'),
   savePrizePolicy: call<{ tiers: TierInput[]; dryRun?: boolean }, { ok?: true; preview: Record<string, number>; available: number }>('savePrizePolicy'),
   adjustStock: call<{ tierId: string; delta: number; reason: string; kind?: 'load-in' | 'restock' | 'correction' }, { ok: true }>('adjustStock'),
+  saveRefData: call<
+    { name: 'institutions' | 'mfuSchools' } & { list: string[] }
+    | { name: 'ethnicGroups'; byCountry: Record<string, string[]> },
+    { ok: true; count?: number; countries?: number }
+  >('saveRefData'),
   runDraw: call<{ count: number }, { winners: Array<{ uid: string; displayName: string; passportNo: string }>; poolSize: number }>('runDraw'),
   inviteOrganizer: call<{ invites: Array<{ name: string; email: string; boothId?: string; role?: Role }> }, { results: Array<{ inviteId: string; email: string; mailed: boolean; link?: string }>; mailConfigured: boolean }>('inviteOrganizer'),
   resendInvite: call<{ inviteId: string }, { mailed: boolean; link?: string }>('resendInvite'),

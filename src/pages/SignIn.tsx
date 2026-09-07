@@ -6,10 +6,14 @@ import { useAuth } from '../lib/auth'
 import { Crest, Notice, Spinner } from '../components/ui'
 
 /**
- * Staff sign-in. Organizers normally arrive through an emailed invitation (§6.4) and never see
- * a password field, but an admin needs a login that is not tied to one browser's anonymous
- * account — clearing site data would otherwise cost them the panel, and `bootstrapAdmin` is
- * one-shot by design.
+ * Email and password sign-in, for two audiences.
+ *
+ * An admin needs a login that is not tied to one browser's anonymous account, because `/setup`
+ * upgrades whichever browser used the bootstrap key and the key is one-shot. And a visitor
+ * restoring a passport (§4.1) arrives here after setting a password, which signs them back into
+ * their original account rather than a new empty one.
+ *
+ * Booth organizers never see this — they arrive through an emailed invitation (§6.4).
  */
 export default function SignIn() {
   const { ready, role, refreshClaims } = useAuth()
@@ -64,8 +68,11 @@ export default function SignIn() {
       <div className="fixed inset-0 -z-10 bg-navy" aria-hidden />
       <main className="mx-auto flex min-h-full max-w-md flex-col justify-center px-6 py-10 text-paper">
         <div className="flex justify-center"><Crest className="h-20 w-20 text-gold" /></div>
-        <div className="mt-6 stamp-text text-center text-gold">Staff sign-in</div>
-        <h1 className="mt-1 text-center text-2xl font-bold">Passport admin</h1>
+        <div className="mt-6 stamp-text text-center text-gold">MFU Go Global</div>
+        <h1 className="mt-1 text-center text-2xl font-bold">Sign in</h1>
+        <p className="mt-2 text-center text-sm text-paper/70">
+          Event staff, or a visitor restoring a passport.
+        </p>
 
         <form onSubmit={submit} className="mt-6 flex flex-col gap-3">
           <label className="text-sm">Email
@@ -88,6 +95,8 @@ export default function SignIn() {
 
         <p className="mt-8 text-center text-xs text-paper/50">
           Booth organizers do not need this — open the link in your invitation email instead.
+          <br />
+          Lost access to your passport? <Link to="/restore" className="underline">Restore it here</Link>
           <br />
           <Link to="/" className="underline">Back to the passport</Link>
         </p>

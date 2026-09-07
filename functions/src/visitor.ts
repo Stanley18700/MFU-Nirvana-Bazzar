@@ -235,17 +235,30 @@ export async function verifyRedemptionPayload(payload: string): Promise<{ uid: s
   return constantTimeEqual(expected, code.toUpperCase()) ? { uid } : null
 }
 
-/** §4.1 — restore on a new device. v1: issues a sign-in link via the mailer (see admin.ts). */
+/**
+ * §4.1 — restore on a new device, via the EmailJS mailer.
+ *
+ * The client no longer calls this. It reported `{ ok: true }` whether or not a mail went out,
+ * so with `EMAILJS_TEMPLATE_RESTORE` unset the visitor was told to check an inbox that would
+ * never receive anything. Worse, the link it issued signed them into a *new* uid, leaving their
+ * stamps behind on the original anonymous account and dead-ending at `join`, which refuses a
+ * contact that already has a passport.
+ *
+ * `/restore` now uses Firebase Auth's own password-reset mail against the email credential that
+ * `join` links onto the visitor's own account, so it needs no third-party mailer and lands on
+ * the right uid. This is kept only for a caller that still expects it, and now reports honestly
+ * whether anything was sent.
+ */
 export const requestRestore = onCall(async (req) => {
   const contact = str(req.data?.contact, 'contact', { max: 120 }).toLowerCase()
   const { ipPrefix } = clientFingerprint(req)
   if (!(await rateLimit(`restore_${ipPrefix}`, 5, 3600))) throw new HttpsError('resource-exhausted', 'Too many attempts')
   const q = await db.collection('users').where('contact', '==', contact).limit(1).get()
-  // Always answer the same way so contacts cannot be enumerated.
-  if (q.empty) return { ok: true }
+  // Never reveal whether the contact exists (§10) — only whether mail is configured at all.
+  if (q.empty) return { ok: true, mailed: false }
   const { sendRestoreLink } = await import('./mailer')
-  await sendRestoreLink(contact, q.docs[0].id).catch(() => undefined)
-  return { ok: true }
+  const mailed = await sendRestoreLink(contact, q.docs[0].id).catch(() => false)
+  return { ok: true, mailed }
 })
 
 /** §10 — self-service PDPA erasure request. */

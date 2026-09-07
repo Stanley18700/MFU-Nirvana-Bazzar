@@ -11,6 +11,7 @@ const NAV = [
   { to: '/admin/users', label: 'Users & invites' },
   { to: '/admin/prizes', label: 'Prizes & stock' },
   { to: '/admin/draw', label: 'Stage draw' },
+  { to: '/admin/refdata', label: 'Reference lists' },
   { to: '/admin/audit', label: 'Audit log' },
 ]
 

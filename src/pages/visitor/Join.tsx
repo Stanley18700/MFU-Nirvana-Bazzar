@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { api, errorMessage } from '../../lib/api'
+import { linkEmailForRestore } from '../../lib/linkEmail'
+import { auth } from '../../lib/firebase'
 import { useEthnicGroups, useRefList } from '../../lib/data'
 import { COUNTRIES, PINNED_COUNTRIES, countryName } from '../../lib/countries'
 import { Notice, Spinner } from '../../components/ui'
@@ -60,6 +62,9 @@ export default function Join() {
         ethnicGroup: f.ethnicGroup || undefined, ethnicConsent: f.ethnicConsent,
         contact: f.contact, consent: true,
       })
+      // §4.1 — give the passport a way home. Non-fatal: registration must not fail because
+      // the credential could not be linked, and `join` has already succeeded by this point.
+      if (auth.currentUser) await linkEmailForRestore(auth.currentUser, f.contact)
       await refreshClaims()
       nav(from ?? '/passport', { replace: true })
     } catch (e) {

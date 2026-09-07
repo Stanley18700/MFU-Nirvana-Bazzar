@@ -326,6 +326,62 @@ export const runDraw = onCall(async (req) => {
   return { winners: names, poolSize: pool.size }
 })
 
+// ---------- reference data (§4.1) ----------
+
+/**
+ * §4.1 / §13 — the institution, MFU school and ethnic-group suggestion lists. These were
+ * writable only by re-running the seed, which needs a developer with application-default
+ * credentials. The Office of International Affairs has to be able to revise the ethnic-group
+ * lists (§10 — sensitive data under PDPA s.26) without that, and the institution list changes
+ * whenever a new university is invited.
+ *
+ * `refData/*` is world-readable by design (the registration form reads it before sign-in), so
+ * these are suggestion lists only — never a security boundary. The form accepts free text.
+ */
+export const saveRefData = onCall(async (req) => {
+  const { uid: actor } = requireRole(req, 'admin')
+  const name = str(req.data?.name, 'name')
+  if (!['institutions', 'mfuSchools', 'ethnicGroups'].includes(name)) {
+    throw new HttpsError('invalid-argument', 'Unknown reference list')
+  }
+  const ref = db.doc(`refData/${name}`)
+  const before = (await ref.get()).data() ?? null
+
+  const clean = (v: unknown, field: string) => {
+    if (!Array.isArray(v)) throw new HttpsError('invalid-argument', `${field} must be a list`)
+    // Trim and drop blanks before validating: `str()` treats an empty string as missing and
+    // throws, and a pasted list routinely has trailing blank lines.
+    const trimmed = (v as unknown[])
+      .map((x) => (typeof x === 'string' ? x.trim() : ''))
+      .filter((x) => x.length > 0)
+      .map((x) => str(x, field, { max: 120 }))
+    const out = [...new Set(trimmed)]
+    if (out.length > 400) throw new HttpsError('invalid-argument', `${field} is too long`)
+    return out.sort((a, b) => a.localeCompare(b))
+  }
+
+  if (name === 'ethnicGroups') {
+    // Shape is { [ISO 3166-1 alpha-2]: string[] } — one list per country of origin.
+    const src = (req.data?.byCountry ?? {}) as Record<string, unknown>
+    const byCountry: Record<string, string[]> = {}
+    for (const [code, list] of Object.entries(src)) {
+      const cc = code.toUpperCase()
+      if (!/^[A-Z]{2}$/.test(cc)) throw new HttpsError('invalid-argument', `Bad country code: ${code}`)
+      const cleaned = clean(list, `ethnicGroups.${cc}`)
+      if (cleaned.length) byCountry[cc] = cleaned
+    }
+    if (Object.keys(byCountry).length > 60) throw new HttpsError('invalid-argument', 'Too many countries')
+    await ref.set(byCountry)
+    await audit(actor, 'saveRefData', 'refData', name, before, byCountry)
+    return { ok: true, countries: Object.keys(byCountry).length }
+  }
+
+  const list = clean(req.data?.list, name)
+  await ref.set({ list })
+  await audit(actor, 'saveRefData', 'refData', name, before, { list })
+  return { ok: true, count: list.length }
+})
+
 // ---------- invitations (§6.4) ----------
 
 /**
