@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
-import { api, errorMessage } from '../../lib/api'
+import { api, friendlyError } from '../../lib/api'
 import { authError, signInWithGoogle } from '../../lib/authActions'
 import { useEvent } from '../../lib/data'
 import { eventDateLine } from '../../lib/eventText'
@@ -24,7 +24,7 @@ export default function Invite() {
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  useEffect(() => { api.inviteInfo({ token }).then(setInfo).catch((e) => setErr(errorMessage(e))) }, [token])
+  useEffect(() => { api.inviteInfo({ token }).then(setInfo).catch((e) => setErr(friendlyError(e))) }, [token])
 
   const invited = info && info.status === 'ok' ? info.email : null
   const signedInAs = user?.email?.toLowerCase() ?? null
@@ -37,11 +37,12 @@ export default function Invite() {
 
   async function accept() {
     setBusy(true); setErr(null)
-    try {
-      const r = await api.acceptInvite({ token })
-      await refreshClaims()
-      nav(r.role === 'admin' ? '/admin' : '/booth', { replace: true })
-    } catch (e) { setErr(errorMessage(e)) } finally { setBusy(false) }
+    let r: Awaited<ReturnType<typeof api.acceptInvite>>
+    try { r = await api.acceptInvite({ token }) } catch (e) { setErr(friendlyError(e)); setBusy(false); return }
+    // The invitation is consumed at this point. A token refresh that fails (flaky venue Wi-Fi)
+    // must not read as "accept failed": the claims arrive on the next focus anyway.
+    try { await refreshClaims() } catch { /* picked up by the periodic refresh */ }
+    nav(r.role === 'admin' ? '/admin' : '/booth', { replace: true })
   }
 
   return (
@@ -73,9 +74,9 @@ export default function Invite() {
                 <p className="text-sm text-paper/70">Sign in as <b className="text-paper">{info.email}</b> to accept.</p>
                 <GoogleButton onClick={google} busy={busy} label="Continue with Google" />
                 <Link to="/signin" state={{ from: `/invite/${token}`, email: info.email }}
-                  className="btn-ghost bg-paper/10 text-paper hover:bg-paper/20">Use an email and password</Link>
+                  className="btn-dark">Use an email and password</Link>
                 <Link to="/signup" state={{ from: `/invite/${token}`, email: info.email }}
-                  className="text-center text-xs text-paper/55 underline hover:text-paper">No account for that address yet? Create one</Link>
+                  className="link self-center text-center text-xs text-paper/55 hover:text-paper">No account for that address yet? Create one</Link>
               </div>
             ) : wrongAccount ? (
               <div className="mt-6 flex flex-col gap-3">
@@ -105,5 +106,5 @@ export default function Invite() {
 
 function SignOutButton() {
   const { signOut } = useAuth()
-  return <button className="text-center text-xs text-paper/55 underline hover:text-paper" onClick={() => void signOut()}>Sign out of this device</button>
+  return <button className="btn-dark btn-sm self-center" onClick={() => void signOut()}>Sign out of this device</button>
 }

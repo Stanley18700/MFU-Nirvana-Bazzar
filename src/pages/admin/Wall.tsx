@@ -43,7 +43,7 @@ export default function Wall() {
       <header className="flex items-center justify-between">
         <div><div className="stamp-text text-[1.2vw] text-gold">{event.nameEn}</div><h1 className="text-[3vw] font-bold leading-none">Passport live</h1></div>
         <div className="flex items-center gap-[1.5vw]">
-          {!fs && <button className="rounded-lg border border-white/20 px-[1.2vw] py-[0.6vh] text-[1.1vw] text-paper/80 hover:bg-white/10" onClick={goFull}>Full screen</button>}
+          {!fs && <button className="btn-dark px-[1.2vw] py-[0.6vh] text-[1.1vw]" onClick={goFull}>Full screen</button>}
           <Crest className="h-[8vw] w-[8vw] text-gold" />
         </div>
       </header>
@@ -79,7 +79,7 @@ export default function Wall() {
       </section>
       <footer className="stamp-text flex items-center justify-between gap-4 text-[1vw] text-paper/40">
         <span>Scan the QR at the welcome sign to start your passport · mfupassport.web.app</span>
-        <span>{hint ?? (fs ? 'Esc leaves full screen' : 'Press F for full screen')} · <Link to="/admin" className="underline">admin</Link></span>
+        <span>{hint ?? (fs ? 'Esc leaves full screen' : 'Press F for full screen')} · <Link to="/admin" className="link">admin</Link></span>
       </footer>
     </main>
   )

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode, type RefObject } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { NavLink } from 'react-router-dom'
 import { downloadCsv, type CsvRow } from '../lib/csv'
 import { useDataErrors } from '../lib/data'
@@ -22,14 +22,85 @@ export function Spinner({ label = 'Loading…' }: { label?: string }) {
   )
 }
 
-export function Notice({ tone = 'info', children }: { tone?: 'info' | 'amber' | 'red' | 'green'; children: ReactNode }) {
-  const cls = {
-    info: 'bg-stamp-blue/10 text-seal',
-    amber: 'bg-amber/15 text-[#8a4a12]',
-    red: 'bg-vermilion/12 text-[#8f2a1c]',
-    green: 'bg-jade/12 text-[#125a47]',
-  }[tone]
-  return <div className={`rounded-xl px-4 py-3 text-sm ${cls}`} role="status">{children}</div>
+export type Tone = 'info' | 'amber' | 'red' | 'green'
+/** One result message, as every admin page keeps it in state. */
+export type Msg = { tone: 'green' | 'amber' | 'red'; text: string }
+
+const TONE: Record<Tone, string> = {
+  info: 'bg-stamp-blue/10 text-seal',
+  amber: 'bg-amber/15 text-[#8a4a12]',
+  red: 'bg-vermilion/12 text-[#8f2a1c]',
+  green: 'bg-jade/12 text-[#125a47]',
+}
+
+export function Notice({ tone = 'info', children }: { tone?: Tone; children: ReactNode }) {
+  return <div className={`rounded-xl px-4 py-3 text-sm ${TONE[tone]}`} role="status">{children}</div>
+}
+
+/**
+ * The result of an action, pinned to the bottom of the viewport. The admin pages used to render
+ * it at the top of the page, which on a long booth grid was off-screen and on the Users page was
+ * hidden behind the drawer. Green and amber fade after `ms`; red stays until closed.
+ */
+export function Toast({ msg, onClose, ms = 5000 }: { msg: Msg | null; onClose: () => void; ms?: number }) {
+  // Callers pass `() => setMsg(null)` inline; keep the latest without restarting the timer on every render.
+  const close = useRef(onClose)
+  close.current = onClose
+  useEffect(() => {
+    if (!msg || msg.tone === 'red') return
+    const id = setTimeout(() => close.current(), ms)
+    return () => clearTimeout(id)
+  }, [msg, ms])
+  if (!msg) return null
+  return (
+    <div className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex justify-center sm:inset-x-auto sm:right-6 sm:justify-end" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <div role={msg.tone === 'red' ? 'alert' : 'status'} aria-live="polite"
+        className={`pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-xl px-4 py-3 text-sm shadow-lg ring-1 ring-black/10 ${TONE[msg.tone]} page-in`}>
+        <span className="min-w-0 flex-1">{msg.text}</span>
+        <button type="button" onClick={onClose} className="btn-quiet btn-sm btn-icon shrink-0" aria-label="Dismiss">×</button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * A right-hand panel that behaves like a dialog: Escape closes it, focus goes in on open and
+ * comes back to whatever opened it, the page behind stops scrolling.
+ */
+export function Drawer({ title, onClose, children, width = 'max-w-md', actions }: {
+  title: ReactNode; onClose: () => void; children: ReactNode; width?: string; actions?: ReactNode
+}) {
+  const closeRef = useRef<HTMLButtonElement>(null)
+  const titleId = useId()
+  const close = useRef(onClose)
+  close.current = onClose
+  // Runs once per open: re-running on every render would re-grab focus from whatever the user is typing in.
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null
+    closeRef.current?.focus()
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); close.current() } }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+      opener?.focus?.()
+    }
+  }, [])
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end bg-navy-deep/40" onClick={onClose}>
+      <aside role="dialog" aria-modal="true" aria-labelledby={titleId}
+        className={`h-full w-full ${width} overflow-y-auto bg-paper p-5 shadow-2xl page-in`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between gap-3">
+          <button ref={closeRef} type="button" className="btn-quiet btn-sm" onClick={onClose}>Close ✕</button>
+          {actions}
+        </div>
+        <h2 id={titleId} className="mt-2 text-xl font-bold">{title}</h2>
+        {children}
+      </aside>
+    </div>
+  )
 }
 
 /** Notice is tuned for the paper background; this one for the navy auth screens and the booth display. */
@@ -56,7 +127,7 @@ export function CsvButton({ rows, name, label = 'CSV', confirm, columns, classNa
   return (
     <span title={title} className="inline-flex">
       <button type="button" disabled={empty} aria-label={`${label}: ${title}`}
-        className={`text-xs font-medium text-navy-soft underline hover:text-navy disabled:cursor-not-allowed disabled:no-underline disabled:opacity-45 ${className}`}
+        className={`btn-quiet btn-sm ${className}`}
         onClick={() => { if (confirm && !window.confirm(confirm)) return; downloadCsv(rows, name, columns) }}>
         {label}
       </button>
@@ -69,7 +140,7 @@ export function CsvButton({ rows, name, label = 'CSV', confirm, columns, classNa
  * gesture; when it refuses, the text in `inputRef` is selected (and the legacy copy command
  * tried) so the user can still copy by hand.
  */
-export function CopyButton({ text, inputRef, className = 'btn-ghost' }: { text: string; inputRef?: RefObject<HTMLInputElement | null>; className?: string }) {
+export function CopyButton({ text, inputRef, className = 'btn-quiet btn-sm' }: { text: string; inputRef?: RefObject<HTMLInputElement | null>; className?: string }) {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
   useEffect(() => {
     if (state === 'idle') return

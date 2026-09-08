@@ -1,19 +1,20 @@
-import { useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
 import { collection, limit, orderBy, query, where } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { api, errorMessage, type CreateUserInput, type UpdateUserInput } from '../../lib/api'
-import { useBooths, useCollection, useRefList } from '../../lib/data'
-import { CopyButton, Notice } from '../../components/ui'
+import { useBooths, useCollection, useRefList, useTiers } from '../../lib/data'
+import { CopyButton, Drawer, Notice, Toast, type Msg } from '../../components/ui'
 import { COUNTRIES, countryName } from '../../lib/countries'
-import type { InviteDoc, Role, ScanDoc, UserDoc, VisitorType } from '../../../shared/model'
+import { ts } from '../../lib/eventText'
+import { ROLE_LABEL, VISITOR_TYPE_LABEL } from '../../lib/labels'
+import type { InviteDoc, Role, ScanDoc, TierUnlockDoc, UserDoc, VisitorType } from '../../../shared/model'
 
 type Row = UserDoc & { id: string }
 type BoothOpt = { id: string; nameEn: string }
 type ErasureRequest = { uid: string; displayName: string | null; passportNo: string | null; contact: string | null; requestedAt: unknown; status: string }
-type Msg = { tone: 'green' | 'red' | 'amber'; text: string }
 
-const ts = (v: unknown) => (v && typeof (v as { toMillis?: () => number }).toMillis === 'function' ? new Date((v as { toMillis(): number }).toMillis()).toLocaleString('en-GB', { timeZone: 'Asia/Bangkok' }) : '–')
 const VISITOR_TYPES: VisitorType[] = ['student', 'staff', 'alumni', 'guest']
+const ROLES: Role[] = ['visitor', 'organizer', 'admin']
 const PAGE = 50
 /** Firestore has no substring search; while a search is typed the page widens to the whole list (1,500 expected) and filters here. */
 const SEARCH_ALL = 2000
@@ -36,20 +37,26 @@ export default function Users() {
   // The drawer follows the live row, so an edit or a role change shows at once and a hard delete closes it.
   const [openId, setOpenId] = useState<string | null>(null)
   const open = openId ? users.find((u) => u.id === openId) ?? null : null
+  const closeDrawer = useCallback(() => setOpenId(null), [])
   const [msg, setMsg] = useState<Msg | null>(null)
   const [inv, setInv] = useState({ name: '', email: '', boothId: '', role: 'organizer' as Role, bulk: '' })
   const [links, setLinks] = useState<Array<{ email: string; link?: string; mailed: boolean }>>([])
+  const [inviteFilter, setInviteFilter] = useState<'pending' | 'all'>('pending')
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase()
     return s ? users.filter((u) => [u.displayName, u.contact, u.studentId, u.passportNo].some((v) => v?.toLowerCase().includes(s))) : users
   }, [users, q])
+  const shownInvites = inviteFilter === 'all' ? invites : invites.filter((i) => i.status === 'sent' || i.status === 'opened')
 
   const fail = (e: unknown) => setMsg({ tone: 'red', text: errorMessage(e) })
 
   async function changeRole(u: Row, role: Role, boothId?: string) {
+    const boothName = boothId ? booths.find((b) => b.id === boothId)?.nameEn ?? boothId : null
+    const what = role === 'organizer' ? `${ROLE_LABEL.organizer} at ${boothName}` : ROLE_LABEL[role]
     if (role === 'admin' && !window.confirm(`Make ${u.displayName} an admin? They will be able to change every setting.`)) return
-    try { await api.setUserRole({ uid: u.id, role, boothId }); setMsg({ tone: 'green', text: `${u.displayName} is now ${role}. Takes effect on their device within 15 minutes.` }) } catch (e) { fail(e) }
+    if (u.role !== 'visitor' && role === 'visitor' && !window.confirm(`Demote ${u.displayName} to a visitor? Their booth screen and desk stop working within 15 minutes.`)) return
+    try { await api.setUserRole({ uid: u.id, role, boothId }); setMsg({ tone: 'green', text: `${u.displayName} is now ${what}. Takes effect on their device within 15 minutes.` }) } catch (e) { fail(e) }
   }
   async function updateUser(u: Row, patch: Omit<UpdateUserInput, 'uid'>) {
     try { await api.updateUser({ uid: u.id, ...patch }); setMsg({ tone: 'green', text: `${u.displayName} updated.` }) } catch (e) { fail(e); throw e }
@@ -85,13 +92,16 @@ export default function Users() {
     } catch (e) { fail(e) }
   }
   async function revoke(i: InviteDoc & { id: string }) {
+    if (!window.confirm(`Revoke the invitation to ${i.email}? Its link stops working.`)) return
     try { await api.revokeInvite({ inviteId: i.id }); setMsg({ tone: 'green', text: `Invitation to ${i.email} revoked — its link no longer works.` }) } catch (e) { fail(e) }
   }
+
+  const openRow = (id: string) => setOpenId(id)
 
   return (
     <div className="page-in">
       <h1 className="text-2xl font-bold">Users & invitations</h1>
-      {msg && <div className="mt-3"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
+      <Toast msg={msg} onClose={() => setMsg(null)} />
 
       <ErasureInbox requests={erasures} onErase={hardDelete} onDismiss={dismissErasure} />
 
@@ -99,10 +109,10 @@ export default function Users() {
         <h2 className="stamp-text text-navy-soft">Invite booth organizers</h2>
         <p className="mt-1 text-xs text-navy-soft">The link signs them in on the booth device with their own account and opens their screen. Single-use, expires in 14 days or at the end of the event.</p>
         <div className="mt-3 grid gap-2 md:grid-cols-4">
-          <input className="field" placeholder="Name" value={inv.name} onChange={(e) => setInv({ ...inv, name: e.target.value })} />
-          <input className="field" placeholder="Email" type="email" value={inv.email} onChange={(e) => setInv({ ...inv, email: e.target.value })} />
-          <select className="field" value={inv.role} onChange={(e) => setInv({ ...inv, role: e.target.value as Role })}><option value="organizer">Booth organizer</option><option value="admin">Admin</option></select>
-          <select className="field" value={inv.boothId} onChange={(e) => setInv({ ...inv, boothId: e.target.value })} disabled={inv.role === 'admin'}>
+          <input className="field" placeholder="Name" aria-label="Name" value={inv.name} onChange={(e) => setInv({ ...inv, name: e.target.value })} />
+          <input className="field" placeholder="Email" aria-label="Email" type="email" value={inv.email} onChange={(e) => setInv({ ...inv, email: e.target.value })} />
+          <select className="field" aria-label="Role" value={inv.role} onChange={(e) => setInv({ ...inv, role: e.target.value as Role })}><option value="organizer">{ROLE_LABEL.organizer}</option><option value="admin">{ROLE_LABEL.admin}</option></select>
+          <select className="field" aria-label="Booth" value={inv.boothId} onChange={(e) => setInv({ ...inv, boothId: e.target.value })} disabled={inv.role === 'admin'}>
             <option value="">— booth —</option>{booths.map((b) => <option key={b.id} value={b.id}>{b.nameEn}</option>)}
           </select>
         </div>
@@ -116,24 +126,36 @@ export default function Users() {
           </ul>
         )}
         {invites.length > 0 && (
-          <table className="mt-4 w-full text-sm">
-            <thead><tr className="text-left text-xs text-navy-soft"><th className="py-1">Name</th><th>Email</th><th>Booth</th><th>Status</th><th>Sent</th><th></th></tr></thead>
-            <tbody>
-              {invites.map((i) => (
-                <tr key={i.id} className="border-t rule">
-                  <td className="py-1.5">{i.displayName}</td><td className="truncate">{i.email}</td><td>{booths.find((b) => b.id === i.boothId)?.nameEn ?? i.role}</td>
-                  <td><span className={`rounded-full px-2 py-0.5 text-xs ${i.status === 'accepted' ? 'bg-jade/15 text-jade' : i.status === 'opened' ? 'bg-stamp-blue/10 text-seal' : i.status === 'sent' ? 'bg-navy/5' : 'bg-vermilion/10 text-vermilion'}`}>{i.status}</span></td>
-                  <td className="text-xs text-navy-soft">{ts(i.sentAt)}</td>
-                  <td className="text-right text-xs">
-                    {i.status !== 'accepted' && i.status !== 'revoked' && <>
-                      <button className="underline" onClick={() => resend(i)}>Resend</button>{' · '}
-                      <button className="underline text-vermilion" onClick={() => revoke(i)}>Revoke</button>
-                    </>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-navy-soft">
+              <span>Showing {shownInvites.length} of {invites.length} invitation{invites.length === 1 ? '' : 's'}{invites.length >= 100 ? ' (latest 100)' : ''}</span>
+              <div className="flex gap-1" role="tablist" aria-label="Invitation filter">
+                {(['pending', 'all'] as const).map((f) => (
+                  <button key={f} role="tab" aria-selected={inviteFilter === f} onClick={() => setInviteFilter(f)}
+                    className="tab bg-navy/5">{f === 'pending' ? 'Pending' : 'All'}</button>
+                ))}
+              </div>
+            </div>
+            <table className="mt-2 w-full text-sm">
+              <thead><tr className="text-left text-xs text-navy-soft"><th className="py-1">Name</th><th>Email</th><th>Booth</th><th>Status</th><th>Sent</th><th></th></tr></thead>
+              <tbody>
+                {shownInvites.map((i) => (
+                  <tr key={i.id} className="border-t rule">
+                    <td className="py-1.5">{i.displayName}</td><td className="truncate">{i.email}</td><td>{booths.find((b) => b.id === i.boothId)?.nameEn ?? ROLE_LABEL[i.role]}</td>
+                    <td><span className={`rounded-full px-2 py-0.5 text-xs ${i.status === 'accepted' ? 'bg-jade/15 text-jade' : i.status === 'opened' ? 'bg-stamp-blue/10 text-seal' : i.status === 'sent' ? 'bg-navy/5' : 'bg-vermilion/10 text-vermilion'}`}>{i.status}</span></td>
+                    <td className="text-xs text-navy-soft">{ts(i.sentAt)}</td>
+                    <td className="text-right text-xs">
+                      {i.status !== 'accepted' && i.status !== 'revoked' && <div className="flex justify-end gap-1">
+                        <button className="btn-quiet btn-sm" onClick={() => resend(i)}>Resend</button>
+                        <button className="btn-danger-soft btn-sm" onClick={() => revoke(i)}>Revoke</button>
+                      </div>}
+                    </td>
+                  </tr>
+                ))}
+                {shownInvites.length === 0 && <tr><td colSpan={6} className="py-3 text-center text-xs text-navy-soft">No pending invitations.</td></tr>}
+              </tbody>
+            </table>
+          </>
         )}
       </section>
 
@@ -142,18 +164,20 @@ export default function Users() {
       <section className="card mt-4">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="stamp-text mr-auto text-navy-soft">Users</h2>
-          <input className="field w-56" placeholder="Search name, ID, passport, contact" value={q} onChange={(e) => setQ(e.target.value)} />
-          <select className="field w-40" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | 'all')}><option value="all">All roles</option><option value="visitor">Visitors</option><option value="organizer">Organizers</option><option value="admin">Admins</option></select>
+          <input className="field w-56" placeholder="Search name, ID, passport, contact" aria-label="Search users" value={q} onChange={(e) => setQ(e.target.value)} />
+          <select className="field w-44" aria-label="Filter by role" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | 'all')}><option value="all">All roles</option>{ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}s</option>)}</select>
         </div>
-        <p className="mt-1 text-xs text-navy-soft">{searching ? `Searching all ${users.length.toLocaleString('en-US')} users` : `Showing the latest ${Math.min(users.length, pageSize)}`}</p>
+        <p className="mt-1 text-xs text-navy-soft">{searching ? `Searching all ${users.length.toLocaleString('en-US')} users` : `Showing the latest ${Math.min(users.length, pageSize)}`} · press a row to open it</p>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="text-left text-xs text-navy-soft"><th className="py-1">Name</th><th>Role</th><th>Affiliation</th><th>Country</th><th>Stamps</th><th>Points</th><th>Registered</th></tr></thead>
             <tbody>
               {filtered.map((u) => (
-                <tr key={u.id} className={`cursor-pointer border-t rule hover:bg-white/50 ${u.deletedAt ? 'opacity-50' : ''}`} onClick={() => setOpenId(u.id)}>
+                <tr key={u.id} tabIndex={0} role="button" aria-label={`Open ${u.displayName}`}
+                  className={`cursor-pointer border-t rule hover:bg-white/50 focus:outline-none focus-visible:bg-white/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-stamp-blue/50 ${u.deletedAt ? 'opacity-50' : ''}`}
+                  onClick={() => openRow(u.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRow(u.id) } }}>
                   <td className="py-1.5 font-medium">{u.displayName}<div className="text-xs text-navy-soft">{u.passportNo ?? u.contact}</div></td>
-                  <td>{u.role}{u.boothId ? <div className="text-xs text-navy-soft">{booths.find((b) => b.id === u.boothId)?.nameEn}</div> : null}</td>
+                  <td>{ROLE_LABEL[u.role]}{u.boothId ? <div className="text-xs text-navy-soft">{booths.find((b) => b.id === u.boothId)?.nameEn}</div> : null}</td>
                   <td className="text-xs">{u.institution}{u.school ? ` · ${u.school}` : ''}</td>
                   <td className="text-xs">{u.countryCode ? countryName(u.countryCode) : ''}</td>
                   <td className="fig">{u.stampCount}</td><td className="fig">{u.points}</td>
@@ -167,7 +191,7 @@ export default function Users() {
         {!searching && users.length >= pageSize && <button className="btn-ghost mt-3" onClick={() => setPageSize(pageSize + PAGE)}>Load more</button>}
       </section>
 
-      {open && <UserDrawer u={open} booths={booths} onClose={() => setOpenId(null)} onRole={changeRole} onUpdate={updateUser} onSoftDelete={softDelete} onHardDelete={hardDelete} />}
+      {open && <UserDrawer u={open} booths={booths} onClose={closeDrawer} onRole={changeRole} onUpdate={updateUser} onSoftDelete={softDelete} onHardDelete={hardDelete} onMsg={setMsg} />}
     </div>
   )
 }
@@ -178,8 +202,8 @@ function LinkRow({ email, link }: { email: string; link: string }) {
   return (
     <li className="flex items-center gap-2">
       <span className="w-48 truncate">{email}</span>
-      <input ref={ref} readOnly className="field flex-1 font-mono text-[11px]" value={link} onFocus={(e) => e.currentTarget.select()} />
-      <CopyButton text={link} inputRef={ref} className="underline" />
+      <input ref={ref} readOnly className="field flex-1 font-mono text-[11px]" value={link} onFocus={(e) => e.currentTarget.select()} aria-label={`Invitation link for ${email}`} />
+      <CopyButton text={link} inputRef={ref} />
     </li>
   )
 }
@@ -225,7 +249,7 @@ function ErasureRow({ r, onErase, onDismiss }: { r: ErasureRequest; onErase: (ui
       )}
       {mode === 'dismiss' && (
         <form className="mt-2 flex flex-wrap gap-2" onSubmit={async (e) => { e.preventDefault(); setBusy(true); try { await onDismiss(r.uid, reason.trim()) } finally { setBusy(false) } }}>
-          <input className="field flex-1" placeholder="Reason (kept in the audit log)" value={reason} onChange={(e) => setReason(e.target.value)} required />
+          <input className="field flex-1" placeholder="Reason (kept in the audit log)" aria-label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} required />
           <button className="btn-primary" disabled={busy || !reason.trim()}>Dismiss</button>
           <button type="button" className="btn-ghost" onClick={() => setMode('idle')}>Cancel</button>
         </form>
@@ -273,7 +297,7 @@ function CreateUser({ booths, onCreated, onError }: { booths: BoothOpt[]; onCrea
       const input = Object.fromEntries(Object.entries(f).filter(([, v]) => v !== '')) as unknown as CreateUserInput
       if (input.role !== 'visitor') { delete input.visitorType; delete input.countryCode; delete input.school; delete input.studentId }
       const r = await api.createUser(input)
-      onCreated(r.passportNo ? `${f.displayName} created — passport ${r.passportNo}.` : `${f.displayName} created as ${f.role}.`, r.uid)
+      onCreated(r.passportNo ? `${f.displayName} created — passport ${r.passportNo}.` : `${f.displayName} created as ${ROLE_LABEL[f.role].toLowerCase()}.`, r.uid)
       setF(BLANK)
     } catch (err) { onError(err) } finally { setBusy(false) }
   }
@@ -286,36 +310,36 @@ function CreateUser({ booths, onCreated, onError }: { booths: BoothOpt[]; onCrea
         staff account with a set password. An email contact counts as confirmed — you are vouching for it.
       </p>
       <form onSubmit={submit} className="mt-3 grid gap-2 md:grid-cols-4">
-        <input className="field" placeholder="Name" required maxLength={80} value={f.displayName} onChange={(e) => set('displayName', e.target.value)} />
-        <input className="field" placeholder="Email (or phone for a visitor)" required value={f.contact} onChange={(e) => set('contact', e.target.value)} />
-        <select className="field" value={f.role} onChange={(e) => set('role', e.target.value as Role)}>
-          <option value="visitor">Visitor</option><option value="organizer">Booth organizer</option><option value="admin">Admin</option>
+        <input className="field" placeholder="Name" aria-label="Name" required maxLength={80} value={f.displayName} onChange={(e) => set('displayName', e.target.value)} />
+        <input className="field" placeholder="Email (or phone for a visitor)" aria-label="Contact" required value={f.contact} onChange={(e) => set('contact', e.target.value)} />
+        <select className="field" aria-label="Role" value={f.role} onChange={(e) => set('role', e.target.value as Role)}>
+          {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
         </select>
         {f.role === 'organizer' ? (
-          <select className="field" value={f.boothId} onChange={(e) => set('boothId', e.target.value)} required>
+          <select className="field" aria-label="Booth" value={f.boothId} onChange={(e) => set('boothId', e.target.value)} required>
             <option value="">— booth —</option>{booths.map((b) => <option key={b.id} value={b.id}>{b.nameEn}</option>)}
           </select>
         ) : <span className="hidden md:block" />}
         {f.role === 'visitor' && (
           <>
-            <select className="field" value={f.visitorType} onChange={(e) => set('visitorType', e.target.value as VisitorType)}>
-              {VISITOR_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            <select className="field" aria-label="Visitor type" value={f.visitorType} onChange={(e) => set('visitorType', e.target.value as VisitorType)}>
+              {VISITOR_TYPES.map((t) => <option key={t} value={t}>{VISITOR_TYPE_LABEL[t]}</option>)}
             </select>
-            <select className="field" value={f.countryCode} onChange={(e) => set('countryCode', e.target.value)}>
+            <select className="field" aria-label="Country" value={f.countryCode} onChange={(e) => set('countryCode', e.target.value)}>
               {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
             </select>
-            <input className="field" list="create-institutions" placeholder="Institution" value={f.institution} onChange={(e) => set('institution', e.target.value)} />
+            <input className="field" list="create-institutions" placeholder="Institution" aria-label="Institution" value={f.institution} onChange={(e) => set('institution', e.target.value)} />
             <datalist id="create-institutions">{institutions.map((i) => <option key={i} value={i} />)}</datalist>
             {f.institution === 'MFU' ? (
               <>
-                <input className="field" list="create-schools" placeholder="School (MFU)" value={f.school} onChange={(e) => set('school', e.target.value)} />
+                <input className="field" list="create-schools" placeholder="School (MFU)" aria-label="School" value={f.school} onChange={(e) => set('school', e.target.value)} />
                 <datalist id="create-schools">{schools.map((s) => <option key={s} value={s} />)}</datalist>
               </>
             ) : <span className="hidden md:block" />}
-            <input className="field" placeholder="Student ID (optional)" maxLength={40} value={f.studentId} onChange={(e) => set('studentId', e.target.value)} />
+            <input className="field" placeholder="Student ID (optional)" aria-label="Student ID" maxLength={40} value={f.studentId} onChange={(e) => set('studentId', e.target.value)} />
           </>
         )}
-        <input className={`field md:col-span-2 ${f.password && !passwordOk ? 'border-vermilion' : ''}`} type="text" autoComplete="off" placeholder="Password (optional · 10+ characters · needs an email contact)" value={f.password} onChange={(e) => set('password', e.target.value)} />
+        <input className={`field md:col-span-2 ${f.password && !passwordOk ? 'border-vermilion' : ''}`} type="text" autoComplete="off" placeholder="Password (optional · 10+ characters · needs an email contact)" aria-label="Password" value={f.password} onChange={(e) => set('password', e.target.value)} />
         <div className="md:col-span-4">
           <button className="btn-primary" disabled={busy || !canSubmit}>{busy ? 'Creating…' : 'Create account'}</button>
           {!f.password && <span className="ml-3 text-xs text-navy-soft">Without a password the person signs in with Google on that address, or uses “Forgot your password?” to set one.</span>}
@@ -325,66 +349,115 @@ function CreateUser({ booths, onCreated, onError }: { booths: BoothOpt[]; onCrea
   )
 }
 
-function UserDrawer({ u, booths, onClose, onRole, onUpdate, onSoftDelete, onHardDelete }: {
+function UserDrawer({ u, booths, onClose, onRole, onUpdate, onSoftDelete, onHardDelete, onMsg }: {
   u: Row; booths: BoothOpt[]; onClose: () => void
   onRole: (u: Row, r: Role, b?: string) => void
   onUpdate: (u: Row, patch: Omit<UpdateUserInput, 'uid'>) => Promise<void>
   onSoftDelete: (u: Row) => void
   onHardDelete: (uid: string, label: string) => Promise<void>
+  onMsg: (m: Msg) => void
 }) {
   const scans = useCollection<ScanDoc>(query(collection(db, 'scans'), where('visitorId', '==', u.id), orderBy('scannedAt', 'asc')), [u.id], 'this visitor’s stamps').data
   const [role, setRole] = useState<Role>(u.role)
   const [boothId, setBoothId] = useState(u.boothId ?? '')
   const [editing, setEditing] = useState(false)
   const [erasing, setErasing] = useState(false)
+  const uidRef = useRef<HTMLInputElement>(null)
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-navy-deep/40" onClick={onClose}>
-      <aside className="h-full w-full max-w-md overflow-y-auto bg-paper p-5 shadow-2xl page-in" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <button className="text-sm text-navy-soft" onClick={onClose}>Close ✕</button>
-          {!editing && !u.deletedAt && <button className="text-sm underline" onClick={() => setEditing(true)}>Edit details</button>}
-        </div>
-        <h2 className="mt-2 text-xl font-bold">{u.displayName}</h2>
-        <div className="text-sm text-navy-soft">{[u.passportNo, u.contact].filter(Boolean).join(' · ')}</div>
-        {!!u.deletedAt && <div className="mt-2"><Notice tone="amber">Soft-deleted {ts(u.deletedAt)}: anonymised and disabled. Stamps kept for statistics.</Notice></div>}
+    <Drawer title={u.displayName} onClose={onClose}
+      actions={!editing && !u.deletedAt ? <button className="btn-quiet btn-sm" onClick={() => setEditing(true)}>Edit details</button> : null}>
+      <div className="text-sm text-navy-soft">{[u.passportNo, u.contact].filter(Boolean).join(' · ')}</div>
+      {/* The user id is what "Void a redemption" on Prizes asks for; it was shown nowhere before. */}
+      <div className="mt-1 flex items-center gap-2 text-xs text-navy-soft">
+        <span>ID</span>
+        <input ref={uidRef} readOnly className="min-w-0 flex-1 bg-transparent font-mono text-[11px]" value={u.id} onFocus={(e) => e.currentTarget.select()} aria-label="User id" />
+        <CopyButton text={u.id} inputRef={uidRef} />
+      </div>
+      {!!u.deletedAt && <div className="mt-2"><Notice tone="amber">Soft-deleted {ts(u.deletedAt)}: anonymised and disabled. Stamps kept for statistics.</Notice></div>}
 
-        {editing ? (
-          <EditForm u={u} onCancel={() => setEditing(false)} onSave={async (patch) => { await onUpdate(u, patch); setEditing(false) }} />
-        ) : (
-          <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
-            <dt className="text-navy-soft">Type</dt><dd>{u.visitorType}</dd>
-            <dt className="text-navy-soft">Institution</dt><dd>{u.institution}{u.school ? ` · ${u.school}` : ''}</dd>
-            <dt className="text-navy-soft">Student ID</dt><dd>{u.studentId || '–'}</dd>
-            <dt className="text-navy-soft">Country</dt><dd>{u.countryCode ? countryName(u.countryCode) : '–'}</dd>
-            <dt className="text-navy-soft">Points</dt><dd className="fig">{u.points} · {u.stampCount} stamps</dd>
-            <dt className="text-navy-soft">Days</dt><dd>{u.daysAttended?.join(', ') || '–'}</dd>
-            <dt className="text-navy-soft">Last seen</dt><dd>{ts(u.lastSeenAt)}</dd>
-          </dl>
-        )}
-        <p className="mt-2 text-xs text-navy-soft">Ethnic group is never shown per person (§4.1).</p>
+      {editing ? (
+        <EditForm u={u} onCancel={() => setEditing(false)} onSave={async (patch) => { await onUpdate(u, patch); setEditing(false) }} />
+      ) : (
+        <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+          <dt className="text-navy-soft">Type</dt><dd>{u.visitorType ? VISITOR_TYPE_LABEL[u.visitorType] : '–'}</dd>
+          <dt className="text-navy-soft">Institution</dt><dd>{u.institution}{u.school ? ` · ${u.school}` : ''}</dd>
+          <dt className="text-navy-soft">Student ID</dt><dd>{u.studentId || '–'}</dd>
+          <dt className="text-navy-soft">Country</dt><dd>{u.countryCode ? countryName(u.countryCode) : '–'}</dd>
+          <dt className="text-navy-soft">Points</dt><dd className="fig">{u.points} · {u.stampCount} stamps</dd>
+          <dt className="text-navy-soft">Days</dt><dd>{u.daysAttended?.join(', ') || '–'}</dd>
+          <dt className="text-navy-soft">Last seen</dt><dd>{ts(u.lastSeenAt)}</dd>
+        </dl>
+      )}
+      <p className="mt-2 text-xs text-navy-soft">Ethnic group is never shown per person — it exists only as an aggregate on the dashboard.</p>
 
-        <h3 className="stamp-text mt-5 text-navy-soft">Route walked</h3>
-        <ol className="mt-2 flex flex-col gap-1 text-sm">
-          {scans.map((s) => <li key={s.id} className="flex justify-between"><span>{booths.find((b) => b.id === s.boothId)?.nameEn ?? s.boothId}</span><span className="text-xs text-navy-soft">{ts(s.scannedAt)} · +{s.pointsAwarded}</span></li>)}
-          {scans.length === 0 && <li className="text-navy-soft">No stamps yet</li>}
-        </ol>
+      <h3 className="stamp-text mt-5 text-navy-soft">Route walked</h3>
+      <ol className="mt-2 flex flex-col gap-1 text-sm">
+        {scans.map((s) => <li key={s.id} className="flex justify-between"><span>{booths.find((b) => b.id === s.boothId)?.nameEn ?? s.boothId}</span><span className="text-xs text-navy-soft">{ts(s.scannedAt)} · +{s.pointsAwarded}</span></li>)}
+        {scans.length === 0 && <li className="text-navy-soft">No stamps yet</li>}
+      </ol>
 
-        <h3 className="stamp-text mt-5 text-navy-soft">Role</h3>
-        <div className="mt-2 flex gap-2">
-          <select className="field" value={role} onChange={(e) => setRole(e.target.value as Role)}><option value="visitor">visitor</option><option value="organizer">organizer</option><option value="admin">admin</option></select>
-          {role === 'organizer' && <select className="field" value={boothId} onChange={(e) => setBoothId(e.target.value)}><option value="">— booth —</option>{booths.map((b) => <option key={b.id} value={b.id}>{b.nameEn}</option>)}</select>}
-          <button className="btn-primary" disabled={role === u.role && boothId === (u.boothId ?? '')} onClick={() => onRole(u, role, boothId || undefined)}>Apply</button>
-        </div>
+      {u.role === 'visitor' && <PrizesCollected u={u} onMsg={onMsg} />}
 
-        <h3 className="stamp-text mt-6 text-navy-soft">Remove</h3>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {!u.deletedAt && <button className="btn-ghost" onClick={() => onSoftDelete(u)}>Delete (soft)</button>}
-          {!erasing && <button className="btn-danger" onClick={() => setErasing(true)}>Erase permanently (PDPA)</button>}
-        </div>
-        <p className="mt-1 text-xs text-navy-soft">Soft delete anonymises the contact and disables sign-in; stamps stay in the statistics. Erase is the §10 right to be forgotten.</p>
-        {erasing && <TypedConfirm expect={u.passportNo ?? u.displayName} onCancel={() => setErasing(false)} onConfirm={() => onHardDelete(u.id, u.displayName)} />}
-      </aside>
-    </div>
+      <h3 className="stamp-text mt-5 text-navy-soft">Role</h3>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <select className="field w-auto" aria-label="Role" value={role} onChange={(e) => setRole(e.target.value as Role)}>{ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select>
+        {role === 'organizer' && <select className="field w-auto" aria-label="Booth" value={boothId} onChange={(e) => setBoothId(e.target.value)}><option value="">— booth —</option>{booths.map((b) => <option key={b.id} value={b.id}>{b.nameEn}</option>)}</select>}
+        <button className="btn-primary" disabled={(role === u.role && boothId === (u.boothId ?? '')) || (role === 'organizer' && !boothId)} onClick={() => onRole(u, role, boothId || undefined)}>Apply</button>
+      </div>
+
+      <h3 className="stamp-text mt-6 text-navy-soft">Remove</h3>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {!u.deletedAt && <button className="btn-ghost" onClick={() => onSoftDelete(u)}>Delete (soft)</button>}
+        {!erasing && <button className="btn-danger" onClick={() => setErasing(true)}>Erase permanently (PDPA)</button>}
+      </div>
+      <p className="mt-1 text-xs text-navy-soft">Soft delete anonymises the contact and disables sign-in; stamps stay in the statistics. Erase is the right to be forgotten: everything about the person goes.</p>
+      {erasing && <TypedConfirm expect={u.passportNo ?? u.displayName} onCancel={() => setErasing(false)} onConfirm={() => onHardDelete(u.id, u.displayName)} />}
+    </Drawer>
+  )
+}
+
+/**
+ * The visitor's prize tiers, with a Void on anything handed over — so a wrong hand-over is fixed
+ * from the person's own record rather than by copying an id into the Prizes page.
+ */
+function PrizesCollected({ u, onMsg }: { u: Row; onMsg: (m: Msg) => void }) {
+  const tiers = useTiers()
+  const unlocks = useCollection<TierUnlockDoc>(query(collection(db, 'tierUnlocks'), where('visitorId', '==', u.id)), [u.id], 'this visitor’s prizes').data
+  const [voiding, setVoiding] = useState<string | null>(null)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const rows = tiers.filter((t) => unlocks.some((x) => x.tierId === t.id))
+  if (!rows.length) return null
+  async function doVoid(tierId: string, name: string) {
+    setBusy(true)
+    try { await api.voidRedemption({ visitorId: u.id, tierId, reason: reason.trim() }); onMsg({ tone: 'green', text: `${name} voided for ${u.displayName} — the item is back in stock.` }); setVoiding(null); setReason('') }
+    catch (e) { onMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
+  }
+  return (
+    <>
+      <h3 className="stamp-text mt-5 text-navy-soft">Prizes</h3>
+      <ul className="mt-2 flex flex-col gap-1.5 text-sm">
+        {rows.map((t) => {
+          const un = unlocks.find((x) => x.tierId === t.id)!
+          const redeemed = !!un.redeemedAt && !un.voidedAt
+          return (
+            <li key={t.id} className="rounded-xl bg-white/50 px-3 py-2">
+              <div className="flex items-center justify-between gap-2">
+                <span><b>{t.name}</b> <span className="text-xs text-navy-soft">{redeemed ? `handed over ${ts(un.redeemedAt)}` : un.voidedAt ? 'voided — can collect again' : 'unlocked, not yet collected'}</span></span>
+                {redeemed && voiding !== t.id && <button className="btn-danger-soft btn-sm" onClick={() => { setVoiding(t.id); setReason('') }}>Void</button>}
+              </div>
+              {voiding === t.id && (
+                <form className="mt-2 flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); void doVoid(t.id, t.name) }}>
+                  <input className="field flex-1 py-1.5 text-sm" placeholder="Reason (kept in the audit log)" aria-label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} autoFocus required />
+                  <button className="btn-danger py-1.5" disabled={busy || !reason.trim()}>{busy ? 'Voiding…' : 'Void'}</button>
+                  <button type="button" className="btn-ghost py-1.5" onClick={() => setVoiding(null)}>Cancel</button>
+                </form>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </>
   )
 }
 
@@ -404,7 +477,7 @@ function EditForm({ u, onSave, onCancel }: { u: Row; onSave: (patch: Omit<Update
       <label className="col-span-2">Name<input className="field mt-1" required maxLength={80} value={f.displayName} onChange={(e) => set('displayName', e.target.value)} /></label>
       <label className="col-span-2">Contact <span className="text-xs text-navy-soft">(an email here also becomes the sign-in address)</span>
         <input className="field mt-1" required value={f.contact} onChange={(e) => set('contact', e.target.value)} /></label>
-      <label>Type<select className="field mt-1" value={f.visitorType} onChange={(e) => set('visitorType', e.target.value as VisitorType)}>{VISITOR_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></label>
+      <label>Type<select className="field mt-1" value={f.visitorType} onChange={(e) => set('visitorType', e.target.value as VisitorType)}>{VISITOR_TYPES.map((t) => <option key={t} value={t}>{VISITOR_TYPE_LABEL[t]}</option>)}</select></label>
       <label>Country<select className="field mt-1" value={f.countryCode} onChange={(e) => set('countryCode', e.target.value)}>{COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></label>
       <label>Institution<input className="field mt-1" list="edit-institutions" required value={f.institution} onChange={(e) => set('institution', e.target.value)} /></label>
       <datalist id="edit-institutions">{institutions.map((i) => <option key={i} value={i} />)}</datalist>

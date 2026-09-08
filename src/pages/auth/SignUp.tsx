@@ -48,7 +48,7 @@ export default function SignUp() {
     <AuthShell
       title="Create your account"
       lead="One account holds your passport for the whole festival. Sign in again on a new phone and every stamp is still there."
-      foot={<>Already have one? <Link to="/signin" state={{ from }} className="font-semibold text-gold underline">Sign in</Link></>}
+      foot={<>Already have one? <Link to="/signin" state={{ from }} className="link font-semibold text-gold">Sign in</Link></>}
     >
       <div className="mt-6">
         <GoogleButton onClick={google} busy={busy === 'google'} label="Sign up with Google" />
@@ -72,7 +72,7 @@ export default function SignUp() {
         </button>
         <p className="text-xs text-paper/45">
           By continuing you agree to how MFU handles your details — see the{' '}
-          <a className="underline" href="/privacy.html" target="_blank" rel="noreferrer">privacy notice</a>.
+          <a className="link" href="/privacy.html" target="_blank" rel="noreferrer">privacy notice</a>.
         </p>
       </form>
     </AuthShell>

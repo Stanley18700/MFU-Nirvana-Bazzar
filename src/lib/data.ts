@@ -127,7 +127,12 @@ export function useBooths(includeInactive = false) {
 }
 
 export function useTiers() {
-  return useCollection<PrizeTierDoc>(query(collection(db, 'prizeTiers'), orderBy('sortOrder')), [], 'the prize tiers').data
+  return useTiersState().data
+}
+
+/** The tiers plus listener state, for screens that must say when the stock figures are stale. */
+export function useTiersState() {
+  return useCollection<PrizeTierDoc>(query(collection(db, 'prizeTiers'), orderBy('sortOrder')), [], 'the prize tiers')
 }
 
 export function useMyUnlocks(uid: string | undefined) {
@@ -163,6 +168,14 @@ export function useEventStats() {
 
 export function useBoothStats() {
   return useCollection<BoothStats>(collection(db, 'stats/booths/items'), [], 'the booth counters')
+}
+
+/**
+ * One booth, live. Any signed-in account may read booths, so the organizer screens use this to
+ * notice a deactivation, a schedule change or the prize-desk flag without a reload.
+ */
+export function useBooth(boothId: string | null | undefined) {
+  return useDoc<BoothDoc>(boothId ? doc(db, 'booths', boothId) : null, [boothId ?? null], 'your booth')
 }
 
 export function useBoothStat(boothId: string | null) {

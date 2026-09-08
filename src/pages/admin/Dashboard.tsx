@@ -26,7 +26,7 @@ export default function Dashboard() {
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg bg-navy/5 p-1 text-sm" role="tablist" aria-label="Day selector">
             {([...eventDays, 'all'] as DaySel[]).map((d, i) => (
-              <button key={d} role="tab" aria-selected={day === d} onClick={() => setDay(d)} className={`rounded-md px-3 py-1.5 ${day === d ? 'bg-white font-semibold shadow-sm' : 'text-navy-soft'}`}>{d === 'all' ? 'All' : `Day ${i + 1}`}</button>
+              <button key={d} role="tab" aria-selected={day === d} onClick={() => setDay(d)} className={`cursor-pointer rounded-md px-3 py-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stamp-blue/45 ${day === d ? 'bg-white font-semibold shadow-sm' : 'text-navy-soft hover:bg-white/60 hover:text-navy'}`}>{d === 'all' ? 'All' : `Day ${i + 1}`}</button>
             ))}
           </div>
           {/* Opens in a new tab so the live dashboard stays put; the print view has its own Save-as-PDF button. */}
@@ -121,7 +121,7 @@ export default function Dashboard() {
         <section className="card">
           <div className="flex items-center justify-between">
             <h2 className="stamp-text text-navy-soft">Prize stock</h2>
-            <div className="flex items-center gap-3"><CsvButton name="prize-stock" rows={csv.stock} /><Link to="/admin/prizes" className="text-xs underline text-navy-soft">Manage</Link></div>
+            <div className="flex items-center gap-3"><CsvButton name="prize-stock" rows={csv.stock} /><Link to="/admin/prizes" className="btn-quiet btn-sm">Manage</Link></div>
           </div>
           <ul className="mt-3 flex flex-col gap-3">
             {stock.map((t) => (

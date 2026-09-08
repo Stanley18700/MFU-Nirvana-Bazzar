@@ -33,7 +33,8 @@ export default function ScanLanding() {
   if (!user) return <Navigate to="/signup" state={{ from: `/s/${token}` }} replace />
   if (!emailVerified) return <Navigate to="/verify-email" state={{ from: `/s/${token}` }} replace />
   if (!role) return <Navigate to="/join" state={{ from: `/s/${token}` }} replace />
-  if (role === 'organizer') return <Navigate to="/booth" replace />
+  // Staff phones do not collect stamps; say so on the booth screen instead of bouncing silently.
+  if (role === 'organizer') return <Navigate to="/booth" state={{ notice: "Staff accounts do not collect stamps — that code was for a visitor's phone." }} replace />
 
   return (
     <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="mx-auto min-h-full max-w-md bg-navy-deep p-4 text-paper">

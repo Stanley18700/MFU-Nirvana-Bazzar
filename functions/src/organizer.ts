@@ -1,6 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { db, FieldValue, requireRole, str, audit, getActiveEvent } from './lib'
-import { verifyRedemptionPayload } from './visitor'
+import { resolveRedemption } from './visitor'
 import { BoothDoc, PrizeTierDoc, TierUnlockDoc, UserDoc } from './shared/model'
 import { DEFAULT_PERIOD_SECONDS } from './shared/token'
 
@@ -30,7 +30,7 @@ export const boothSession = onCall(async (req) => {
 export const lookupRedemption = onCall(async (req) => {
   const { role, boothId } = requireRole(req, 'organizer', 'admin')
   await assertPrizeDesk(role, boothId)
-  const v = await verifyRedemptionPayload(str(req.data?.payload, 'payload', { max: 300 }))
+  const v = await resolveRedemption(req.data)
   if (!v) return { status: 'invalid' as const }
   const [userSnap, unlocks, tiers] = await Promise.all([
     db.doc(`users/${v.uid}`).get(),
@@ -39,6 +39,8 @@ export const lookupRedemption = onCall(async (req) => {
   ])
   if (!userSnap.exists) return { status: 'invalid' as const }
   const u = userSnap.data() as UserDoc
+  // "Already handed over by whom" (UAT P-04): the desk cannot read users, so resolve names here.
+  const names = await staffNames(unlocks.docs.map((x) => (x.data() as TierUnlockDoc).redeemedBy).filter((x): x is string => !!x))
   return {
     status: 'ok' as const,
     visitor: { uid: v.uid, displayName: u.displayName, passportNo: u.passportNo, points: u.points, stampCount: u.stampCount },
@@ -53,6 +55,7 @@ export const lookupRedemption = onCall(async (req) => {
         unlocked: !!un,
         redeemedAt: un?.redeemedAt ? (un.redeemedAt as { toMillis(): number }).toMillis() : null,
         redeemedBy: un?.redeemedBy ?? null,
+        redeemedByName: un?.redeemedBy ? names.get(un.redeemedBy) ?? null : null,
       }
     }),
   }
@@ -62,7 +65,7 @@ export const lookupRedemption = onCall(async (req) => {
 export const confirmRedemption = onCall(async (req) => {
   const { uid: actor, role, boothId } = requireRole(req, 'organizer', 'admin')
   await assertPrizeDesk(role, boothId)
-  const v = await verifyRedemptionPayload(str(req.data?.payload, 'payload', { max: 300 }))
+  const v = await resolveRedemption(req.data)
   if (!v) throw new HttpsError('invalid-argument', 'Code expired or invalid — ask the visitor to refresh')
   const tierId = str(req.data?.tierId, 'tierId')
   const unlockRef = db.doc(`tierUnlocks/${v.uid}_${tierId}`)
@@ -73,7 +76,7 @@ export const confirmRedemption = onCall(async (req) => {
     if (!un.exists) throw new HttpsError('failed-precondition', 'Visitor has not unlocked this tier')
     const u = un.data() as TierUnlockDoc
     if (u.redeemedAt && !u.voidedAt) {
-      return { status: 'already' as const, redeemedAt: (u.redeemedAt as { toMillis(): number }).toMillis(), redeemedBy: u.redeemedBy }
+      return { status: 'already' as const, redeemedAt: (u.redeemedAt as { toMillis(): number }).toMillis(), redeemedBy: u.redeemedBy ?? null }
     }
     const t = tier.data() as PrizeTierDoc
     if (t.stockRemaining <= 0) return { status: 'out_of_stock' as const, note: t.outOfStockNoteEn ?? '' }
@@ -86,9 +89,24 @@ export const confirmRedemption = onCall(async (req) => {
   })
   if (result.status === 'redeemed') {
     await db.doc('stats/event/shards/0').set({ redeemed: FieldValue.increment(1) }, { merge: true })
+    return result
+  }
+  if (result.status === 'already') {
+    const names = result.redeemedBy ? await staffNames([result.redeemedBy]) : new Map<string, string>()
+    return { ...result, redeemedByName: result.redeemedBy ? names.get(result.redeemedBy) ?? null : null }
   }
   return result
 })
+
+/** Display names for the staff who handed prizes over — a handful of uids, read one by one. */
+async function staffNames(uids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  const unique = [...new Set(uids)].slice(0, 20)
+  if (!unique.length) return out
+  const snaps = await db.getAll(...unique.map((u) => db.doc(`users/${u}`)))
+  for (const s of snaps) { const n = (s.data() as UserDoc | undefined)?.displayName; if (s.exists && n) out.set(s.id, n) }
+  return out
+}
 
 /** §6.7 — void a redemption: returns the item to stock, reopens the tier. Admin only. */
 export const voidRedemption = onCall(async (req) => {

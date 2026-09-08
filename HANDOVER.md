@@ -25,7 +25,7 @@ builds cleanly but **has never been run against a Firebase project.** That is th
 |---|---|
 | Spec, concept deck, clickable mock (`spec/`, `demo/`) | Done by the supervisor, unchanged, on `main` |
 | Application code (client + functions + rules + seed) | Written, `tsc` and `vite build` pass |
-| Runtime testing against the **emulator** | **Done, 7 Sep.** `npm run e2e` — 145 checks through the real rules and triggers, all passing (scripts/e2e/). Eight defects found and fixed on 7 Sep, three more on 8 Sep (savePrizePolicy audit write, voided tier shown as locked, invite "used/revoked" states unreachable) |
+| Runtime testing against the **emulator** | **Done, 7 Sep.** `npm run e2e` — 150 checks through the real rules and triggers, all passing (scripts/e2e/). Eight defects found and fixed on 7 Sep, three more on 8 Sep (savePrizePolicy audit write, voided tier shown as locked, invite "used/revoked" states unreachable); the prize desk's typed passport-number lookup was added on 8 Sep |
 | Reusable events (`/admin/event`, archive & restart) | **Built and tested.** The event is a document, not a constant |
 | Live prize stock on the visitor's side | **Built.** Exact count on every tier, always |
 | Mobile layout for every non-admin screen | **Done.** `xs` breakpoint added; booth kiosk, stamp grid, scanner, prize page and prize desk fixed at 320px |

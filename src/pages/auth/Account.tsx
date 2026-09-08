@@ -171,7 +171,7 @@ function ChangePassword() {
       <div className="flex flex-col gap-2">
         {done && <Notice tone="green">Password changed.</Notice>}
         <button className="btn-ghost" onClick={() => { setOpen(true); setDone(false) }}>Change my password</button>
-        <Link to="/forgot-password" className="text-xs text-navy-soft underline">Forgotten it? Send a reset link instead</Link>
+        <Link to="/forgot-password" className="link text-xs text-navy-soft hover:text-navy">Forgotten it? Send a reset link instead</Link>
       </div>
     )
   }
@@ -254,7 +254,7 @@ function EraseData() {
       </Notice>
     )
   }
-  if (state === 'idle') return <button className="text-xs text-navy-soft underline" disabled={loading} onClick={() => setState('confirm')}>Ask for my data to be deleted</button>
+  if (state === 'idle') return <button className="btn-quiet btn-sm" disabled={loading} onClick={() => setState('confirm')}>Ask for my data to be deleted</button>
   return (
     <div className="flex flex-col gap-2">
       <Notice tone="amber">

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, errorMessage, type EventRow, type PurgeScope } from '../../lib/api'
-import { Notice, Spinner, fmt } from '../../components/ui'
+import { Notice, Spinner, Toast, fmt, type Msg } from '../../components/ui'
+import { ZONE_LABEL } from '../../lib/labels'
+import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import { dayOf, type Zone } from '../../../shared/model'
 
 const ZONES: Zone[] = ['entrance', 'middle', 'far']
-const ZONE_LABEL: Record<Zone, string> = { entrance: 'Entrance row', middle: 'Middle hall', far: 'Far corner' }
 
 type Form = {
   id?: string
@@ -83,15 +84,17 @@ export default function EventAdmin() {
   const [rows, setRows] = useState<EventRow[] | null>(null)
   const [liveId, setLiveId] = useState<string>('')
   const [form, setForm] = useState<Form | null>(null)
-  const [msg, setMsg] = useState<{ tone: 'green' | 'red' | 'amber'; text: string } | null>(null)
+  const [msg, setMsg] = useState<Msg | null>(null)
   const [busy, setBusy] = useState(false)
+  // What was loaded, to know when the form has unsaved edits.
+  const [loaded, setLoaded] = useState<string>('')
 
   const load = useCallback(async () => {
     try {
       const r = await api.listEvents({})
       setRows(r.events); setLiveId(r.liveId)
       const live = r.events.find((e) => e.id === r.liveId)
-      setForm((f) => f ?? (live ? fromRow(live) : blank()))
+      setForm((f) => { const next = f ?? (live ? fromRow(live) : blank()); setLoaded(JSON.stringify(next)); return next })
     } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) }
   }, [])
 
@@ -115,7 +118,7 @@ export default function EventAdmin() {
         days: form.days, qrPeriodSeconds: form.qrPeriodSeconds,
         passportPrefix: form.passportPrefix, zonePoints: form.zonePoints,
       }
-      if (form.id) { await api.updateEvent({ id: form.id, ...payload }); setMsg({ tone: 'green', text: 'Saved.' }) }
+      if (form.id) { await api.updateEvent({ id: form.id, ...payload }); setMsg({ tone: 'green', text: 'Event saved.' }); setLoaded(JSON.stringify(form)) }
       else { const r = await api.createEvent(payload); setForm({ ...form, id: r.id }); setMsg({ tone: 'green', text: `Created "${r.id}" as a draft. Add booths and a prize policy, then Go live.` }) }
       await load()
     } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
@@ -139,6 +142,11 @@ export default function EventAdmin() {
   }
 
   const live = rows?.find((e) => e.id === liveId) ?? null
+  const dirty = !!form && JSON.stringify(form) !== loaded
+  useUnsavedGuard(dirty)
+  // An emptied number field used to save as 0 (a QR period of 0 s, a zone worth 0 points).
+  const periodOk = !!form && form.qrPeriodSeconds >= 10 && form.qrPeriodSeconds <= 120
+  const zonesOk = !!form && ZONES.every((z) => form.zonePoints[z] >= 1 && form.zonePoints[z] <= 100)
 
   if (!rows || !form) return <Spinner label="Loading events…" />
 
@@ -152,13 +160,13 @@ export default function EventAdmin() {
         </p>
       </header>
 
-      {msg && <div className="mt-4"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
+      <Toast msg={msg} onClose={() => setMsg(null)} />
 
       <section className="card mt-5 grid gap-4 md:grid-cols-2">
         <h2 className="stamp-text text-navy-soft md:col-span-2">
           {form.id === liveId ? 'The current event' : form.id ? `Draft · ${form.id}` : 'New event (starts as a draft)'}
           {form.id !== liveId && live && (
-            <button className="ml-3 text-xs font-normal normal-case tracking-normal underline" onClick={() => { setForm(fromRow(live)); setMsg(null) }}>back to the current event</button>
+            <button className="btn-quiet btn-sm ml-3 normal-case tracking-normal" onClick={() => { setForm(fromRow(live)); setMsg(null) }}>Back to the current event</button>
           )}
         </h2>
         <label>Name (English)<input className="field mt-1" value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} /></label>
@@ -180,8 +188,9 @@ export default function EventAdmin() {
         </fieldset>
 
         <label>QR rotation (seconds)
-          <input className="field mt-1" type="number" min={10} max={120} value={form.qrPeriodSeconds}
-            onChange={(e) => setForm({ ...form, qrPeriodSeconds: Number(e.target.value) })} />
+          <input className={`field mt-1 ${periodOk ? '' : 'border-vermilion'}`} type="number" min={10} max={120} value={Number.isFinite(form.qrPeriodSeconds) ? form.qrPeriodSeconds : ''}
+            onChange={(e) => setForm({ ...form, qrPeriodSeconds: e.target.value === '' ? NaN : Number(e.target.value) })} />
+          {!periodOk && <span className="text-xs text-vermilion">10 to 120 seconds</span>}
         </label>
         <label>Passport prefix
           <input className="field mt-1" value={form.passportPrefix} onChange={(e) => setForm({ ...form, passportPrefix: e.target.value.toUpperCase() })} />
@@ -189,12 +198,12 @@ export default function EventAdmin() {
         </label>
 
         <fieldset className="md:col-span-2">
-          <legend className="stamp-text text-navy-soft">Default points per zone (§6.6)</legend>
+          <legend className="stamp-text text-navy-soft">Default points per zone</legend>
           <div className="mt-2 grid gap-3 sm:grid-cols-3">
             {ZONES.map((z) => (
               <label key={z} className="text-sm">{ZONE_LABEL[z]}
-                <input className="field mt-1" type="number" min={1} max={100} value={form.zonePoints[z]}
-                  onChange={(e) => setForm({ ...form, zonePoints: { ...form.zonePoints, [z]: Number(e.target.value) } })} />
+                <input className={`field mt-1 ${form.zonePoints[z] >= 1 && form.zonePoints[z] <= 100 ? '' : 'border-vermilion'}`} type="number" min={1} max={100} value={Number.isFinite(form.zonePoints[z]) ? form.zonePoints[z] : ''}
+                  onChange={(e) => setForm({ ...form, zonePoints: { ...form.zonePoints, [z]: e.target.value === '' ? NaN : Number(e.target.value) } })} />
               </label>
             ))}
           </div>
@@ -205,9 +214,10 @@ export default function EventAdmin() {
         </fieldset>
 
         <div className="flex flex-wrap gap-2 md:col-span-2">
-          <button className="btn-primary" disabled={busy || !form.nameEn || !form.startsAt || !form.endsAt} onClick={save}>
+          <button className="btn-primary" disabled={busy || !form.nameEn.trim() || !form.startsAt || !form.endsAt || !periodOk || !zonesOk || (!!form.id && !dirty)} onClick={save}>
             {busy ? 'Saving…' : form.id ? 'Save' : 'Create draft'}
           </button>
+          {dirty && form.id && <span className="self-center text-xs text-amber">Unsaved changes</span>}
           {form.id && form.id !== liveId && (
             <button className="btn-gold" disabled={busy} onClick={() => goLive(form.id!)}>Go live</button>
           )}
@@ -216,7 +226,7 @@ export default function EventAdmin() {
 
       {/* Everything about a *second* event stays folded away: day to day there is only the one above. */}
       <details className="mt-8 rounded-2xl border rule p-4">
-        <summary className="cursor-pointer">
+        <summary className="cursor-pointer rounded-lg transition hover:text-navy">
           <span className="stamp-text text-navy-soft">After the event · archive this one, prepare the next</span>
         </summary>
         <p className="mt-3 text-sm text-navy-soft">
@@ -242,9 +252,9 @@ export default function EventAdmin() {
                 }`}>{r.status}</span>
               </div>
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <button className="underline" onClick={() => { setForm(fromRow(r)); setMsg(null) }}>Edit</button>
-                {r.status !== 'live' && <button className="underline" disabled={busy} onClick={() => goLive(r.id)}>Go live</button>}
-                {r.status === 'draft' && <button className="text-vermilion underline" disabled={busy} onClick={() => deleteDraft(r)}>Delete draft</button>}
+                <button className="btn-quiet btn-sm" onClick={() => { setForm(fromRow(r)); setMsg(null) }}>Edit</button>
+                {r.status !== 'live' && <button className="btn-gold btn-sm" disabled={busy} onClick={() => goLive(r.id)}>Go live</button>}
+                {r.status === 'draft' && <button className="btn-danger-soft btn-sm" disabled={busy} onClick={() => deleteDraft(r)}>Delete draft</button>}
               </div>
             </li>
           ))}

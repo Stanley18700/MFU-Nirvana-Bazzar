@@ -2,7 +2,7 @@
 
 A hand-run walk-through of the deployed app at **https://mfu-passport.web.app**, one row per
 page and per control that is not obvious. Each row is something a tester does on a real device,
-with what they should see. The emulator run (`npm run e2e`, 145 checks) already proves the
+with what they should see. The emulator run (`npm run e2e`, 150 checks) already proves the
 server side — callables, rules, triggers, the archive — so this list concentrates on screens,
 devices, mail and the things that need a human eye.
 
@@ -104,27 +104,39 @@ Have two visitors with a **Voyager** unlock (100 points) before §4, and one at 
 | O-11 | Wi-Fi back on | Dot green "Live" within a few seconds | 5.1 | |
 | O-12 | A visitor scans this booth | **Visitors here** and **Event total** rise within 2 s, no refresh | 12.6 | |
 | O-13 | Press **Print card** | Print preview: one white page with booth name, a static QR that opens `/scan`, the two-step instructions; no countdown or rotating code | 5.1 | |
-| O-14 | **stats** link | Own booth only: visitors stamped, rank of 12, event total; per-hour bars for the event's opening hours with a Day selector; CSV button | 5.3 | |
+| O-14 | **Stats** in the bar | Own booth only: header says Live and the last stamp time; visitors stamped, rank of 12, event total; per-hour bars for the event's opening hours with a Day selector; CSV button | 5.3 | |
 | O-15 | Stats → switch Day | Bars change; a stamp made before opening time still appears as an extra bar | 5.3 | |
 | O-16 | Organizer B opens `/redeem` | Red "This booth is not a prize desk" | 3 | |
 | O-17 | Organizer opens `/admin` or `/booth?boothId=booth-05` | Redirected to their own booth; no admin pages | 3 | |
 | O-18 | Admin changes Organizer B's booth on `/admin/users` (A-44) | Within 15 min (or after a reload) the booth screen shows the new booth | 12.8 | |
+| O-19 | Booth screen header, stats page and prize desk | The same small bar on all three: **Booth screen · Stats · Prize desk (only on a prize-desk booth) · Account · Sign out**; on the booth screen it disappears in full screen | 5.1 | |
+| O-20 | Sign in as an organizer whose booth was removed (or whose account has no booth) and open `/booth` | A dark page saying the screen could not start, the reason, the signed-in address, **Try again** and **Sign out** — no redirect loop | 5.1 | |
+| O-21 | Booth screen running; turn Wi-Fi off; **reload** the page | The screen comes back from its cached session, keeps rotating, dot amber "Reconnecting — codes still valid"; a visitor's typed code is still accepted once they are online | 12.5 | |
+| O-22 | Admin presses **Rotate secret** (A-23); switch to the booth tab | The codes change on refocus (or within 15 min) with no reload; the old photographed code is refused | 5.2 | |
+| O-23 | Admin unticks the booth's **Active** and saves | Red banner "switched off by the admin — visitor scans are refused" appears on the booth screen within seconds; re-ticking removes it | 6.3 | |
+| O-24 | Organizer scans a booth QR with their own phone (native camera) | Lands on their booth screen with the line "Staff accounts do not collect stamps" | 4.3 | |
+| O-25 | Hide the booth tab for a minute, then show it | Screen still awake (wake lock re-acquired), codes current, no error | 5.1 | |
 
 ## 4. Prize desk (Organizer A at booth-01, then repeat P-03 to P-05 as admin)
 
 | ID | Step | Expected | § | Result |
 | --- | --- | --- | --- | --- |
-| P-01 | Open `/redeem` | Live stock strip across the top; camera; manual code field | 4.4 | |
+| P-01 | From the booth screen bar press **Prize desk** | `/redeem`: live stock strip with a Live/Reconnecting dot; camera; the two typed fields **Passport number** and **8-character code** | 4.4 | |
 | P-02 | Scan a visitor's Prize QR | Card: name, passport number, points, stamps; unlocked tiers say **Hand over**, others "N pts short" | 4.4 | |
-| P-03 | **Hand over** Explorer | "Prize handed over"; the stock strip drops by one; the visitor's Prize page shows *redeemed* | 4.4 | |
-| P-04 | Scan the same visitor again and press Explorer | "Already handed over at <time>" with who did it | 4.4 | |
+| P-03 | Press **Hand over** on Explorer once | Button turns gold **Confirm Explorer**; nothing is recorded yet; after 6 s it reverts | 4.4 | |
+| P-03b | Press it a second time | Full green panel "Handed over · Explorer · name · passport no · time", a short vibration, **Next visitor**; the stock strip drops by one; the visitor's Prize page shows *collected*; the row appears under **Handed over on this device** | 4.4 | |
+| P-04 | Scan the same visitor again and press Explorer twice | "Already handed over at <time> by <organizer's name>" | 4.4 | |
 | P-05 | Ask the visitor to leave Prize open 70 s, then scan a screenshot of the old code | Amber "Code expired or not recognised — ask the visitor to show a fresh code" | 4.4 | |
-| P-06 | Type the 8-character code by hand | Same lookup | 4.4 | |
+| P-06 | Type the visitor's **passport number** and **8-character code** (both on their Prize page) | Same card; typing only the digits of the passport number ("42") also works | 4.4 | |
+| P-06b | Passport number right, code wrong | Amber "Code expired or not recognised…" | 4.4 | |
+| P-06c | Look a visitor up, wait 70 s, then Hand over → Confirm | Amber "That code has expired…" with a field for the new code under the card; enter it and press Hand over → Confirm again — succeeds without re-scanning | 4.4 | |
 | P-07 | Visitor with no unlock | Card shows all tiers as "N pts short" | 4.4 | |
 | P-08 | Admin sets **Voyager stock to 1** (A-54). Two desk devices confirm Voyager for two different visitors within the same second | One "Prize handed over", one "Out of stock" with the note; strip reads 0, never negative | 6.7, 12.15 | |
 | P-09 | Admin **voids** that redemption on `/admin/prizes` (A-56) | Scanning the visitor again offers **Hand over** for Voyager once more; stock strip back to 1 | 6.7 | |
 | P-10 | **Next visitor** | Card clears, camera resumes | 4.4 | |
 | P-11 | A visitor's `/r/<code>` link opened by the desk's own camera app while signed in as Organizer A | Lands on `/redeem` with the lookup already done | 4.4 | |
+| P-12 | Organizer B (booth-02, not a prize desk) presses **Prize desk** in the bar or opens `/redeem` | Amber card naming their booth and the real prize desk, **Open my booth screen**; the camera never starts | 3 | |
+| P-13 | Desk device offline | Stock strip dot amber "Offline — figures may be old"; the camera and fields stay usable | 4.4 | |
 
 ## 5. Admin
 
@@ -152,7 +164,7 @@ Have two visitors with a **Voyager** unlock (100 points) before §4, and one at 
 | A-20 | Upload a **Photo** | A thumbnail appears on the card; *Replace photo* and *Remove photo* offered | 6.3 | |
 | A-21 | **Remove badge** | Card falls back to the generated stamp; `badgeUrl` cleared | 6.3 | |
 | A-22 | Untick a booth's **Day 2** | Visitor Stamps grid labels it "appears on day 1, 3" | 1.1 | |
-| A-23 | **Rotate secret** on a booth whose screen is open | Confirm dialog; the booth screen's next reload shows new codes; a photo of the old code is refused | 5.2 | |
+| A-23 | **Rotate secret** on a booth whose screen is open | Confirm dialog; the booth screen shows new codes when its tab is refocused (or within 15 min), no reload; a photo of the old code is refused | 5.2 | |
 | A-24 | **Delete** a booth with stamps | "Booth has stamps — deactivated instead"; it greys out; scanning it says invalid | 6.3 | |
 | A-25 | **Delete** a booth with no stamps | Removed outright | 6.3 | |
 | A-26 | `/admin/users` → invite one organizer | Amber "Email is not configured" and a link row with **Copy** | 6.4 | |
@@ -169,7 +181,7 @@ Have two visitors with a **Voyager** unlock (100 points) before §4, and one at 
 | A-37 | Users search: type two letters of a name beyond the first 50 | "Searching all N users"; the row is found | 6.2 | |
 | A-38 | Role filter → Organizers | Only organizers, with their booth | 6.2 | |
 | A-39 | Click a visitor → drawer | Name, passport, contact, type, institution, country, points, days, last seen; **Route walked** with times and points; "Ethnic group is never shown per person" | 6.2, 4.1 | |
-| A-40 | **Edit details** → change institution and country → Save | Green "… updated"; row and drawer show the new values live; Audit shows `updateUser` with only the changed keys | 6.2 | |
+| A-40 | **Edit details** → change institution and country → Save | Green toast "… updated" bottom-right, visible over the drawer; row and drawer show the new values live; Audit shows `updateUser` with only the changed keys | 6.2 | |
 | A-41 | Edit a visitor's contact to a new email | They can sign in with the new address (sign-in address moved) | 6.2 | |
 | A-42 | Edit to an email another account uses | Refused | 6.2 | |
 | A-43 | Drawer → role **admin** → Apply | Confirmation dialog first; green notice mentioning 15 minutes | 6.2 | |
@@ -199,6 +211,17 @@ Have two visitors with a **Voyager** unlock (100 points) before §4, and one at 
 | A-67 | `/admin/booths` → **Print all cards** | New tab with one table card per active booth; the print preview puts each on its own A4 page with the static QR and instructions | 5.1 | |
 | A-68 | Admin sidebar on a laptop | Three titled groups: Run (Dashboard, Hall screen, Prize desk, Stage draw), Set up (Event, Booths, Prizes & stock, Users & invites), Records (Audit log, Reference lists); on a phone the same items scroll in one row | 6 | |
 | A-69 | `/admin/booths` → **Bulk: paste a list of booths** with three lines, one with zone `back` | The bad line is named and the button stays disabled; fix it, press Create 3 booths, watch the progress text; three new cards appear with zone default points | 6.3 | |
+| A-70 | Any admin action (save, rotate, invite, role change) | The result appears as a toast at the bottom-right and fades after a few seconds; red ones stay until closed; on the Users page it shows over the open drawer | 6 | |
+| A-71 | `/admin/booths` → **Edit** on the last card | The page scrolls to the editor, headed "Edit · <booth name>"; a stamp preview beside the accent swatches follows the short name and colour as you type | 6.3 | |
+| A-72 | Booth card → **More ▾** | Menu with Upload/Replace badge, Upload/Replace photo, Remove …, then Rotate secret… and Delete booth… in colour below a divider; uploading on one card leaves the other cards' buttons enabled | 6.3 | |
+| A-73 | `/admin/booths` with 9+ booths | A filter box and "Without an organizer only" appear above the grid | 6.3 | |
+| A-74 | `/admin/users` → press Tab to a row, then Enter | The drawer opens; **Escape** closes it and focus returns to the row; the drawer shows the user's **ID** with a Copy button | 6.2 | |
+| A-75 | Drawer of a visitor who collected a prize → **Void** → reason | Toast "… voided … back in stock"; the Prizes page stock rises by one | 6.7 | |
+| A-76 | `/admin/prizes` → clear a threshold field | Red hint under the row, **Save** disabled — it can no longer save a threshold of 0; the same for QR period and zone points on `/admin/event` and the winners count on `/admin/draw` | 6.5 | |
+| A-77 | `/admin/prizes` → change anything, then close the tab | The browser asks before closing; **Discard changes** restores the saved policy | 6.5 | |
+| A-78 | `/admin/refdata` → edit a list, click another tab | Asked to confirm before the draft is discarded | 4.1 | |
+| A-79 | Users → role and type columns; Booths → zone on cards | Labels read Visitor / Booth organizer / Admin, Student / Staff …, Entrance row / Middle hall / Far corner — no raw values, no spec section numbers anywhere in the admin | 6 | |
+| A-80 | Any page: hover every clickable thing, then press Tab through a card | Every button and action link has a visible shape that changes on hover and presses in; a blue (on paper) or gold (on navy) focus ring appears when tabbed to; disabled buttons are dimmed with a not-allowed cursor; links inside sentences stay underlined but brighten on hover | 2.6 | |
 
 ## 6. Hall wall
 
@@ -239,7 +262,10 @@ Have two visitors with a **Voyager** unlock (100 points) before §4, and one at 
 
 ## 8. Known gaps — do not re-report
 
-Fixed on 8 Sep 2026 (verify the fix, then move on): CSV buttons doing nothing on empty panels;
+Fixed on 8 Sep 2026 (verify the fix, then move on): no organizer navigation or sign-out; booth
+screen dying on an offline reload and never noticing a rotated secret; prize desk reachable only
+by URL, open to non-prize-desk booths, one-tap hand-over, and a manual code the visitor could not
+read out; stats spinning forever without a booth. Also: CSV buttons doing nothing on empty panels;
 missing CSV on four dashboard panels; no PDF; Revoke and Copy giving no feedback; no Create /
 Edit user; no hard delete or erasure inbox; erasure requests always "succeeding"; Forgot-password
 resend only reopening the form; full-page reload on "Scan another"; wall click-to-fullscreen;

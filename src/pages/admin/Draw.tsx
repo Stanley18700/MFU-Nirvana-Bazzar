@@ -9,7 +9,8 @@ type DrawDoc = { names: Array<{ uid: string; displayName: string; passportNo: st
 
 /** §6.7 — the closing stage draw, suitable for projection. */
 export default function Draw() {
-  const [count, setCount] = useState(1)
+  const [count, setCount] = useState<number>(1)
+  const countOk = Number.isInteger(count) && count >= 1 && count <= 20
   const [busy, setBusy] = useState(false)
   const [rolling, setRolling] = useState(false)
   const [winners, setWinners] = useState<DrawDoc['names'] | null>(null)
@@ -18,6 +19,9 @@ export default function Draw() {
   const history = useCollection<DrawDoc>(query(collection(db, 'draws'), orderBy('createdAt', 'desc'), limit(20)), []).data
 
   async function run() {
+    if (!countOk) return
+    // Winners are excluded from later draws, so a second draw is not a do-over.
+    if (history.length > 0 && !window.confirm(`Draw ${count} more winner${count === 1 ? '' : 's'}? Previous winners stay excluded and every draw is logged.`)) return
     setBusy(true); setErr(null); setWinners(null); setRolling(true)
     try {
       const [r] = await Promise.all([api.runDraw({ count }), new Promise((res) => setTimeout(res, 2200))])
@@ -39,9 +43,10 @@ export default function Draw() {
           </div>
         ) : <p className="mt-6 text-paper/70">{rolling ? 'Drawing…' : 'Ready'}</p>}
         <div className="mt-8 flex items-center justify-center gap-3">
-          <label className="text-sm text-paper/70">Winners <input type="number" min={1} max={20} className="field ml-2 w-20 text-navy" value={count} onChange={(e) => setCount(Number(e.target.value))} /></label>
-          <button className="btn-gold px-8 py-3 text-lg" onClick={run} disabled={busy}>Draw</button>
+          <label className="text-sm text-paper/70">Winners <input type="number" min={1} max={20} className={`field ml-2 w-20 text-navy ${countOk ? '' : 'border-vermilion'}`} value={Number.isFinite(count) ? count : ''} onChange={(e) => setCount(e.target.value === '' ? NaN : Number(e.target.value))} /></label>
+          <button className="btn-gold px-8 py-3 text-lg" onClick={run} disabled={busy || !countOk}>Draw</button>
         </div>
+        {!countOk && <p className="mt-2 text-xs text-amber">Choose between 1 and 20 winners.</p>}
         {err && <div className="mt-4"><Notice tone="red">{err}</Notice></div>}
       </section>
       {history.length > 0 && (

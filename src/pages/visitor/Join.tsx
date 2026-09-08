@@ -81,7 +81,7 @@ export default function Join() {
           <div className="stamp-text text-navy-soft">Signed in as</div>
           <div className="truncate text-sm font-medium">{user?.email}</div>
         </div>
-        <button type="button" className="shrink-0 text-xs text-navy-soft underline" onClick={() => void signOut()}>Not you?</button>
+        <button type="button" className="btn-quiet btn-sm shrink-0" onClick={() => void signOut()}>Not you?</button>
       </div>
 
       <DataErrors className="mt-4" />
@@ -165,7 +165,7 @@ export default function Join() {
           <input type="checkbox" className="mt-1" checked={f.consent} onChange={(e) => set('consent', e.target.checked)} required />
           <span>
             I consent to MFU collecting the details above and my booth check-in times for running this activity and for aggregate event statistics, kept for 90 days after the event.{' '}
-            <a className="underline" href="/privacy.html" target="_blank" rel="noreferrer">Privacy notice</a>
+            <a className="link" href="/privacy.html" target="_blank" rel="noreferrer">Privacy notice</a>
           </span>
         </label>
 

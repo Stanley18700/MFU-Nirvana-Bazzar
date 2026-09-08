@@ -42,3 +42,15 @@ export function stampMarks(ev: LiveEvent): { markTop: string; markBottom: string
     markBottom: ev.stampMarkBottom || year,
   }
 }
+
+/** A Firestore timestamp (or ms) as "16/09/2026, 14:03:12" in Bangkok time; "–" when absent. */
+export function ts(v: unknown): string {
+  const t = ms(v)
+  return t ? new Date(t).toLocaleString('en-GB', { timeZone: TZ }) : '–'
+}
+
+/** Clock only, "14:03", for the booth and desk screens. */
+export function clock(v: unknown): string {
+  const t = ms(v)
+  return t ? new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: TZ }) : '–'
+}

@@ -57,7 +57,7 @@ export default function Stamps() {
               const notToday = !b.activeDays.includes(today) && event.days.includes(today)
               return (
                 <li key={b.id}>
-                  <button onClick={() => setOpen(b)} className="flex w-full flex-col items-center gap-1 rounded-2xl border border-dashed rule bg-white/40 p-2 text-center">
+                  <button onClick={() => setOpen(b)} className="flex w-full cursor-pointer flex-col items-center gap-1 rounded-2xl border border-dashed rule bg-white/40 p-2 text-center transition hover:bg-white/70 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stamp-blue/45">
                     <Stamp booth={b} collected={false} points={b.points} size={76} {...marks} />
                     <span className="line-clamp-2 text-xs font-medium leading-tight">{b.nameEn}</span>
                     <span className="stamp-text" style={{ color: b.accentColor }}>{b.points} pts</span>
@@ -78,7 +78,7 @@ export default function Stamps() {
           <ul className="mt-3 grid grid-cols-2 gap-3 xs:grid-cols-3">
             {collected.map((b) => (
               <li key={b.id}>
-                <button onClick={() => setOpen(b)} className="flex w-full flex-col items-center gap-1 rounded-2xl bg-paper-2 p-2 text-center">
+                <button onClick={() => setOpen(b)} className="flex w-full cursor-pointer flex-col items-center gap-1 rounded-2xl bg-paper-2 p-2 text-center transition hover:bg-white/70 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stamp-blue/45">
                   <Stamp booth={b} collected tilt={tiltFor(b.id)} size={76} {...marks} />
                   <span className="line-clamp-2 text-xs font-medium leading-tight">{b.nameEn}</span>
                   <span className="text-[11px] text-navy-soft">✓ +{b.points} pts</span>

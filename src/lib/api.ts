@@ -31,8 +31,8 @@ export const api = {
   requestErasure: call<Record<string, never>, { ok: true; existing: boolean; requestedAt: number | null }>('requestErasure'),
   // organizer
   boothSession: call<{ boothId?: string }, { boothId: string; booth: Record<string, unknown>; secret: string; period: number; serverTime: number }>('boothSession'),
-  lookupRedemption: call<{ payload: string }, LookupResult>('lookupRedemption'),
-  confirmRedemption: call<{ payload: string; tierId: string }, { status: 'redeemed' } | { status: 'already'; redeemedAt: number; redeemedBy: string | null } | { status: 'out_of_stock'; note: string }>('confirmRedemption'),
+  lookupRedemption: call<RedemptionCred, LookupResult>('lookupRedemption'),
+  confirmRedemption: call<RedemptionCred & { tierId: string }, ConfirmResult>('confirmRedemption'),
   voidRedemption: call<{ visitorId: string; tierId: string; reason: string }, { ok: true }>('voidRedemption'),
   // admin
   setUserRole: call<{ uid: string; role: Role; boothId?: string }, { ok: true }>('setUserRole'),
@@ -169,6 +169,17 @@ export interface TierInput {
   outOfStockNoteEn?: string
 }
 
+/**
+ * What the prize desk hands the server: the scanned `/r/` payload, or — typed by hand — the
+ * visitor's passport number and the 8-character code from their Prize page (§4.4).
+ */
+export type RedemptionCred = { payload: string } | { passportNo: string; code: string }
+
+export type ConfirmResult =
+  | { status: 'redeemed' }
+  | { status: 'already'; redeemedAt: number; redeemedBy: string | null; redeemedByName: string | null }
+  | { status: 'out_of_stock'; note: string }
+
 export type LookupResult =
   | { status: 'invalid' }
   | {
@@ -176,7 +187,7 @@ export type LookupResult =
       visitor: { uid: string; displayName: string; passportNo?: string; points: number; stampCount: number }
       tiers: Array<{
         id: string; name: string; reward: string; thresholdPoints: number; stockRemaining: number; stockTotal: number
-        outOfStockNote: string; unlocked: boolean; redeemedAt: number | null; redeemedBy: string | null
+        outOfStockNote: string; unlocked: boolean; redeemedAt: number | null; redeemedBy: string | null; redeemedByName: string | null
       }>
     }
 
@@ -185,4 +196,21 @@ export function errorMessage(e: unknown): string {
   if (!err) return 'Something went wrong'
   const msg = err.message ?? 'Something went wrong'
   return msg.replace(/^functions\//, '').replace(/^[A-Z_-]+:\s*/i, '')
+}
+
+/**
+ * The same error as a sentence for booth staff, who cannot act on "Requires role: organizer"
+ * or "deadline-exceeded". Admin pages keep `errorMessage`, whose server text names the field.
+ */
+export function friendlyError(e: unknown): string {
+  const code = ((e as { code?: string })?.code ?? '').replace(/^functions\//, '')
+  switch (code) {
+    case 'permission-denied': return 'This account is not allowed to do that. Ask the admin to check your booth and role.'
+    case 'unauthenticated': return 'You are signed out — sign in again.'
+    case 'unavailable':
+    case 'deadline-exceeded':
+    case 'internal': return 'No connection to the server — check the Wi-Fi and try again.'
+    case 'not-found': return 'That booth no longer exists. Ask the admin to assign you a booth.'
+    default: return errorMessage(e)
+  }
 }

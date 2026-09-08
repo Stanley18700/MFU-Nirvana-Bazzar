@@ -52,7 +52,7 @@ export default function AdminLayout() {
             <div className="stamp-text truncate text-gold">{event.nameEn}</div>
             <div className="font-semibold">Passport admin</div>
           </div>
-          <button className="shrink-0 text-xs text-paper/70 underline md:hidden" onClick={leave}>Sign out</button>
+          <button className="btn-dark btn-sm shrink-0 md:hidden" onClick={leave}>Sign out</button>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:gap-0 md:pb-0">
           {GROUPS.map((g) => (
@@ -60,18 +60,18 @@ export default function AdminLayout() {
             <div key={g.title} className="contents md:mb-3 md:block">
               <div className="stamp-text hidden px-3 pb-1 pt-2 text-[10px] text-paper/40 md:block">{g.title}</div>
               {g.items.map((n) => (
-                <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `whitespace-nowrap rounded-lg px-3 py-2 text-sm md:block ${isActive ? 'bg-paper/15 font-semibold' : 'text-paper/75 hover:bg-paper/10'}`}>{n.label}</NavLink>
+                <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `whitespace-nowrap rounded-lg px-3 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60 md:block ${isActive ? 'bg-paper/15 font-semibold' : 'text-paper/75 hover:bg-paper/10 hover:text-paper'}`}>{n.label}</NavLink>
               ))}
             </div>
           ))}
           {LINKS.map((n) => (
-            <NavLink key={n.to} to={n.to} className="whitespace-nowrap rounded-lg px-3 py-2 text-sm text-paper/55 hover:bg-paper/10 md:hidden">{n.label}</NavLink>
+            <NavLink key={n.to} to={n.to} className="whitespace-nowrap rounded-lg px-3 py-2 text-sm text-paper/55 transition hover:bg-paper/10 hover:text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60 md:hidden">{n.label}</NavLink>
           ))}
         </nav>
         <div className="mt-auto hidden flex-col gap-2 px-5 py-4 text-xs text-paper/60 md:flex">
-          {LINKS.map((n) => <NavLink key={n.to} to={n.to} className="underline">{n.label}</NavLink>)}
+          {LINKS.map((n) => <NavLink key={n.to} to={n.to} className="link text-paper/70 hover:text-paper">{n.label}</NavLink>)}
           <div className="mt-2">{profile?.displayName} · admin</div>
-          <button className="text-left underline" onClick={leave}>Sign out</button>
+          <button className="btn-dark btn-sm self-start" onClick={leave}>Sign out</button>
         </div>
       </aside>
       <main className="min-w-0 flex-1 px-4 py-6 md:px-8">

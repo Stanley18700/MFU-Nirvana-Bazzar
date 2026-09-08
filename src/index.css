@@ -105,13 +105,49 @@ input, select, textarea, button { font: inherit; }
 .field {
   @apply w-full rounded-lg border border-navy/20 bg-white/70 px-3 py-2.5 text-navy outline-none focus:border-stamp-blue focus:ring-2 focus:ring-stamp-blue/20;
 }
-.btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-semibold transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+/*
+ * Every clickable control shares one recipe — shape, hover, press, keyboard focus ring, disabled
+ * look — so a button reads as a button wherever it sits. Underlined text used to stand in for
+ * about fifty of them. Variants only add colour; `btn-sm` shrinks any of them.
+ */
+.btn, .btn-primary, .btn-ghost, .btn-gold, .btn-danger, .btn-quiet, .btn-danger-soft, .btn-amber-soft, .btn-dark {
+  @apply inline-flex cursor-pointer select-none items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-semibold transition
+    active:scale-[0.98]
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stamp-blue/45 focus-visible:ring-offset-2 focus-visible:ring-offset-paper
+    disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
 }
-.btn-primary { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-semibold transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none bg-stamp-blue text-white hover:bg-seal; }
-.btn-ghost { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-semibold transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none bg-navy/5 text-navy hover:bg-navy/10; }
-.btn-gold { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-semibold transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none bg-gold text-navy-deep hover:brightness-105; }
-.btn-danger { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-semibold transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none bg-vermilion text-white hover:brightness-95; }
+.btn-primary { @apply bg-stamp-blue text-white hover:bg-seal; }
+.btn-ghost { @apply bg-navy/5 text-navy hover:bg-navy/10; }
+.btn-gold { @apply bg-gold text-navy-deep hover:brightness-105; }
+.btn-danger { @apply bg-vermilion text-white hover:brightness-95; }
+/* Low-emphasis actions that used to be underlined words: Resend, Edit details, CSV, Copy, Hide. */
+.btn-quiet { @apply border border-navy/15 bg-white/40 font-medium text-navy-soft hover:border-navy/30 hover:bg-white/80 hover:text-navy; }
+/* Destructive but secondary: Revoke, Delete draft, Remove, Void. */
+.btn-danger-soft { @apply bg-vermilion/8 font-medium text-[#8f2a1c] hover:bg-vermilion/15; }
+.btn-amber-soft { @apply bg-amber/12 font-medium text-[#8a4a12] hover:bg-amber/20; }
+/* On navy: the kiosk, the desk, the auth screens. */
+.btn-dark { @apply border border-paper/20 bg-paper/10 text-paper hover:bg-paper/20 focus-visible:ring-gold/60 focus-visible:ring-offset-navy-deep; }
+.btn-sm { @apply gap-1.5 rounded-md px-2.5 py-1.5 text-xs; }
+.btn-icon { @apply h-8 w-8 p-0 text-base leading-none; }
+
+/* Rows inside a card's "More" popover. */
+.menu-item {
+  @apply flex w-full cursor-pointer items-center rounded-lg px-3 py-1.5 text-left text-sm text-navy transition
+    hover:bg-navy/5 focus-visible:bg-navy/5 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+/* Segmented tabs: the day picker, the invitation filter, the reference-list tabs. */
+.tab {
+  @apply cursor-pointer rounded-full px-3 py-1 text-xs font-medium text-navy-soft transition
+    hover:bg-navy/10 hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stamp-blue/45;
+}
+.tab[aria-selected="true"] { @apply bg-navy text-paper hover:bg-navy hover:text-paper; }
+
+/* A link inside a sentence stays a link, but gets a hover and a focus ring like everything else. */
+.link {
+  @apply rounded-sm underline decoration-current/40 underline-offset-2 transition
+    hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stamp-blue/45;
+}
 .card { @apply rounded-2xl bg-paper-2 p-4 shadow-[0_1px_0_rgba(23,38,63,.08)]; }
 
 /* Paper: the booth table card (organizer/Booth.tsx) and the dashboard summary (admin/Print.tsx). */

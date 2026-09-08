@@ -54,8 +54,10 @@ export default function Prize() {
           <div className="mt-3 flex justify-center">
             {code ? <QR value={`${APP_ORIGIN}/r/${code.payload}`} size={200} /> : <div className="grid aspect-square w-[min(200px,60vw)] place-items-center text-sm text-navy-soft">Preparing your code…</div>}
           </div>
-          <div className="fig mt-4 text-2xl tracking-[0.2em] xs:text-3xl xs:tracking-[0.3em]">{code ? code.code.slice(0, 4) + ' ' + code.code.slice(4) : '···· ····'}</div>
-          <div className="mt-2 text-xs text-navy-soft">Refreshes in {code?.secondsLeft ?? '–'} s — a screenshot will not work</div>
+          {/* The desk can also type these two: the code alone cannot name a visitor (§4.4). */}
+          <div className="mt-4 font-mono text-sm tracking-widest text-gold">{profile.passportNo}</div>
+          <div className="fig mt-1 text-2xl tracking-[0.2em] xs:text-3xl xs:tracking-[0.3em]">{code ? code.code.slice(0, 4) + ' ' + code.code.slice(4) : '···· ····'}</div>
+          <div className="mt-2 text-xs text-navy-soft">Refreshes in {code?.secondsLeft ?? '–'} s — a screenshot will not work. If the camera fails, read out both lines.</div>
           <svg className="pointer-events-none absolute -bottom-6 -right-6 h-32 w-32 text-gold/50" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="50" cy="50" r="44" className="seal-draw" /><circle cx="50" cy="50" r="36" />
           </svg>

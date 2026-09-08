@@ -133,7 +133,7 @@ export default function Print() {
         </div>
 
         <footer className="mt-3 border-t border-[#17263F]/15 pt-1 text-[8px] text-[#4A5872]">
-          Aggregates only — no personal data. Ethnic groups under 5 are folded into “Other” and the panel is omitted entirely below 20 consenting visitors (§4.1).
+          Aggregates only — no personal data. Ethnic groups under 5 are folded into “Other” and the panel is omitted entirely below 20 consenting visitors.
         </footer>
       </div>
     </div>

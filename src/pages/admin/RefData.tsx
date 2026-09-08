@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api, errorMessage } from '../../lib/api'
 import { useEthnicGroups, useRefList } from '../../lib/data'
-import { Notice } from '../../components/ui'
+import { Toast, type Msg } from '../../components/ui'
+import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import { countryName } from '../../lib/countries'
 
 type Tab = 'institutions' | 'mfuSchools' | 'ethnicGroups'
@@ -9,7 +10,7 @@ type Tab = 'institutions' | 'mfuSchools' | 'ethnicGroups'
 const TABS: Array<{ id: Tab; label: string; blurb: string }> = [
   { id: 'institutions', label: 'Institutions', blurb: 'Universities offered in the registration form. Visitors can still type anything — this is a suggestion list.' },
   { id: 'mfuSchools', label: 'MFU schools', blurb: 'Offered when a visitor picks MFU as their institution.' },
-  { id: 'ethnicGroups', label: 'Ethnic groups', blurb: 'Per country of origin. Sensitive data under PDPA s.26 (§10): optional for the visitor, gated behind its own consent, never shown per person, and suppressed below 5 in aggregate. The Office of International Affairs owns this wording.' },
+  { id: 'ethnicGroups', label: 'Ethnic groups', blurb: 'Per country of origin. Sensitive data under PDPA s.26: optional for the visitor, gated behind its own consent, never shown per person, and suppressed below 5 in aggregate. The Office of International Affairs owns this wording.' },
 ]
 
 /** One list per line, so a non-developer can paste from a spreadsheet. */
@@ -27,7 +28,7 @@ function Lines({ value, onChange, rows = 14 }: { value: string[]; onChange: (v: 
 /** §4.1 / §13 — edit the registration form's suggestion lists without a redeploy or a reseed. */
 export default function RefData() {
   const [tab, setTab] = useState<Tab>('institutions')
-  const [msg, setMsg] = useState<{ tone: 'green' | 'red' | 'amber'; text: string } | null>(null)
+  const [msg, setMsg] = useState<Msg | null>(null)
   const [busy, setBusy] = useState(false)
 
   const institutions = useRefList('institutions')
@@ -39,6 +40,7 @@ export default function RefData() {
   const [newCountry, setNewCountry] = useState('')
 
   const live = tab === 'institutions' ? institutions : mfuSchools
+  const dirty = tab === 'ethnicGroups' ? draftEthnic !== null : draftList !== null
   const list = draftList ?? live
   const ethnicLive = useMemo(
     () => Object.fromEntries(Object.entries(ethnic).map(([k, v]) => [k, v ?? []])) as Record<string, string[]>,
@@ -46,7 +48,12 @@ export default function RefData() {
   )
   const ethnicDraft = draftEthnic ?? ethnicLive
 
-  function switchTab(t: Tab) { setTab(t); setDraftList(null); setDraftEthnic(null); setMsg(null) }
+  function switchTab(t: Tab) {
+    if (t === tab) return
+    // Switching tabs used to throw the draft away silently.
+    if (dirty && !window.confirm('Discard the unsaved changes on this list?')) return
+    setTab(t); setDraftList(null); setDraftEthnic(null); setMsg(null)
+  }
 
   async function save() {
     setBusy(true); setMsg(null)
@@ -63,8 +70,8 @@ export default function RefData() {
     } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
   }
 
-  const dirty = tab === 'ethnicGroups' ? draftEthnic !== null : draftList !== null
   const meta = TABS.find((t) => t.id === tab)!
+  useUnsavedGuard(dirty)
 
   return (
     <div className="page-in">
@@ -76,14 +83,14 @@ export default function RefData() {
 
       <nav className="mt-4 flex flex-wrap gap-2">
         {TABS.map((t) => (
-          <button key={t.id} onClick={() => switchTab(t.id)}
-            className={`rounded-lg px-3 py-2 text-sm ${tab === t.id ? 'bg-navy text-paper font-semibold' : 'bg-navy/5 text-navy-soft hover:bg-navy/10'}`}>
+          <button key={t.id} onClick={() => switchTab(t.id)} role="tab" aria-selected={tab === t.id}
+            className="tab bg-navy/5 px-4 py-2 text-sm">
             {t.label}
           </button>
         ))}
       </nav>
 
-      {msg && <div className="mt-4"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
+      <Toast msg={msg} onClose={() => setMsg(null)} />
 
       <section className="card mt-4">
         <p className="text-xs text-navy-soft">{meta.blurb}</p>
@@ -94,7 +101,7 @@ export default function RefData() {
               <div key={cc}>
                 <div className="flex items-center justify-between gap-2">
                   <label className="stamp-text text-navy-soft">{cc} · {countryName(cc)} · {ethnicDraft[cc].length}</label>
-                  <button className="text-xs text-vermilion underline"
+                  <button className="btn-danger-soft btn-sm"
                     onClick={() => { const n = { ...ethnicDraft }; delete n[cc]; setDraftEthnic(n) }}>
                     Remove country
                   </button>
@@ -128,7 +135,7 @@ export default function RefData() {
 
         <div className="mt-4 flex flex-wrap gap-2">
           <button className="btn-primary" disabled={busy || !dirty} onClick={save}>
-            {busy ? 'Saving…' : 'Save list'}
+            {busy ? 'Saving…' : 'Save'}
           </button>
           <button className="btn-ghost" disabled={busy || !dirty}
             onClick={() => { setDraftList(null); setDraftEthnic(null); setMsg(null) }}>

@@ -283,7 +283,11 @@ It drives the whole loop through the client SDK, so it goes through the real sec
 and Firestore triggers: bootstrap an admin, register a visitor, stamp nine booths, confirm a
 duplicate scan is refused, redeem a prize and watch stock drop, archive the event, purge it,
 create the next event, go live, and confirm a reused `booth-01` can be stamped again and
-passport numbering restarts with the new prefix. 37 checks; all should pass.
+passport numbering restarts with the new prefix. 150 checks; all should pass.
+
+> The emulator never sends invitation mail, even when the live project has an EmailJS key in
+> Secret Manager (the emulator reads those secrets). Invites come back as copyable links, which
+> the run relies on. Set `EMULATOR_SEND_MAIL=1` before `npm run emulators` to send for real.
 
 Note `scan` is rate-limited to 10 calls per minute per visitor, which is why the script
 stamps nine booths and keeps one call in reserve for the duplicate-scan check.

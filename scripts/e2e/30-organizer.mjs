@@ -87,6 +87,18 @@ export default async function organizer(ctx) {
   const p3b = await rawCall(tokens.visitor3, 'redemptionCode', {})
   ok('a second confirm says already', (await rawCall(tokens.organizer, 'confirmRedemption', { payload: p3b.payload, tierId: 'explorer' })).status === 'already')
 
+  section('Typed at the desk: passport number + 8-character code (§4.4)')
+  // The visitor's Prize page shows only the code; the desk cannot read users, so the server joins.
+  const v3no = (await ownerDoc(`users/${visitor3Uid}`)).passportNo
+  const p3c = await rawCall(tokens.visitor3, 'redemptionCode', {})
+  const byNo = await rawCall(tokens.organizer, 'lookupRedemption', { passportNo: v3no, code: p3c.code })
+  ok('desk resolves passport number + code to the visitor', byNo.status === 'ok' && byNo.visitor.uid === visitor3Uid, `${v3no} ${p3c.code}`)
+  ok('digits alone stand for the passport number', (await rawCall(tokens.organizer, 'lookupRedemption', { passportNo: v3no.split('-').pop(), code: p3c.code.toLowerCase() })).status === 'ok')
+  ok('a wrong code with a real passport number is invalid', (await rawCall(tokens.organizer, 'lookupRedemption', { passportNo: v3no, code: 'AAAAAAAA' })).status === 'invalid')
+  const againNo = await rawCall(tokens.organizer, 'confirmRedemption', { passportNo: v3no, code: p3c.code, tierId: 'explorer' })
+  ok('confirm by passport number says already and names the desk', againNo.status === 'already' && typeof againNo.redeemedByName === 'string' && againNo.redeemedByName.length > 0, JSON.stringify(againNo))
+  ok('neither form given is refused', await fails(rawCall(tokens.organizer, 'lookupRedemption', {}), /payload, or passportNo and code/))
+
   section('Two desks, last item (§12.15)')
   const voy = (await getDoc(doc(db, 'prizeTiers', 'voyager'))).data()
   await rawCall(tokens.admin, 'adjustStock', { tierId: 'voyager', delta: -(voy.stockRemaining - 1), reason: 'e2e: leave one item', kind: 'correction' })

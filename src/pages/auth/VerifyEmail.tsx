@@ -78,7 +78,7 @@ export default function VerifyEmail() {
 
         <p className="pt-2 text-xs text-paper/45">
           Typed the address wrong?{' '}
-          <button className="underline hover:text-paper/70" onClick={useAnother}>Start again with another email</button>.
+          <button className="btn-dark btn-sm mx-1" onClick={useAnother}>Start again with another email</button>
         </p>
       </div>
     </AuthShell>

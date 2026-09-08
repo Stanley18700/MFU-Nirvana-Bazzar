@@ -33,7 +33,7 @@ export function Readiness() {
     {
       ok: mail === true, soft: true, to: '/admin/users',
       label: mail === null ? 'Invitation email' : mail ? 'Invitation email is configured' : 'Invitation email is not configured',
-      detail: mail === null ? 'checking…' : mail ? undefined : 'invites show a copyable link instead — fine for a small team (SETUP.md §2)',
+      detail: mail === null ? 'checking…' : mail ? undefined : 'invites show a copyable link instead — fine for a small team',
     },
   ]
   const hard = items.filter((i) => !i.soft)
@@ -48,7 +48,7 @@ export function Readiness() {
         <h2 className="stamp-text text-navy-soft">Ready for the event? · {done} of {items.length}</h2>
         <div className="flex items-center gap-3 text-xs text-navy-soft">
           {start && !started && <span>Starts {new Date(start).toLocaleString('en-GB', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>}
-          {allHardOk && <button className="underline" onClick={() => { setHidden(true); try { localStorage.setItem('readiness-hidden', event.id) } catch { /* private mode */ } }}>Hide</button>}
+          {allHardOk && <button className="btn-quiet btn-sm" onClick={() => { setHidden(true); try { localStorage.setItem('readiness-hidden', event.id) } catch { /* private mode */ } }}>Hide</button>}
         </div>
       </div>
       <ul className="mt-3 grid gap-1.5 text-sm md:grid-cols-2">
@@ -56,7 +56,7 @@ export function Readiness() {
           <li key={i.label} className="flex items-start gap-2">
             <span className={`mt-0.5 inline-block h-4 w-4 shrink-0 rounded-full text-center text-[10px] leading-4 text-white ${i.ok ? 'bg-jade' : i.soft ? 'bg-navy/30' : 'bg-amber'}`} aria-hidden>{i.ok ? '✓' : ''}</span>
             <div className="min-w-0">
-              <Link to={i.to} className={i.ok ? '' : 'underline'}>{i.label}</Link>
+              <Link to={i.to} className={i.ok ? 'link decoration-transparent' : 'link'}>{i.label}</Link>
               {i.detail && <div className="text-xs text-navy-soft">{i.detail}</div>}
             </div>
           </li>

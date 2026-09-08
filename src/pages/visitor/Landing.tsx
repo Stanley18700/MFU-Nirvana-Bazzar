@@ -35,7 +35,7 @@ export default function Landing() {
 
       <div className="flex flex-col gap-3">
         <Link to="/signup" className="btn-gold py-3.5 text-lg">Start your passport</Link>
-        <Link to="/signin" className="btn text-paper/80 hover:text-paper">I already have a passport</Link>
+        <Link to="/signin" className="btn-dark py-3.5">I already have a passport</Link>
         <p className="mt-4 text-center text-xs text-paper/50">Sign in with Google or an email · works in your browser · under a minute</p>
       </div>
     </main></>

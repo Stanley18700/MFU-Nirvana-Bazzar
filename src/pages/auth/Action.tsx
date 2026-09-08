@@ -101,7 +101,7 @@ export default function Action() {
         <div className="mt-6 flex flex-col gap-3">
           <p className="text-sm text-paper/60">Links are single-use and expire after an hour. Ask for a fresh one.</p>
           <Link to="/forgot-password" className="btn-gold py-3.5">Send a new reset link</Link>
-          <Link to="/signin" className="btn-ghost bg-paper/10 text-paper hover:bg-paper/20">Back to sign in</Link>
+          <Link to="/signin" className="btn-dark">Back to sign in</Link>
         </div>
       </AuthShell>
     )
@@ -154,7 +154,7 @@ export default function Action() {
     <AuthShell back={null} title={done.title} lead={done.lead}>
       <div className="mt-6 flex flex-col gap-3">
         {done.cta}
-        <Link to="/" className="btn-ghost bg-paper/10 text-paper hover:bg-paper/20">Back to the start</Link>
+        <Link to="/" className="btn-dark">Back to the start</Link>
       </div>
     </AuthShell>
   )

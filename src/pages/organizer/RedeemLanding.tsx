@@ -27,7 +27,7 @@ export default function RedeemLanding() {
       </header>
       <div className="rounded-3xl bg-paper p-6 text-navy">
         <Notice>Show this code to the prize desk — they scan it from their own device. Open
-          <Link to="/passport/prize" className="underline"> your prize page</Link> to display it.</Notice>
+          <Link to="/passport/prize" className="link"> your prize page</Link> to display it.</Notice>
       </div>
     </main></>
   )

@@ -40,7 +40,7 @@ export default function SignIn() {
     <AuthShell
       title="Sign in"
       lead="Your passport, stamps and points follow the account — sign in on any phone and they are all there."
-      foot={<>New here? <Link to="/signup" state={{ from, email }} className="font-semibold text-gold underline">Create an account</Link></>}
+      foot={<>New here? <Link to="/signup" state={{ from, email }} className="link font-semibold text-gold">Create an account</Link></>}
     >
       <div className="mt-6">
         <GoogleButton onClick={google} busy={busy === 'google'} label="Continue with Google" />
@@ -55,7 +55,7 @@ export default function SignIn() {
           <Field label="Password" type="password" required autoComplete="current-password"
             placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
           <div className="mt-2 text-right">
-            <Link to="/forgot-password" state={{ email }} className="text-xs text-paper/60 underline hover:text-paper">Forgot your password?</Link>
+            <Link to="/forgot-password" state={{ email }} className="link text-xs text-paper/60 hover:text-paper">Forgot your password?</Link>
           </div>
         </div>
         {err && <DarkNotice tone="red">{err}</DarkNotice>}

@@ -21,7 +21,15 @@ export const EMAILJS_SERVICE_ID = defineString('EMAILJS_SERVICE_ID', { default: 
 export const EMAILJS_TEMPLATE_INVITE = defineString('EMAILJS_TEMPLATE_INVITE', { default: '' })
 export const APP_ORIGIN = defineString('APP_ORIGIN', { default: 'https://mfu-passport.web.app' })
 
+/**
+ * The emulator fetches secrets from the live project's Secret Manager, so once a real EmailJS key
+ * is set there, `npm run e2e` would email every invitation it creates. Sending from the emulator
+ * is therefore off unless EMULATOR_SEND_MAIL=1 is set for the session.
+ */
+const emulatorMailOff = process.env.FUNCTIONS_EMULATOR === 'true' && process.env.EMULATOR_SEND_MAIL !== '1'
+
 export function mailConfigured(): boolean {
+  if (emulatorMailOff) return false
   try {
     return !!(EMAILJS_PRIVATE_KEY.value() && EMAILJS_PUBLIC_KEY.value() && EMAILJS_SERVICE_ID.value())
   } catch {

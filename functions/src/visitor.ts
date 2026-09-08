@@ -235,6 +235,10 @@ export const redemptionCode = onCall(async (req) => {
   return { code, counter, period: REDEMPTION_PERIOD, payload: `${uid}.${counter}.${code}`, serverTime: Date.now() }
 })
 
+async function expectedRedemptionCode(secret: string, uid: string, counter: number): Promise<string> {
+  return (await computeToken(secret, `r:${uid}`, counter)) + (await computeToken(secret, `r2:${uid}`, counter)).slice(0, 2)
+}
+
 export async function verifyRedemptionPayload(payload: string): Promise<{ uid: string } | null> {
   const m = payload.trim().match(/(?:^|\/r\/)([A-Za-z0-9]+)\.(\d+)\.([A-Z2-7]{8})(?:[/?#]|$)/i)
   if (!m) return null
@@ -243,8 +247,45 @@ export async function verifyRedemptionPayload(payload: string): Promise<{ uid: s
   const now = counterFor(Date.now(), REDEMPTION_PERIOD)
   if (counter !== now && counter !== now - 1) return null
   const secret = await redemptionSecret()
-  const expected = (await computeToken(secret, `r:${uid}`, counter)) + (await computeToken(secret, `r2:${uid}`, counter)).slice(0, 2)
-  return constantTimeEqual(expected, code.toUpperCase()) ? { uid } : null
+  return constantTimeEqual(await expectedRedemptionCode(secret, uid, counter), code.toUpperCase()) ? { uid } : null
+}
+
+/**
+ * The typed alternative to the QR (§4.4): the visitor reads out their passport number and the
+ * 8-character code from the Prize page. The code alone cannot name the visitor — it is an HMAC
+ * over the uid — and the desk cannot read `users`, so the server does the join. Bare digits are
+ * accepted as a shorthand for the current event's prefix ("42" → "MFU-GG-0042").
+ */
+export async function verifyRedemptionByPassport(passportNoRaw: string, codeRaw: string): Promise<{ uid: string } | null> {
+  const code = codeRaw.replace(/\s+/g, '').toUpperCase()
+  if (!/^[A-Z2-7]{8}$/.test(code)) return null
+  let passport = passportNoRaw.replace(/\s+/g, '').toUpperCase()
+  if (/^\d{1,4}$/.test(passport)) passport = `${(await getActiveEvent()).passportPrefix}-${passport.padStart(4, '0')}`
+  if (!/^[A-Z0-9-]{3,24}$/.test(passport)) return null
+
+  // Numbers are issued once per event from one counter, so at most one live account matches.
+  // A soft-deleted account keeps its number; skip those, and refuse anything ambiguous.
+  const snap = await db.collection('users').where('passportNo', '==', passport).limit(5).get()
+  const live = snap.docs.filter((d) => !(d.data() as UserDoc).deletedAt)
+  if (live.length !== 1) return null
+  const uid = live[0].id
+
+  const secret = await redemptionSecret()
+  const now = counterFor(Date.now(), REDEMPTION_PERIOD)
+  for (const counter of [now, now - 1]) {
+    if (constantTimeEqual(await expectedRedemptionCode(secret, uid, counter), code)) return { uid }
+  }
+  return null
+}
+
+/** Either form the prize desk can send: `{ payload }` from a scan, or `{ passportNo, code }` typed. */
+export async function resolveRedemption(data: unknown): Promise<{ uid: string } | null> {
+  const d = (data ?? {}) as { payload?: unknown; passportNo?: unknown; code?: unknown }
+  if (typeof d.payload === 'string' && d.payload.trim()) return verifyRedemptionPayload(str(d.payload, 'payload', { max: 300 }))
+  if (typeof d.passportNo === 'string' && typeof d.code === 'string') {
+    return verifyRedemptionByPassport(str(d.passportNo, 'passportNo', { max: 24 }), str(d.code, 'code', { max: 12 }))
+  }
+  throw new HttpsError('invalid-argument', 'payload, or passportNo and code, is required')
 }
 
 /**

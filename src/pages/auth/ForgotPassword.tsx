@@ -47,7 +47,7 @@ export default function ForgotPassword() {
       back="/signin"
       title="Reset your password"
       lead="Enter the email on your account and we will send a link that lets you set a new password."
-      foot={<>Remembered it? <Link to="/signin" className="font-semibold text-gold underline">Sign in</Link></>}
+      foot={<>Remembered it? <Link to="/signin" className="link font-semibold text-gold">Sign in</Link></>}
     >
       {sent ? (
         <div className="mt-6 flex flex-col gap-4">
@@ -62,7 +62,7 @@ export default function ForgotPassword() {
           </button>
           <p className="text-xs text-paper/45">
             Wrong address?{' '}
-            <button className="underline hover:text-paper/70" onClick={() => { setSent(false); setAgain(false); setErr(null) }}>Use a different email</button>.
+            <button className="btn-dark btn-sm mx-1" onClick={() => { setSent(false); setAgain(false); setErr(null) }}>Use a different email</button>
           </p>
         </div>
       ) : (
