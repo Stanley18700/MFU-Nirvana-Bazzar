@@ -192,7 +192,14 @@ export function useRefList(name: 'institutions' | 'mfuSchools') {
   return data?.list ?? []
 }
 
-export function useEthnicGroups() {
-  const { data } = useDoc<Record<string, string[]>>(doc(db, 'refData', 'ethnicGroups'), [], 'the ethnic-group lists')
-  return (data ?? {}) as Record<string, string[] | undefined>
+/**
+ * `{ [ISO 3166-1 alpha-2]: string[] }`. `useDoc` adds the document id to what it returns, and
+ * the Ethnic groups tab used to iterate that as a country and crash on `'ethnicGroups'.join`;
+ * only two-letter keys holding a list get through.
+ */
+export function useEthnicGroups(): Record<string, string[]> {
+  const { data } = useDoc<Record<string, unknown>>(doc(db, 'refData', 'ethnicGroups'), [], 'the ethnic-group lists')
+  return useMemo(() => Object.fromEntries(
+    Object.entries(data ?? {}).filter(([k, v]) => /^[A-Z]{2}$/.test(k) && Array.isArray(v)),
+  ) as Record<string, string[]>, [data])
 }

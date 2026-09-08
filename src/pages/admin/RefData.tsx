@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api, errorMessage } from '../../lib/api'
 import { useEthnicGroups, useRefList } from '../../lib/data'
 import { Toast, type Msg } from '../../components/ui'
@@ -15,8 +15,10 @@ const TABS: Array<{ id: Tab; label: string; blurb: string }> = [
 
 /** One list per line, so a non-developer can paste from a spreadsheet. */
 function Lines({ value, onChange, rows = 14 }: { value: string[]; onChange: (v: string[]) => void; rows?: number }) {
-  const [text, setText] = useState(value.join('\n'))
-  useEffect(() => { setText(value.join('\n')) }, [value])
+  // Defensive: a stray non-list field in the document must never take the page down.
+  const joined = Array.isArray(value) ? value.join('\n') : ''
+  const [text, setText] = useState(joined)
+  useEffect(() => { setText(joined) }, [joined])
   return (
     <textarea
       className="field mt-1 font-mono text-xs" rows={rows} value={text}
@@ -42,11 +44,7 @@ export default function RefData() {
   const live = tab === 'institutions' ? institutions : mfuSchools
   const dirty = tab === 'ethnicGroups' ? draftEthnic !== null : draftList !== null
   const list = draftList ?? live
-  const ethnicLive = useMemo(
-    () => Object.fromEntries(Object.entries(ethnic).map(([k, v]) => [k, v ?? []])) as Record<string, string[]>,
-    [ethnic],
-  )
-  const ethnicDraft = draftEthnic ?? ethnicLive
+  const ethnicDraft = draftEthnic ?? ethnic
 
   function switchTab(t: Tab) {
     if (t === tab) return
