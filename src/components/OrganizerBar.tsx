@@ -2,6 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { useBooth } from '../lib/data'
+import { LangToggle } from './ui'
+import { useLocale } from '../lib/locale'
 
 /**
  * The organizer's only navigation. Booth staff used to reach the prize desk by typing the URL and
@@ -22,6 +24,7 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
   const { role, signOut } = useAuth()
   const nav = useNavigate()
   const { data: booth } = useBooth(boothId)
+  const { t } = useLocale()
   const [fs, setFs] = useState(!!document.fullscreenElement)
   useEffect(() => {
     const on = () => setFs(!!document.fullscreenElement)
@@ -34,11 +37,11 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
   const q = role === 'admin' && boothId ? `?boothId=${encodeURIComponent(boothId)}` : ''
   const desk = role === 'admin' || !!booth?.isPrizeDesk
   const items: Array<{ to: string; label: string; end?: boolean }> = [
-    { to: `/booth${q}`, label: 'Booth screen', end: true },
-    { to: `/booth/stats${q}`, label: 'Stats' },
-    ...(desk ? [{ to: '/redeem', label: 'Prize desk' }] : []),
-    ...(role === 'admin' ? [{ to: '/admin', label: 'Admin' }] : []),
-    { to: '/account', label: 'Account' },
+    { to: `/booth${q}`, label: t('nav.booth'), end: true },
+    { to: `/booth/stats${q}`, label: t('nav.stats') },
+    ...(desk ? [{ to: '/redeem', label: t('nav.desk') }] : []),
+    ...(role === 'admin' ? [{ to: '/admin', label: t('nav.admin') }] : []),
+    { to: '/account', label: t('nav.account') },
   ]
 
   async function leave() {
@@ -67,7 +70,7 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
     <div className={`flex w-full items-start gap-3 ${className}`}>
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
         {/* No booth name here: every page that uses this bar already carries it as its heading. */}
-        <nav aria-label="Booth pages" className="flex min-w-0 flex-wrap items-center gap-2">
+        <nav aria-label={t('nav.pages')} className="flex min-w-0 flex-wrap items-center gap-2">
           <div className={`seg ${dark ? 'seg-dark' : 'seg-light'}`}>
             {items.map((n) => (
               // NavLink sets aria-current="page" itself, which is what drives the active style.
@@ -78,8 +81,10 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
         {actions}
       </div>
       {/* The rule keeps it separate even when the row has no slack left to push it with. */}
-      <div className={`shrink-0 border-l pl-3 ${dark ? 'border-paper/15' : 'border-navy/10'}`}>
-        <button type="button" onClick={leave} className={`${dark ? 'btn-dark' : 'btn-quiet'} btn-sm`}>Sign out</button>
+      {/* Language sits with Sign out: both are settings for whoever is holding the tablet. */}
+      <div className={`flex shrink-0 items-center gap-2 border-l pl-3 ${dark ? 'border-paper/15' : 'border-navy/10'}`}>
+        <LangToggle dark={dark} />
+        <button type="button" onClick={leave} className={`${dark ? 'btn-dark' : 'btn-quiet'} btn-sm`}>{t('nav.signOut')}</button>
       </div>
     </div>
   )

@@ -169,10 +169,12 @@ input, select, textarea, button { font: inherit; }
 }
 .seg-light { @apply bg-navy/5; }
 .seg-light .seg-item { @apply text-navy-soft hover:bg-white/70 hover:text-navy focus-visible:ring-stamp-blue/45; }
-.seg-light .seg-item[aria-current="page"] { @apply bg-white text-navy shadow-sm hover:bg-white; }
+.seg-light .seg-item[aria-current="page"],
+.seg-light .seg-item[aria-pressed="true"] { @apply bg-white text-navy shadow-sm hover:bg-white; }
 .seg-dark { @apply bg-white/5; }
 .seg-dark .seg-item { @apply text-paper/70 hover:bg-white/10 hover:text-paper focus-visible:ring-gold/60; }
-.seg-dark .seg-item[aria-current="page"] { @apply bg-paper/15 text-paper hover:bg-paper/15; }
+.seg-dark .seg-item[aria-current="page"],
+.seg-dark .seg-item[aria-pressed="true"] { @apply bg-paper/15 text-paper hover:bg-paper/15; }
 
 /* Segmented tabs: the day picker, the invitation filter, the reference-list tabs. */
 .tab {
@@ -180,6 +182,20 @@ input, select, textarea, button { font: inherit; }
     hover:bg-navy/10 hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stamp-blue/45;
 }
 .tab[aria-selected="true"] { @apply bg-navy text-paper hover:bg-navy hover:text-paper; }
+
+/*
+ * Thai typography, for the booth and school names the toggle now surfaces.
+ *
+ * `.stamp-text` is uppercase + letter-spaced — the passport look in English, and actively broken
+ * in Thai: Thai has no uppercase, and tracking pulls vowels and tone marks away from the consonant
+ * they attach to, so the text renders visibly come apart. Thai also writes without spaces between
+ * words, so the browser finds no break opportunity and a long name overflows its tile rather than
+ * wrapping.
+ */
+:lang(th) .stamp-text { @apply normal-case tracking-normal; }
+:lang(th) { line-break: loose; overflow-wrap: anywhere; }
+/* A figure is a figure in either language — never break one mid-number. */
+:lang(th) .fig { overflow-wrap: normal; }
 
 /* A link inside a sentence stays a link, but gets a hover and a focus ring like everything else. */
 .link {

@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } fr
 import { NavLink } from 'react-router-dom'
 import { downloadCsv, type CsvRow } from '../lib/csv'
 import { useDataErrors } from '../lib/data'
+import { LOCALES, useLocale } from '../lib/locale'
 
 export function Fig({ value, label, accent, sub }: { value: ReactNode; label: string; accent?: string; sub?: ReactNode }) {
   return (
@@ -226,6 +227,27 @@ export const Icon = {
    */
   fullscreen: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>,
   print: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M7 8V3h10v5" /><path d="M7 18H5a2 2 0 01-2-2v-3a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 01-2 2h-2" /><rect x="7" y="14" width="10" height="7" rx="1" /></svg>,
+}
+
+/**
+ * The language switch — English / Thai.
+ *
+ * Same `.seg` recipe as the organizer's page tabs, so one control shape serves both and the switch
+ * looks identical wherever it sits. `aria-pressed` rather than `aria-current`, because these pick a
+ * setting instead of navigating; the CSS answers to both. Each label carries its own `lang` so
+ * "ไทย" shapes correctly while the page is still in English.
+ */
+export function LangToggle({ dark = false, className = '' }: { dark?: boolean; className?: string }) {
+  const { locale, setLocale } = useLocale()
+  return (
+    <div className={`seg ${dark ? 'seg-dark' : 'seg-light'} shrink-0 ${className}`} role="group" aria-label="Language">
+      {LOCALES.map((l) => (
+        <button key={l} type="button" lang={l} onClick={() => setLocale(l)} aria-pressed={locale === l} className="seg-item">
+          {l === 'th' ? 'ไทย' : 'EN'}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 /**
