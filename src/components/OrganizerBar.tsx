@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { useBooth } from '../lib/data'
@@ -11,10 +11,12 @@ import { useBooth } from '../lib/data'
  * `compact` is the kiosk variant: one row of small links inside the booth header, hidden while the
  * screen is in full screen so nothing competes with the QR.
  */
-export function OrganizerBar({ boothId, dark = false, compact = false, className = '' }: {
+export function OrganizerBar({ boothId, dark = false, compact = false, actions, className = '' }: {
   boothId: string | null | undefined
   dark?: boolean
   compact?: boolean
+  /** Page-specific buttons — they render between the nav and Sign out so one row, one rhythm. */
+  actions?: ReactNode
   className?: string
 }) {
   const { role, signOut } = useAuth()
@@ -44,20 +46,41 @@ export function OrganizerBar({ boothId, dark = false, compact = false, className
     nav('/', { replace: true })
   }
 
-  const base = compact ? 'rounded px-2 py-1.5 text-sm' : 'rounded-lg px-3 py-2 text-sm font-medium'
-  const ring = dark ? 'focus-visible:ring-gold/60' : 'focus-visible:ring-stamp-blue/45'
-  const idle = `${dark ? 'text-paper/70 hover:bg-white/10 hover:text-paper' : 'text-navy-soft hover:bg-navy/5 hover:text-navy'} transition focus-visible:outline-none focus-visible:ring-2 ${ring}`
-  const active = dark ? 'bg-white/15 text-paper' : 'bg-navy/10 text-navy'
-
+  /**
+   * Pages, then this page's actions, then the way out — the order AdminLayout uses, so an
+   * organizer moving between the two panels finds the same thing in the same place. The nav sits
+   * in its own tinted group: without it, six equal chips in a row gave no clue which were pages
+   * and which were buttons, and the active page was indistinguishable from a hover.
+   *
+   * Sign out is deliberately NOT one of them. It lives outside the `nav` landmark (it navigates
+   * nowhere — it ends the session) and is pushed to the far corner behind a divider, so on a
+   * shared tablet it is never mistaken for another tab and never sits a thumb-width from Stats.
+   */
+  /**
+   * Two columns, and the outer row deliberately does NOT wrap: the left column holds everything
+   * that may reflow — the tabs and the page's own buttons — while Sign out is a
+   * `shrink-0` sibling. One wrapping row put Sign out below the tabs the moment the tabs needed a
+   * second line; this keeps it in the top corner at every width. `items-start` is what pins it to
+   * the top rather than centring it against a two-line nav.
+   */
   return (
-    <nav aria-label="Booth pages" className={`flex flex-wrap items-center gap-1 ${className}`}>
-      {!compact && booth && (
-        <span className={`mr-2 truncate text-sm font-semibold ${dark ? 'text-paper' : 'text-navy'}`} style={{ color: booth.accentColor }}>{booth.nameEn}</span>
-      )}
-      {items.map((n) => (
-        <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `${base} ${isActive ? active : idle}`}>{n.label}</NavLink>
-      ))}
-      <button type="button" onClick={leave} className={`${dark ? 'btn-dark' : 'btn-quiet'} btn-sm ${compact ? '' : 'ml-auto'}`}>Sign out</button>
-    </nav>
+    <div className={`flex w-full items-start gap-3 ${className}`}>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
+        {/* No booth name here: every page that uses this bar already carries it as its heading. */}
+        <nav aria-label="Booth pages" className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className={`seg ${dark ? 'seg-dark' : 'seg-light'}`}>
+            {items.map((n) => (
+              // NavLink sets aria-current="page" itself, which is what drives the active style.
+              <NavLink key={n.to} to={n.to} end={n.end} className="seg-item">{n.label}</NavLink>
+            ))}
+          </div>
+        </nav>
+        {actions}
+      </div>
+      {/* The rule keeps it separate even when the row has no slack left to push it with. */}
+      <div className={`shrink-0 border-l pl-3 ${dark ? 'border-paper/15' : 'border-navy/10'}`}>
+        <button type="button" onClick={leave} className={`${dark ? 'btn-dark' : 'btn-quiet'} btn-sm`}>Sign out</button>
+      </div>
+    </div>
   )
 }

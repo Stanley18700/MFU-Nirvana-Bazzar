@@ -4,7 +4,7 @@ import { Scanner } from '../../components/Scanner'
 import { api, friendlyError, type LookupResult, type RedemptionCred } from '../../lib/api'
 import { useBooth, useBooths, useEvent, useTiersState } from '../../lib/data'
 import { OrganizerBar } from '../../components/OrganizerBar'
-import { DarkNotice, DataErrors, Notice, Spinner, fmt } from '../../components/ui'
+import { DarkNotice, DataErrors, LiveDot, Notice, Spinner, fmt } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
 import { clock } from '../../lib/eventText'
 
@@ -121,9 +121,10 @@ export default function Redeem() {
 
   const shell = (children: React.ReactNode) => (
     <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="mx-auto min-h-full max-w-lg bg-navy-deep px-4 pb-8 text-paper">
-      <header className="flex flex-wrap items-center justify-between gap-2 py-4">
+      <header className="py-4">
+        {/* The bar above the title, as on /booth and /booth/stats. */}
+        <OrganizerBar boothId={role === 'admin' ? null : claimBooth} dark compact className="mb-3" />
         <div className="stamp-text text-gold">Prize desk</div>
-        <OrganizerBar boothId={role === 'admin' ? null : claimBooth} dark compact />
       </header>
       {children}
     </main></>
@@ -154,7 +155,9 @@ export default function Redeem() {
       {/* §4.4 — live stock strip, with a stale flag when the figures come from the cache */}
       <div className="flex items-center justify-between text-xs text-paper/60">
         <span>Stock</span>
-        <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-2 rounded-full" style={{ background: stockStale ? '#D4762A' : '#1E8A6E' }} aria-hidden />{offline ? 'Offline — figures may be old' : tiersState.fromCache ? 'Reconnecting' : 'Live'}</span>
+        <LiveDot state={offline ? 'offline' : stockStale ? 'stale' : 'live'} dark size="sm">
+          {offline ? 'Offline — figures may be old' : tiersState.fromCache ? 'Reconnecting' : 'Live'}
+        </LiveDot>
       </div>
       <div className="mt-1 grid grid-cols-2 gap-2 xs:grid-cols-3">
         {tiers.map((t) => {

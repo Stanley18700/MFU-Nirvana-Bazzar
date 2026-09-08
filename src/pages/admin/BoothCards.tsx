@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { BoothCard } from '../../components/BoothCard'
+import { Icon } from '../../components/ui'
 import { useBooths, useEvent } from '../../lib/data'
 import { APP_ORIGIN } from '../../lib/firebase'
 
@@ -13,7 +14,7 @@ export default function BoothCards() {
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-navy/5 p-3 text-sm print:hidden">
           <span>{booths.length} card{booths.length === 1 ? '' : 's'}, one per page. Print on A4, or choose “Save as PDF”.</span>
           <div className="flex gap-2">
-            <button className="btn-primary" onClick={() => window.print()}>Print all</button>
+            <button className="btn-primary" onClick={() => window.print()}>{Icon.print}Print all</button>
             <Link to="/admin/booths" className="btn-ghost">Back</Link>
           </div>
         </div>

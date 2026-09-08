@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { useBooths, useBoothStats, useBuckets, useEvent, useEventStats } from '../../lib/data'
-import { Crest, DataErrors, fmt } from '../../components/ui'
+import { Crest, DataErrors, Icon, fmt } from '../../components/ui'
 
 /** §6.1 — presentation mode for a hall screen: dark navy, oversized figures, auto-rotating. */
 export default function Wall() {
@@ -43,7 +43,7 @@ export default function Wall() {
       <header className="flex items-center justify-between">
         <div><div className="stamp-text text-[1.2vw] text-gold">{event.nameEn}</div><h1 className="text-[3vw] font-bold leading-none">Passport live</h1></div>
         <div className="flex items-center gap-[1.5vw]">
-          {!fs && <button className="btn-dark px-[1.2vw] py-[0.6vh] text-[1.1vw]" onClick={goFull}>Full screen</button>}
+          {!fs && <button className="btn-dark px-[1.2vw] py-[0.6vh] text-[1.1vw]" onClick={goFull}>{Icon.fullscreen}Full screen</button>}
           <Crest className="h-[8vw] w-[8vw] text-gold" />
         </div>
       </header>

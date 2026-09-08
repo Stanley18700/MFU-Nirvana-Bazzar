@@ -21,7 +21,7 @@ export default function Account() {
   const home = role === 'admin' ? '/admin' : role === 'organizer' ? '/booth' : '/passport'
 
   return (
-    <main className="mx-auto max-w-md px-5 pb-16 pt-8 page-in">
+    <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="on-navy mx-auto min-h-full max-w-md px-5 pb-16 pt-8 page-in">
       <Link to={home} className="text-sm text-navy-soft">← Back</Link>
       <h1 className="mt-3 text-2xl font-bold">Your account</h1>
       <p className="mt-1 text-sm text-navy-soft">
@@ -58,7 +58,7 @@ export default function Account() {
         <button className="btn-ghost w-full" onClick={async () => { await signOut(); nav('/', { replace: true }) }}>Sign out</button>
         <EraseData />
       </Section>
-    </main>
+    </main></>
   )
 }
 

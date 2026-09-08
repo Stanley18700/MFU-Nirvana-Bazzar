@@ -26,6 +26,7 @@ export type Tone = 'info' | 'amber' | 'red' | 'green'
 /** One result message, as every admin page keeps it in state. */
 export type Msg = { tone: 'green' | 'amber' | 'red'; text: string }
 
+/** Toast still needs the colours inline; Notice below is class-driven so `.on-navy` can restate it. */
 const TONE: Record<Tone, string> = {
   info: 'bg-stamp-blue/10 text-seal',
   amber: 'bg-amber/15 text-[#8a4a12]',
@@ -33,8 +34,12 @@ const TONE: Record<Tone, string> = {
   green: 'bg-jade/12 text-[#125a47]',
 }
 
+/**
+ * A stable class per tone rather than inline utilities, so `.on-navy` in index.css can restate the
+ * four tones for a dark page without every caller having to switch to `DarkNotice`.
+ */
 export function Notice({ tone = 'info', children }: { tone?: Tone; children: ReactNode }) {
-  return <div className={`rounded-xl px-4 py-3 text-sm ${TONE[tone]}`} role="status">{children}</div>
+  return <div className={`notice notice-${tone}`} role="status">{children}</div>
 }
 
 /**
@@ -213,6 +218,64 @@ export const Icon = {
   stamps: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>,
   prize: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 3l2.7 5.5 6 .9-4.4 4.2 1.1 6-5.4-2.9L6.6 19.6l1.1-6L3.3 9.4l6-.9z" /></svg>,
   scan: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3" /><path d="M4 12h16" /></svg>,
+
+  /*
+   * The four above are the visitor tab bar, so they are 22–26px. These two sit inside `btn-sm`
+   * beside a text label, where 15px matches the cap height of `text-xs`. Arrows-out rather than
+   * corner brackets for full screen, because brackets would read as `scan` at this size.
+   */
+  fullscreen: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>,
+  print: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M7 8V3h10v5" /><path d="M7 18H5a2 2 0 01-2-2v-3a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 01-2 2h-2" /><rect x="7" y="14" width="10" height="7" rx="1" /></svg>,
+}
+
+/**
+ * An icon-only button whose label appears on hover and on keyboard focus.
+ *
+ * For controls whose meaning the icon carries on its own and whose label would otherwise eat room
+ * a booth screen needs for the QR. The label is the `aria-label` as well as the tooltip, so it is
+ * never only visual. Do NOT use this where the label is the information — a primary action, or
+ * anything a first-time user has to read.
+ */
+export function IconButton({ icon, label, onClick, dark = false, className = '' }: {
+  icon: ReactNode
+  label: string
+  onClick: () => void
+  dark?: boolean
+  className?: string
+}) {
+  return (
+    <button
+      type="button" onClick={onClick} aria-label={label}
+      className={`tip ${dark ? 'btn-dark tip-dark' : 'btn-quiet tip-light'} btn-sm btn-icon-sm ${className}`}
+    >
+      {icon}
+      <span className="tip-label">{label}</span>
+    </button>
+  )
+}
+
+/**
+ * The live-data indicator: a coloured dot plus a phrase. Three screens grew their own copy with
+ * the same three hex literals and different dot sizes, so the booth kiosk and its own stats page
+ * disagreed about how "Live" looks. One component, one set of colours.
+ *
+ * `size="sm"` is for a caption inside a card; the default matches a page header's `text-sm`.
+ */
+export function LiveDot({ state, children, dark = false, size = 'md', className = '' }: {
+  state: 'live' | 'stale' | 'offline'
+  children: ReactNode
+  dark?: boolean
+  size?: 'sm' | 'md'
+  className?: string
+}) {
+  const color = state === 'offline' ? '#E0533D' : state === 'stale' ? '#D4762A' : '#1E8A6E'
+  const d = size === 'sm' ? 'h-2 w-2' : 'h-3 w-3'
+  return (
+    <span className={`flex shrink-0 items-center gap-2 ${size === 'sm' ? 'text-xs' : 'text-sm'} ${dark ? 'text-paper/70' : 'text-navy-soft'} ${className}`}>
+      <span className={`inline-block shrink-0 rounded-full ${d}`} style={{ background: color }} aria-hidden />
+      <span>{children}</span>
+    </span>
+  )
 }
 
 export function Crest({ className = '' }: { className?: string }) {
