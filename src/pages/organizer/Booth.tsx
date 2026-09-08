@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { api, friendlyError } from '../../lib/api'
 import { useBooth, useBoothStat, useBooths, useEventStats } from '../../lib/data'
+import { useLocale } from '../../lib/locale'
 import { QR } from '../../components/QR'
 import { BoothCard } from '../../components/BoothCard'
 import { OrganizerBar } from '../../components/OrganizerBar'
@@ -39,6 +40,7 @@ export default function Booth() {
   const [msLeft, setMsLeft] = useState(0)
   const [offline, setOffline] = useState(!navigator.onLine)
   const wakeLock = useRef<WakeLockSentinel | null>(null)
+  const { t, pick } = useLocale()
   const lastFetch = useRef(0)
   const nav = useNavigate()
   const loc = useLocation()
@@ -126,8 +128,8 @@ export default function Booth() {
   function goFull() {
     void requestWake()
     const el = document.documentElement
-    if (!el.requestFullscreen) { setFsHint('Full screen is not available in this browser — press F11.'); return }
-    el.requestFullscreen().then(() => setFsHint(null)).catch(() => setFsHint('Full screen was blocked — press F11 (⌃⌘F on a Mac).'))
+    if (!el.requestFullscreen) { setFsHint(t('booth.fsUnavailable')); return }
+    el.requestFullscreen().then(() => setFsHint(null)).catch(() => setFsHint(t('booth.fsBlocked')))
   }
 
   // True once the QR section is on the page at all — before that there is nothing to measure.
@@ -180,22 +182,22 @@ export default function Booth() {
     return (
       <main className="grid min-h-full place-items-center bg-navy-deep p-8 text-paper">
         <div className="flex w-full max-w-md flex-col gap-4">
-          <div className="stamp-text text-gold">Booth screen</div>
-          <h1 className="text-2xl font-bold">This screen could not start</h1>
+          <div className="stamp-text text-gold">{t('nav.booth')}</div>
+          <h1 className="text-2xl font-bold">{t('booth.failed')}</h1>
           <DarkNotice tone="red">{err}</DarkNotice>
           <p className="text-sm text-paper/70">
             Signed in as <b className="text-paper">{user?.email ?? 'this account'}</b>.
             {role === 'organizer' && !claimBooth && <> No booth is linked to it yet — ask the admin to assign one, then open this page again.</>}
           </p>
           <div className="flex flex-wrap gap-2">
-            <button className="btn-gold" onClick={() => { setErr(null); void load(true) }}>Try again</button>
-            <button className="btn-dark" onClick={async () => { await signOut(); nav('/', { replace: true }) }}>Sign out</button>
+            <button className="btn-gold" onClick={() => { setErr(null); void load(true) }}>{t('booth.retry')}</button>
+            <button className="btn-dark" onClick={async () => { await signOut(); nav('/', { replace: true }) }}>{t('nav.signOut')}</button>
           </div>
         </div>
       </main>
     )
   }
-  if (!session || !token) return <main className="min-h-full bg-navy-deep text-paper"><Spinner label="Starting booth screen…" /></main>
+  if (!session || !token) return <main className="min-h-full bg-navy-deep text-paper"><Spinner label={t('booth.starting')} /></main>
 
   const b = live ?? session.booth
   const feedState = offline ? 'offline' as const : (stat.fromCache || ev.fromCache) ? 'stale' as const : 'live' as const
@@ -245,19 +247,19 @@ export default function Booth() {
           boothId={session.boothId} dark compact className="mb-3"
           actions={!fs && (
             <div className="flex items-center gap-1.5">
-              <IconButton icon={Icon.fullscreen} label="Full screen" onClick={goFull} dark />
-              <IconButton icon={Icon.print} label="Print card" onClick={() => window.print()} dark />
+              <IconButton icon={Icon.fullscreen} label={t('booth.fullScreen')} onClick={goFull} dark />
+              <IconButton icon={Icon.print} label={t('booth.printCard')} onClick={() => window.print()} dark />
             </div>
           )}
         />
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
           <div className="min-w-0">
-            <div className="stamp-text text-[0.55em]" style={{ color: b.accentColor }}>{b.location} · This badge is worth {b.points} points</div>
-            <h1 className="mt-1 text-[1.6em] font-bold leading-tight">{b.nameEn}</h1>
+            <div className="stamp-text text-[0.55em]" style={{ color: b.accentColor }}>{t('booth.worth', { location: b.location, points: b.points })}</div>
+            <h1 className="mt-1 text-[1.6em] font-bold leading-tight">{pick(b.nameEn, b.nameTh)}</h1>
             <div className="text-[0.6em] text-paper/60">{b.hostUnit}</div>
           </div>
           <LiveDot state={feedState} dark>
-            {offline ? 'Offline — codes still valid' : fresh ? 'Live' : 'Reconnecting — codes still valid'}
+            {offline ? t('status.offlineCodes') : fresh ? t('status.live') : t('status.reconnectingCodes')}
           </LiveDot>
         </div>
       </header>
@@ -265,8 +267,8 @@ export default function Booth() {
         <DataErrors dark />
         {notice && <DarkNotice>{notice}</DarkNotice>}
         {fsHint && <DarkNotice tone="amber">{fsHint}</DarkNotice>}
-        {live && !live.active && <DarkNotice tone="red">This booth was switched off by the admin — visitor scans are refused until it is switched back on.</DarkNotice>}
-        {live?.active && offToday && <DarkNotice tone="amber">Not scheduled today on the visitors' stamp map — codes still work if someone scans.</DarkNotice>}
+        {live && !live.active && <DarkNotice tone="red">{t('booth.switchedOff')}</DarkNotice>}
+        {live?.active && offToday && <DarkNotice tone="amber">{t('booth.notToday')}</DarkNotice>}
       </div>
 
       <section ref={sectionRef} className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[3vh] px-4">
@@ -290,12 +292,12 @@ export default function Booth() {
           </svg>
         </div>
         <div ref={codeRef} className="text-center">
-          <div className="stamp-text text-[0.55em] text-paper/60">Manual code</div>
+          <div className="stamp-text text-[0.55em] text-paper/60">{t('booth.manualCode')}</div>
           <div key={token.counter} className="code-swap fig text-[2em] tracking-[0.15em] sm:text-[2.4em] sm:tracking-[0.25em]" style={{ color: b.accentColor }}>
             {formatManualCode(token.token)}
           </div>
           <div className="text-[0.5em] text-paper/50">
-            Rotates in <span className="tabular-nums">{Math.ceil(msLeft / 1000)}</span> s
+            {t('booth.rotatesIn')} <span className="tabular-nums">{Math.ceil(msLeft / 1000)}</span> {t('booth.seconds')}
           </div>
         </div>
       </section>
@@ -307,9 +309,9 @@ export default function Booth() {
         */}
       <footer className="grid grid-cols-3 gap-2 px-[4vw] py-[2vh] sm:gap-4">
         {[
-          { value: fmt(stat.data?.stamps), label: 'Visitors here' },
-          { value: fmt(ev.totals.stamps), label: 'Event total' },
-          { value: stat.data?.rank ? `#${stat.data.rank}` : '–', label: `Rank of ${boothCount || '–'} booths` },
+          { value: fmt(stat.data?.stamps), label: t('booth.visitorsHere') },
+          { value: fmt(ev.totals.stamps), label: t('booth.eventTotal') },
+          { value: stat.data?.rank ? `#${stat.data.rank}` : '–', label: t('booth.rankOf', { count: boothCount || '–' }) },
         ].map((f) => (
           <div key={f.label} className="glass flex flex-col items-center justify-center gap-0.5 px-2 py-[1.2vh] text-center">
             <div className="fig text-[1.8em] leading-none">{f.value}</div>

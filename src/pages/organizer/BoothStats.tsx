@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useAuth } from '../../lib/auth'
 import { ms, useBooth, useBoothStat, useBooths, useEvent, useEventStats } from '../../lib/data'
+import { useLocale } from '../../lib/locale'
 import { OrganizerBar } from '../../components/OrganizerBar'
 import { CsvButton, DataErrors, Fig, LiveDot, Notice, Spinner, fmt } from '../../components/ui'
 import { clock } from '../../lib/eventText'
@@ -15,6 +16,7 @@ export default function BoothStats() {
   const [params] = useSearchParams()
   const boothId = role === 'admin' ? params.get('boothId') : claimBooth
   const booths = useBooths(true)
+  const { t, pick } = useLocale()
   const { data: booth, loading } = useBooth(boothId)
   const { data: stat, fromCache } = useBoothStat(boothId)
   const ev = useEventStats()
@@ -24,13 +26,13 @@ export default function BoothStats() {
   const [picked, setPicked] = useState(days.includes(todayStr) ? todayStr : days[0])
 
   const bar = <OrganizerBar boothId={boothId} dark className="mb-4" />
-  if (boothId && loading) return <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="on-navy mx-auto min-h-full max-w-2xl px-5 py-6">{bar}<Spinner label="Loading your booth…" /></main></>
+  if (boothId && loading) return <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="on-navy mx-auto min-h-full max-w-2xl px-5 py-6">{bar}<Spinner label={t('stats.loading')} /></main></>
   if (!boothId || !booth) {
     // Used to spin forever. A missing claim or a deleted booth is a thing to say, and a way out.
     return (
       <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="on-navy mx-auto min-h-full max-w-2xl px-5 py-6">
         {bar}
-        <Notice tone="amber">{!boothId ? 'No booth is linked to this account yet — ask the admin to assign one.' : 'This booth no longer exists. Ask the admin which booth is yours.'}</Notice>
+        <Notice tone="amber">{!boothId ? t('stats.noBooth') : t('stats.boothGone')}</Notice>
       </main></>
     )
   }
@@ -57,25 +59,25 @@ export default function BoothStats() {
       {/* `items-start`, as on the kiosk: the status sits at the top of the row, under Sign out. */}
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
         <div>
-          <div className="stamp-text" style={{ color: booth.accentColor }}>{booth.location} · worth {booth.points} points</div>
-          <h1 className="text-2xl font-bold">{booth.nameEn}</h1>
+          <div className="stamp-text" style={{ color: booth.accentColor }}>{t('stats.worth', { location: booth.location, points: booth.points })}</div>
+          <h1 className="text-2xl font-bold">{pick(booth.nameEn, booth.nameTh)}</h1>
         </div>
-        <LiveDot state={fromCache ? 'stale' : 'live'} dark>{fromCache ? 'Reconnecting' : 'Live'}</LiveDot>
+        <LiveDot state={fromCache ? 'stale' : 'live'} dark>{fromCache ? t('status.reconnecting') : t('status.live')}</LiveDot>
       </div>
       <DataErrors className="mt-3" />
 
       <section className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
-        <Fig value={fmt(stat?.stamps)} label="Visitors stamped" accent={booth.accentColor}
-          sub={last ? `Last at ${clock(last)}` : 'None yet'} />
-        <Fig value={stat?.rank ? `#${stat.rank}` : '–'} label={`Rank of ${booths.filter((b) => b.active).length} booths`} />
-        <Fig value={fmt(ev.totals.stamps)} label="Event total" />
+        <Fig value={fmt(stat?.stamps)} label={t('stats.visitorsStamped')} accent={booth.accentColor}
+          sub={last ? t('stats.lastAt', { time: clock(last) }) : t('stats.noneYet')} />
+        <Fig value={stat?.rank ? `#${stat.rank}` : '–'} label={t('booth.rankOf', { count: booths.filter((b) => b.active).length })} />
+        <Fig value={fmt(ev.totals.stamps)} label={t('booth.eventTotal')} />
       </section>
 
       <section className="card mt-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="stamp-text text-navy-soft">Visitors per hour · Day {dayIndex}</h2>
+          <h2 className="stamp-text text-navy-soft">{t('stats.perHour', { day: dayIndex })}</h2>
           <div className="flex items-center gap-2">
-            <div className="flex gap-1" role="tablist" aria-label="Day">
+            <div className="flex gap-1" role="tablist" aria-label={t('stats.day')}>
               {days.map((d, i) => (
                 <button key={d} role="tab" aria-selected={d === day} onClick={() => setPicked(d)}
                   className="tab bg-navy/5">
@@ -101,7 +103,7 @@ export default function BoothStats() {
 
       <section className="card mt-4">
         <div className="flex items-center justify-between">
-          <h2 className="stamp-text text-navy-soft">Who visited</h2>
+          <h2 className="stamp-text text-navy-soft">{t('stats.whoVisited')}</h2>
           <CsvButton rows={types.map((k) => ({ visitorType: VISITOR_TYPE_LABEL[k], visitors: vt[k] ?? 0 }))} name={`${boothId}-visitor-types`} />
         </div>
         <ul className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
@@ -113,7 +115,7 @@ export default function BoothStats() {
 
       <section className="card mt-4">
         <div className="flex items-center justify-between">
-          <h2 className="stamp-text text-navy-soft">By day</h2>
+          <h2 className="stamp-text text-navy-soft">{t('stats.byDay')}</h2>
           <CsvButton rows={days.map((d, i) => ({ day: `Day ${i + 1}`, date: d, visitors: stat?.byDay?.[d] ?? 0 }))} name={`${boothId}-by-day`} />
         </div>
         <ul className="mt-3 grid grid-cols-3 gap-2 text-sm">
