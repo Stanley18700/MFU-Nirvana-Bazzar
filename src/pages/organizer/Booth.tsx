@@ -6,7 +6,7 @@ import { useBooth, useBoothStat, useBooths, useEventStats } from '../../lib/data
 import { QR } from '../../components/QR'
 import { BoothCard } from '../../components/BoothCard'
 import { OrganizerBar } from '../../components/OrganizerBar'
-import { DarkNotice, DataErrors, Spinner, fmt } from '../../components/ui'
+import { DarkNotice, DataErrors, Icon, IconButton, LiveDot, Spinner, fmt } from '../../components/ui'
 import { APP_ORIGIN } from '../../lib/firebase'
 import { buildPayload, computeToken, counterFor, formatManualCode, msUntilRotation } from '../../../shared/token'
 import { dayOf, type BoothDoc } from '../../../shared/model'
@@ -130,7 +130,39 @@ export default function Booth() {
     el.requestFullscreen().then(() => setFsHint(null)).catch(() => setFsHint('Full screen was blocked — press F11 (⌃⌘F on a Mac).'))
   }
 
-  // The QR is sized from the viewport, so it must follow a rotation or a resize.
+  // True once the QR section is on the page at all — before that there is nothing to measure.
+  const screenReady = !!session && !!token
+
+  /**
+   * What the QR section is actually given, measured. `flex-1 min-h-0` means the section's own
+   * height is the leftover space rather than its content, so this cannot feed back into itself.
+   * The manual-code block below the frame is subtracted along with the section's row gap.
+   */
+  const sectionRef = useRef<HTMLElement>(null)
+  const codeRef = useRef<HTMLDivElement>(null)
+  const [avail, setAvail] = useState<{ w: number; h: number } | null>(null)
+  useEffect(() => {
+    const sec = sectionRef.current
+    if (!sec || typeof ResizeObserver === 'undefined') return
+    const measure = () => {
+      const cs = getComputedStyle(sec)
+      const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight)
+      const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)
+      const gap = parseFloat(cs.rowGap) || 0
+      const code = codeRef.current?.getBoundingClientRect().height ?? 0
+      const next = { w: sec.clientWidth - padX, h: sec.clientHeight - padY - code - gap }
+      // Same numbers must not mean a new object, or the render this triggers loops.
+      setAvail((prev) => (prev && prev.w === next.w && prev.h === next.h ? prev : next))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(sec)
+    if (codeRef.current) ro.observe(codeRef.current)
+    return () => ro.disconnect()
+    // `screenReady` and not `token`: the section mounts once, but the token rotates every period.
+  }, [screenReady])
+
+  // Kept as the first-paint fallback, before the observer has measured.
   const [vp, setVp] = useState({ w: window.innerWidth, h: window.innerHeight })
   useEffect(() => {
     const resize = () => setVp({ w: window.innerWidth, h: window.innerHeight })
@@ -166,10 +198,8 @@ export default function Booth() {
   if (!session || !token) return <main className="min-h-full bg-navy-deep text-paper"><Spinner label="Starting booth screen…" /></main>
 
   const b = live ?? session.booth
-  // Fit inside the white frame (p-5) + accent ring (10px) + section padding (px-4) — ~96px total.
-  const size = Math.max(160, Math.round(Math.min(vp.w - 96, vp.h * 0.5, 520)))
-  const fresh = !offline && !stat.fromCache && !ev.fromCache
-  const dot = offline ? '#E0533D' : (stat.fromCache || ev.fromCache) ? '#D4762A' : '#1E8A6E'
+  const feedState = offline ? 'offline' as const : (stat.fromCache || ev.fromCache) ? 'stale' as const : 'live' as const
+  const fresh = feedState === 'live'
   const today = dayOf(new Date())
   const offToday = !!live && Array.isArray(live.activeDays) && live.activeDays.length > 0 && !live.activeDays.includes(today)
 
@@ -182,6 +212,21 @@ export default function Booth() {
    */
   const FRAME_PAD = 20, ACCENT = 10, GAP = 4, RING = 4, CORNER = 32
   const inset = ACCENT + GAP + RING              // how far the svg extends past the white frame
+
+  /**
+   * The QR is sized from the space the section actually has, not from the viewport. The header
+   * wraps on a narrow screen and can carry up to four notices below it, so a fraction of
+   * `innerHeight` over-estimated what was left and the code drew over the banner. `chrome` is
+   * everything the frame adds around the code: the white padding, the accent ring and the
+   * countdown ring, on both sides. 420 is the cap — past that a table-top code is just bigger,
+   * not easier to scan — and 150 the floor, below which a phone camera starts to struggle.
+   */
+  const chrome = 2 * (FRAME_PAD + inset)
+  const size = Math.max(150, Math.round(Math.min(
+    (avail?.w ?? vp.w - 32) - chrome,
+    (avail?.h ?? vp.h * 0.42) - chrome,
+    420,
+  )))
   const box = size + 2 * FRAME_PAD + 2 * inset
   const left = Math.max(0, Math.min(1, msLeft / (session.period * 1000)))
   const urgent = msLeft <= 3000
@@ -189,24 +234,31 @@ export default function Booth() {
   return (
     <>
     <main className="booth-screen relative flex min-h-full flex-col bg-navy-deep text-paper print:hidden">
-      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-[4vw] pt-[3vh]">
-        <div className="min-w-0">
-          <div className="stamp-text text-[0.55em]" style={{ color: b.accentColor }}>{b.location} · This badge is worth {b.points} points</div>
-          <h1 className="mt-1 text-[1.6em] font-bold leading-tight">{b.nameEn}</h1>
-          <div className="text-[0.6em] text-paper/60">{b.hostUnit}</div>
-        </div>
-        {/* Controls are sized in rem, not the kiosk em, so they stay readable on a phone and modest on a TV. */}
-        {/* On a phone this takes the full width under the title; on a table screen it sits to the right. */}
-        <div className="flex w-full min-w-0 flex-col items-start gap-1.5 text-sm sm:w-auto sm:max-w-[60%] sm:items-end">
-          <div className="flex items-center gap-2 text-paper/70">
-            <span className="inline-block h-3 w-3 rounded-full" style={{ background: dot }} aria-hidden />
-            <span>{offline ? 'Offline — codes still valid' : fresh ? 'Live' : 'Reconnecting — codes still valid'}</span>
+      <header className="px-[4vw] pt-[3vh]">
+        {/*
+         * Same shape as /booth/stats and /redeem: the bar is its own full-width row above the
+         * title, so the tabs get the whole width instead of a 60% column and Sign out sits in the
+         * real top-right corner of the screen. Controls are sized in rem, not the kiosk em, so
+         * they stay readable on a phone and modest on a TV.
+         */}
+        <OrganizerBar
+          boothId={session.boothId} dark compact className="mb-3"
+          actions={!fs && (
+            <div className="flex items-center gap-1.5">
+              <IconButton icon={Icon.fullscreen} label="Full screen" onClick={goFull} dark />
+              <IconButton icon={Icon.print} label="Print card" onClick={() => window.print()} dark />
+            </div>
+          )}
+        />
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+          <div className="min-w-0">
+            <div className="stamp-text text-[0.55em]" style={{ color: b.accentColor }}>{b.location} · This badge is worth {b.points} points</div>
+            <h1 className="mt-1 text-[1.6em] font-bold leading-tight">{b.nameEn}</h1>
+            <div className="text-[0.6em] text-paper/60">{b.hostUnit}</div>
           </div>
-          <div className="flex max-w-full flex-wrap items-center gap-1 sm:justify-end">
-            {!fs && <button onClick={goFull} className="btn-dark btn-sm">Full screen</button>}
-            {!fs && <button onClick={() => window.print()} className="btn-dark btn-sm" title="Print a table card for this booth">Print card</button>}
-            <OrganizerBar boothId={session.boothId} dark compact />
-          </div>
+          <LiveDot state={feedState} dark>
+            {offline ? 'Offline — codes still valid' : fresh ? 'Live' : 'Reconnecting — codes still valid'}
+          </LiveDot>
         </div>
       </header>
       <div className="mx-[4vw] mt-2 flex flex-col gap-2 text-sm">
@@ -217,7 +269,7 @@ export default function Booth() {
         {live?.active && offToday && <DarkNotice tone="amber">Not scheduled today on the visitors' stamp map — codes still work if someone scans.</DarkNotice>}
       </div>
 
-      <section className="flex flex-1 flex-col items-center justify-center gap-[3vh] px-4">
+      <section ref={sectionRef} className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[3vh] px-4">
         <div className="relative rounded-[2rem] bg-white p-5" style={{ boxShadow: `0 0 0 ${ACCENT}px ${b.accentColor}, 0 30px 80px rgba(0,0,0,.5)` }}>
           {/* Keyed on the counter so the swap animation replays on every rotation. */}
           <div key={token.counter} className="qr-swap">
@@ -237,7 +289,7 @@ export default function Booth() {
             />
           </svg>
         </div>
-        <div className="text-center">
+        <div ref={codeRef} className="text-center">
           <div className="stamp-text text-[0.55em] text-paper/60">Manual code</div>
           <div key={token.counter} className="code-swap fig text-[2em] tracking-[0.15em] sm:text-[2.4em] sm:tracking-[0.25em]" style={{ color: b.accentColor }}>
             {formatManualCode(token.token)}
@@ -248,13 +300,22 @@ export default function Booth() {
         </div>
       </section>
 
-      <footer className="grid grid-cols-3 gap-2 border-t border-white/10 px-[4vw] py-[2.5vh] sm:gap-4">
-        <div><div className="fig text-[1.8em]">{fmt(stat.data?.stamps)}</div><div className="stamp-text text-[0.5em] text-paper/60">Visitors here</div></div>
-        <div><div className="fig text-[1.8em]">{fmt(ev.totals.stamps)}</div><div className="stamp-text text-[0.5em] text-paper/60">Event total</div></div>
-        <div className="text-right">
-          <div className="fig text-[1.8em]">{stat.data?.rank ? `#${stat.data.rank}` : '–'}</div>
-          <div className="stamp-text text-[0.5em] text-paper/60">Rank of {boothCount || '–'} booths</div>
-        </div>
+      {/*
+        * Three glass panels rather than three bare columns, and every one centred: the first two
+        * used to sit left and the third right, so the row read as two figures pushed apart. The
+        * footer's own top rule is gone — each panel now carries its own edge.
+        */}
+      <footer className="grid grid-cols-3 gap-2 px-[4vw] py-[2vh] sm:gap-4">
+        {[
+          { value: fmt(stat.data?.stamps), label: 'Visitors here' },
+          { value: fmt(ev.totals.stamps), label: 'Event total' },
+          { value: stat.data?.rank ? `#${stat.data.rank}` : '–', label: `Rank of ${boothCount || '–'} booths` },
+        ].map((f) => (
+          <div key={f.label} className="glass flex flex-col items-center justify-center gap-0.5 px-2 py-[1.2vh] text-center">
+            <div className="fig text-[1.8em] leading-none">{f.value}</div>
+            <div className="stamp-text text-[0.5em] text-paper/60">{f.label}</div>
+          </div>
+        ))}
       </footer>
     </main>
     {/* Only exists on paper: a static card, since the rotating QR above cannot be printed. */}

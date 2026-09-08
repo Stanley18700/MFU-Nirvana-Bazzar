@@ -3,7 +3,7 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { useDashboardModel } from './useDashboardModel'
 import { eventDateLine } from '../../lib/eventText'
 import { countryName } from '../../lib/countries'
-import { fmt } from '../../components/ui'
+import { Icon, fmt } from '../../components/ui'
 
 /**
  * §6.1 — "the whole dashboard exports to a one-page PDF summary for the project report". This
@@ -26,7 +26,7 @@ export default function Print() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-navy/5 p-3 print:hidden">
           <span className="text-sm">In the print dialog choose “Save as PDF” for the report. Landscape is not needed.</span>
           <div className="flex gap-2">
-            <button className="btn-primary" onClick={() => window.print()}>Print / Save as PDF</button>
+            <button className="btn-primary" onClick={() => window.print()}>{Icon.print}Print / Save as PDF</button>
             <Link to="/admin" className="btn-ghost">Back</Link>
           </div>
         </div>

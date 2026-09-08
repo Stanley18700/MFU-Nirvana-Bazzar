@@ -128,13 +128,51 @@ input, select, textarea, button { font: inherit; }
 /* On navy: the kiosk, the desk, the auth screens. */
 .btn-dark { @apply border border-paper/20 bg-paper/10 text-paper hover:bg-paper/20 focus-visible:ring-gold/60 focus-visible:ring-offset-navy-deep; }
 .btn-sm { @apply gap-1.5 rounded-md px-2.5 py-1.5 text-xs; }
+/* Square, and exactly as tall as `.btn-sm` (12px padding + a 16px text-xs line), so an icon-only
+ * control and a labelled one sit at the same height in one row. */
+.btn-icon-sm { @apply h-7 w-7 shrink-0 p-0; }
 .btn-icon { @apply h-8 w-8 p-0 text-base leading-none; }
+
+/*
+ * An icon-only control's label, shown on hover and on keyboard focus. `title` alone waits about a
+ * second, cannot be styled and never appears for a keyboard user; this does all three. The label
+ * is still the button's `aria-label`, so a screen reader gets it either way.
+ */
+.tip { @apply relative; }
+.tip > .tip-label {
+  @apply pointer-events-none absolute left-1/2 top-full z-30 mt-1.5 -translate-x-1/2 translate-y-1
+    whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium opacity-0 shadow-lg transition;
+}
+.tip:hover > .tip-label, .tip:focus-visible > .tip-label { @apply translate-y-0 opacity-100; }
+/* Inverted against whatever it sits on, so it reads as a tooltip and not another button. */
+.tip-dark > .tip-label { @apply bg-paper text-navy; }
+.tip-light > .tip-label { @apply bg-navy text-paper; }
 
 /* Rows inside a card's "More" popover. */
 .menu-item {
   @apply flex w-full cursor-pointer items-center rounded-lg px-3 py-1.5 text-left text-sm text-navy transition
     hover:bg-navy/5 focus-visible:bg-navy/5 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50;
 }
+
+/*
+ * Segmented page navigation — the organizer's booth/stats/desk switcher.
+ *
+ * Distinct from `.tab` below, which picks a filter *inside* one page: this moves between pages,
+ * so it is driven by the `aria-current` a NavLink sets itself rather than by `aria-selected`.
+ * Metrics deliberately match `.btn-sm`, so a nav item and a button sit at the same height and
+ * radius when they share a row — which is the whole point of grouping them.
+ */
+.seg { @apply flex flex-wrap items-center gap-0.5 rounded-lg p-0.5; }
+.seg-item {
+  @apply cursor-pointer select-none rounded-md px-2.5 py-1.5 text-xs font-medium transition
+    focus-visible:outline-none focus-visible:ring-2;
+}
+.seg-light { @apply bg-navy/5; }
+.seg-light .seg-item { @apply text-navy-soft hover:bg-white/70 hover:text-navy focus-visible:ring-stamp-blue/45; }
+.seg-light .seg-item[aria-current="page"] { @apply bg-white text-navy shadow-sm hover:bg-white; }
+.seg-dark { @apply bg-white/5; }
+.seg-dark .seg-item { @apply text-paper/70 hover:bg-white/10 hover:text-paper focus-visible:ring-gold/60; }
+.seg-dark .seg-item[aria-current="page"] { @apply bg-paper/15 text-paper hover:bg-paper/15; }
 
 /* Segmented tabs: the day picker, the invitation filter, the reference-list tabs. */
 .tab {
@@ -149,6 +187,67 @@ input, select, textarea, button { font: inherit; }
     hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stamp-blue/45;
 }
 .card { @apply rounded-2xl bg-paper-2 p-4 shadow-[0_1px_0_rgba(23,38,63,.08)]; }
+
+/*
+ * Glass panel, for figures sitting on the navy kiosk. `backdrop-blur` has little to chew on over
+ * flat navy, so the read comes from the translucent fill, a hairline border and a lit top edge —
+ * the blur only earns its keep where a panel overlaps the QR frame's glow. The gradient is what
+ * stops it looking like a plain grey box.
+ */
+.glass {
+  @apply rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur-xl;
+  /* Fades to nothing at the foot, so the pane has a lit top and no visible bottom edge. */
+  background-image: linear-gradient(to bottom, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0));
+  /*
+   * The inset hairline is what actually reads as glass — a pane catching light along its top
+   * edge. Cranking the fill instead just produces a grey box, which is the mistake this
+   * replaces. The outer shadow is soft and offset low so it lifts the pane without drawing
+   * its outline.
+   */
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.20), 0 10px 30px -20px rgb(0 0 0 / 0.75);
+}
+
+/* The four Notice tones on paper. Class-driven so `.on-navy` below can restate them. */
+.notice { @apply rounded-xl px-4 py-3 text-sm; }
+.notice-info { @apply bg-stamp-blue/10 text-seal; }
+.notice-amber { @apply bg-amber/15 text-[#8a4a12]; }
+.notice-red { @apply bg-vermilion/12 text-[#8f2a1c]; }
+.notice-green { @apply bg-jade/12 text-[#125a47]; }
+
+/*
+ * A navy page built out of the light components.
+ *
+ * `/booth/stats` and `/account` match the booth kiosk's ground without forking a component or
+ * threading a `dark` prop through Fig, CsvButton, Notice, Spinner and the rest: every shared
+ * surface is restated once here for a dark ground. Shape stays defined above — only colour
+ * changes. A descendant selector outranks the bare utility it overrides, which is what lets a
+ * page keep `text-navy-soft` in its markup and still read correctly on navy.
+ */
+.on-navy { @apply bg-navy-deep text-paper; }
+.on-navy .card { @apply bg-white/[0.06] shadow-none; }
+.on-navy .field { @apply border-paper/25 bg-white/10 text-paper placeholder:text-paper/40 focus:border-gold focus:ring-gold/25; }
+.on-navy .btn-ghost, .on-navy .btn-quiet { @apply border border-paper/20 bg-paper/10 font-medium text-paper hover:border-paper/30 hover:bg-paper/20 hover:text-paper focus-visible:ring-gold/60 focus-visible:ring-offset-navy-deep; }
+.on-navy .btn-primary { @apply bg-gold text-navy-deep hover:brightness-105 focus-visible:ring-gold/60 focus-visible:ring-offset-navy-deep; }
+.on-navy .btn-danger-soft { @apply bg-vermilion/20 text-[#ffc9bf] hover:bg-vermilion/30; }
+.on-navy .btn-amber-soft { @apply bg-amber/20 text-amber hover:bg-amber/30; }
+.on-navy .tab { @apply text-paper/60 hover:bg-white/10 hover:text-paper focus-visible:ring-gold/60; }
+.on-navy .tab[aria-selected="true"] { @apply bg-paper/20 text-paper hover:bg-paper/20 hover:text-paper; }
+.on-navy .link { @apply text-paper; }
+/* The Notice tones again, on navy — the same values DarkNotice uses, so the two agree. */
+.on-navy .notice-info { @apply bg-paper/10 text-paper/90; }
+.on-navy .notice-amber { @apply bg-amber/20 text-amber; }
+.on-navy .notice-red { @apply bg-vermilion/20 text-[#ffc9bf]; }
+.on-navy .notice-green { @apply bg-jade/20 text-[#9fe3cd]; }
+/* Utilities the light components set inline. Two classes beat one, so these win. */
+.on-navy .text-navy-soft { @apply text-paper/65; }
+.on-navy .text-navy { @apply text-paper; }
+.on-navy .text-seal { @apply text-gold; }
+.on-navy .text-jade { @apply text-[#9fe3cd]; }
+.on-navy .text-vermilion { @apply text-[#ffc9bf]; }
+.on-navy .bg-white\/50, .on-navy .bg-white\/70 { @apply bg-white/[0.06]; }
+.on-navy .bg-navy\/5 { @apply bg-white/[0.06]; }
+.on-navy .border-navy\/10, .on-navy .border-navy\/15, .on-navy .border-navy\/20 { @apply border-paper/20; }
+.on-navy .border-t-stamp-blue { @apply border-t-gold; }
 
 /* Paper: the booth table card (organizer/Booth.tsx) and the dashboard summary (admin/Print.tsx). */
 @page { size: A4; margin: 12mm; }

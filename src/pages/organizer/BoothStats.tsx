@@ -4,7 +4,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { useAuth } from '../../lib/auth'
 import { ms, useBooth, useBoothStat, useBooths, useEvent, useEventStats } from '../../lib/data'
 import { OrganizerBar } from '../../components/OrganizerBar'
-import { CsvButton, DataErrors, Fig, Notice, Spinner, fmt } from '../../components/ui'
+import { CsvButton, DataErrors, Fig, LiveDot, Notice, Spinner, fmt } from '../../components/ui'
 import { clock } from '../../lib/eventText'
 import { dayOf, hourOf } from '../../../shared/model'
 import { VISITOR_TYPE_LABEL } from '../../lib/labels'
@@ -23,15 +23,15 @@ export default function BoothStats() {
   const todayStr = dayOf(new Date())
   const [picked, setPicked] = useState(days.includes(todayStr) ? todayStr : days[0])
 
-  const bar = <OrganizerBar boothId={boothId} className="mb-4" />
-  if (boothId && loading) return <main className="mx-auto max-w-2xl px-5 py-6">{bar}<Spinner label="Loading your booth…" /></main>
+  const bar = <OrganizerBar boothId={boothId} dark className="mb-4" />
+  if (boothId && loading) return <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="on-navy mx-auto min-h-full max-w-2xl px-5 py-6">{bar}<Spinner label="Loading your booth…" /></main></>
   if (!boothId || !booth) {
     // Used to spin forever. A missing claim or a deleted booth is a thing to say, and a way out.
     return (
-      <main className="mx-auto max-w-2xl px-5 py-6">
+      <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="on-navy mx-auto min-h-full max-w-2xl px-5 py-6">
         {bar}
         <Notice tone="amber">{!boothId ? 'No booth is linked to this account yet — ask the admin to assign one.' : 'This booth no longer exists. Ask the admin which booth is yours.'}</Notice>
-      </main>
+      </main></>
     )
   }
 
@@ -52,22 +52,21 @@ export default function BoothStats() {
   const last = ms(stat?.lastStampAt)
 
   return (
-    <main className="mx-auto max-w-2xl px-5 py-6">
+    <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="on-navy mx-auto min-h-full max-w-2xl px-5 py-6">
       {bar}
-      <div className="flex flex-wrap items-end justify-between gap-2">
+      {/* `items-start`, as on the kiosk: the status sits at the top of the row, under Sign out. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
         <div>
           <div className="stamp-text" style={{ color: booth.accentColor }}>{booth.location} · worth {booth.points} points</div>
           <h1 className="text-2xl font-bold">{booth.nameEn}</h1>
         </div>
-        <div className="flex items-center gap-2 text-xs text-navy-soft">
-          <span className="inline-block h-2 w-2 rounded-full" style={{ background: fromCache ? '#D4762A' : '#1E8A6E' }} aria-hidden />
-          {fromCache ? 'Reconnecting' : 'Live'}{last ? ` · last stamp ${clock(last)}` : ' · no stamps yet'}
-        </div>
+        <LiveDot state={fromCache ? 'stale' : 'live'} dark>{fromCache ? 'Reconnecting' : 'Live'}</LiveDot>
       </div>
       <DataErrors className="mt-3" />
 
       <section className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
-        <Fig value={fmt(stat?.stamps)} label="Visitors stamped" accent={booth.accentColor} />
+        <Fig value={fmt(stat?.stamps)} label="Visitors stamped" accent={booth.accentColor}
+          sub={last ? `Last at ${clock(last)}` : 'None yet'} />
         <Fig value={stat?.rank ? `#${stat.rank}` : '–'} label={`Rank of ${booths.filter((b) => b.active).length} booths`} />
         <Fig value={fmt(ev.totals.stamps)} label="Event total" />
       </section>
@@ -90,10 +89,10 @@ export default function BoothStats() {
         <div className="mt-3 h-52">
           <ResponsiveContainer>
             <BarChart data={hourly} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-              <CartesianGrid vertical={false} stroke="rgba(23,38,63,.1)" />
-              <XAxis dataKey="hour" tick={{ fontSize: 11, fill: '#4A5872' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={4} />
-              <YAxis tick={{ fontSize: 11, fill: '#4A5872' }} axisLine={false} tickLine={false} allowDecimals={false} />
-              <Tooltip cursor={{ fill: 'rgba(23,38,63,.06)' }} contentStyle={{ borderRadius: 12, border: 'none', fontSize: 12 }} />
+              <CartesianGrid vertical={false} stroke="rgba(233,229,220,.12)" />
+              <XAxis dataKey="hour" tick={{ fontSize: 11, fill: 'rgba(233,229,220,.6)' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={4} />
+              <YAxis tick={{ fontSize: 11, fill: 'rgba(233,229,220,.6)' }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip cursor={{ fill: 'rgba(233,229,220,.08)' }} contentStyle={{ borderRadius: 12, border: 'none', fontSize: 12, background: '#17263F', color: '#E9E5DC' }} itemStyle={{ color: '#E9E5DC' }} labelStyle={{ color: 'rgba(233,229,220,.6)' }} />
               <Bar dataKey="visitors" fill={booth.accentColor} radius={[4, 4, 0, 0]} maxBarSize={36} />
             </BarChart>
           </ResponsiveContainer>
@@ -123,6 +122,6 @@ export default function BoothStats() {
           ))}
         </ul>
       </section>
-    </main>
+    </main></>
   )
 }
