@@ -222,7 +222,9 @@ export default function Redeem() {
 
       {/* The camera stays mounted behind the card so "Next visitor" never re-asks for permission. */}
       <div hidden={!!lookup || !!done}>
-        <Scanner onResult={(t) => void onCred({ payload: t })} paused={busy || !!lookup || !!done} className="mt-4 aspect-[4/3]" />
+        {/* Capped and centred: the desk column is as wide as the display now, and a viewfinder
+            stretched to 1600px is neither easier to aim at nor pleasant to stand in front of. */}
+        <Scanner onResult={(t) => void onCred({ payload: t })} paused={busy || !!lookup || !!done} className="mx-auto mt-4 aspect-[4/3] w-full max-w-2xl" />
         {busy && <Spinner label="Looking up…" />}
         <form onSubmit={submitManual} className="mt-4 rounded-2xl bg-white/5 p-4">
           <div className="stamp-text text-on-chrome-soft">Or type what the visitor reads out</div>

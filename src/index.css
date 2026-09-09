@@ -498,6 +498,8 @@ details[open] > .pop { animation: pop-in var(--dur-fast) var(--ease-enter) backw
  * becoming tall thin pills.
  */
 .organizer-bar-lg { font-size: clamp(0.8rem, 0.95vw, 1.25rem); }
+/* Bar and page share one container, so the tabs line up with the content under them. */
+.organizer-shell { --shell-max: 1600px; }
 .organizer-bar-lg .seg-item,
 .organizer-bar-lg .btn-sm,
 .organizer-bar-lg summary { font-size: 1em; padding-inline: 1.1em; padding-block: 0.5em; }
@@ -657,7 +659,12 @@ a.card:active, button.card:active, .card-interactive:active {
  * changes. A descendant selector outranks the bare utility it overrides, which is what lets a
  * page keep `text-ink-soft` in its markup and still read correctly on chrome.
  */
-.on-chrome { @apply bg-chrome text-white; }
+/*
+ * Text and component colours only — no ground. Both callers already paint their own backdrop
+ * behind everything, and a fill here sat on top of it: on the organizer pages it covered the
+ * booth's visa watermark with an opaque slab the width of the content column.
+ */
+.on-chrome { @apply text-white; }
 .on-chrome .card { @apply bg-white/[0.07] shadow-none; }
 .on-chrome .field { @apply border-white/25 bg-white/10 text-white placeholder:text-on-chrome-soft/70 focus:border-foil focus:ring-foil/25; }
 .on-chrome .btn-ghost, .on-chrome .btn-quiet { @apply bg-white/14 font-medium text-white shadow-none hover:bg-white/22 hover:text-white focus-visible:ring-foil/60 focus-visible:ring-offset-chrome; }
