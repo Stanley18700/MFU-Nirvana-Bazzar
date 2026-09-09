@@ -43,6 +43,31 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // A booth's survey. Any signed-in visitor may read it — they need the questions to answer
+    // them — and only saveSurvey writes.
+    match /surveys/{boothId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    /**
+     * Answers. Readable by an admin and by the organizer of that booth, which is exactly why no
+     * document here carries a visitor id (§10 — sensitive answers are never shown per person).
+     * A list query must filter on boothId, or the rule cannot prove the caller owns the rows.
+     */
+    match /surveyResponses/{id} {
+      allow read: if isAdmin()
+                  || (isOrganizer() && resource.data.boothId == request.auth.token.get('boothId', ''));
+      allow write: if false;
+    }
+
+    // The "already answered" marker, kept apart from the answers so that reading one tells you
+    // nothing about the other. Only the visitor it belongs to, and admins.
+    match /surveyTaken/{id} {
+      allow read: if isAdmin() || (signedIn() && id.split('_')[0] == request.auth.uid);
+      allow write: if false;
+    }
+
     match /refData/{doc} {
       allow read: if true;
       allow write: if false;

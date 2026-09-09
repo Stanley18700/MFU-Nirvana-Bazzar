@@ -12,6 +12,7 @@ import Prize from './pages/visitor/Prize'
 import Scan from './pages/visitor/Scan'
 import ScanLanding from './pages/visitor/ScanLanding'
 import Invite from './pages/visitor/Invite'
+import Survey from './pages/visitor/Survey'
 
 import SignIn from './pages/auth/SignIn'
 import SignUp from './pages/auth/SignUp'
@@ -23,6 +24,8 @@ import Account from './pages/auth/Account'
 import Booth from './pages/organizer/Booth'
 import BoothStats from './pages/organizer/BoothStats'
 import Redeem from './pages/organizer/Redeem'
+import BoothSurvey from './pages/organizer/Survey'
+import BoothSurveyResults from './pages/organizer/SurveyResults'
 import RedeemLanding from './pages/organizer/RedeemLanding'
 
 import AdminLayout from './pages/admin/AdminLayout'
@@ -100,11 +103,15 @@ export default function App() {
           <Route path="prize" element={<Prize />} />
         </Route>
         <Route path="/scan" element={<Scan />} />
+        {/* Offered after a stamp; the stamp and points are already saved by then. */}
+        <Route path="/survey/:boothId" element={<Survey />} />
       </Route>
 
       <Route element={<Guard roles={['organizer', 'admin']} />}>
         <Route path="/booth" element={<Booth />} />
         <Route path="/booth/stats" element={<BoothStats />} />
+        <Route path="/booth/survey" element={<BoothSurvey />} />
+        <Route path="/booth/survey/results" element={<BoothSurveyResults />} />
         <Route path="/redeem" element={<Redeem />} />
       </Route>
 

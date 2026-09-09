@@ -1,6 +1,6 @@
 import { httpsCallable } from 'firebase/functions'
 import { functions } from './firebase'
-import type { Role, ScanResult, VisitorType, Zone } from '../../shared/model'
+import type { Role, ScanResult, SurveyAnswer, SurveyQuestion, VisitorType, Zone } from '../../shared/model'
 
 function call<Req, Res>(name: string) {
   const fn = httpsCallable<Req, Res>(functions, name)
@@ -73,6 +73,13 @@ export const api = {
   archiveEvent: call<{ id: string; confirmName: string }, { ok: true; totals: EventTotals; boothCount: number; tierCount: number }>('archiveEvent'),
   purgeEventData: call<{ eventId: string; scope: PurgeScope; limit?: number; hard?: boolean }, { scope: PurgeScope; deleted: number; remaining: number; done: boolean }>('purgeEventData'),
   bootstrapAdmin: call<{ key: string; displayName?: string }, { ok: true }>('bootstrapAdmin'),
+  // booth surveys — an organizer builds one for their own booth; an admin must name the booth
+  saveSurvey: call<SurveyInput, { ok: true }>('saveSurvey'),
+  setSurveyActive: call<{ active: boolean; boothId?: string }, { ok: true; active: boolean }>('setSurveyActive'),
+  deleteSurvey: call<{ boothId?: string }, { ok: true }>('deleteSurvey'),
+  /** What the visitor is offered after a stamp. 'none' when the booth has no live survey. */
+  surveyForBooth: call<{ boothId: string }, SurveyOffer>('surveyForBooth'),
+  submitSurveyResponse: call<{ boothId: string; answers: Record<string, SurveyAnswer> }, { ok: true }>('submitSurveyResponse'),
 }
 
 export interface CreateUserInput {
@@ -97,6 +104,21 @@ export type UpdateUserInput = { uid: string } & Partial<{
   visitorType: VisitorType
   countryCode: string
 }>
+
+export interface SurveyInput {
+  /** Admin only — an organizer's booth comes from their claim and this is ignored. */
+  boothId?: string
+  title: string
+  description?: string
+  headerImageUrl?: string | null
+  questions: SurveyQuestion[]
+  active: boolean
+}
+
+export type SurveyOffer =
+  | { status: 'none' }
+  | { status: 'done' }
+  | { status: 'ok'; title: string; description: string; headerImageUrl: string | null; questions: SurveyQuestion[] }
 
 export interface EventInput {
   id?: string

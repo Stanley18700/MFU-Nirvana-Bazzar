@@ -224,3 +224,131 @@ export function hourOf(date: Date, tz = 'Asia/Bangkok'): string {
 export function passportNo(seq: number, prefix: string = DEFAULT_PASSPORT_PREFIX): string {
   return `${prefix}-${String(seq).padStart(4, '0')}`
 }
+
+// ---------- booth surveys (§4.3 follow-on) ----------
+
+/**
+ * One survey per booth, built by that booth's organizer and offered to a visitor straight
+ * after they collect the booth's stamp. Answering is optional and never affects the stamp or
+ * the points — the passport mechanic must not depend on a form being finished.
+ */
+export type QuestionKind =
+  | 'short' | 'paragraph' | 'choice' | 'checkboxes' | 'dropdown' | 'scale' | 'rating' | 'date'
+
+export interface SurveyQuestion {
+  id: string
+  kind: QuestionKind
+  title: string
+  /** Help text under the title. */
+  help?: string
+  required: boolean
+  imageUrl?: string | null
+  /** choice | checkboxes | dropdown */
+  options?: string[]
+  /** scale */
+  scaleMin?: number
+  scaleMax?: number
+  scaleMinLabel?: string
+  scaleMaxLabel?: string
+  /** rating — how many stars. */
+  stars?: number
+}
+
+export interface SurveyDoc {
+  boothId: string
+  eventId: string
+  title: string
+  description?: string
+  headerImageUrl?: string | null
+  questions: SurveyQuestion[]
+  /** Off by default: a half-built survey must never reach a visitor. */
+  active: boolean
+  responseCount: number
+  updatedAt: unknown
+  updatedBy: string
+}
+
+/** A single answer. `string[]` is checkboxes; `number` is scale and rating. */
+export type SurveyAnswer = string | string[] | number
+
+/**
+ * Deliberately holds NO visitor identity — not in a field and not in the document id, because
+ * booth organizers can read this collection. §10's rule for sensitive answers is that they are
+ * never shown per person, and the cheapest way to honour that is not to store the link here at
+ * all. `surveyTaken/{visitorId}_{boothId}` carries the "already answered" marker instead, and
+ * only the visitor and an admin can read it.
+ */
+export interface SurveyResponseDoc {
+  boothId: string
+  eventId: string
+  /** Keyed by question id. A skipped optional question is simply absent. */
+  answers: Record<string, SurveyAnswer>
+  submittedAt: unknown
+}
+
+export interface SurveyTakenDoc {
+  boothId: string
+  takenAt: unknown
+}
+
+export const QUESTION_KINDS: Array<{ kind: QuestionKind; label: string; hasOptions: boolean }> = [
+  { kind: 'short', label: 'Short answer', hasOptions: false },
+  { kind: 'paragraph', label: 'Paragraph', hasOptions: false },
+  { kind: 'choice', label: 'Multiple choice', hasOptions: true },
+  { kind: 'checkboxes', label: 'Checkboxes', hasOptions: true },
+  { kind: 'dropdown', label: 'Dropdown', hasOptions: true },
+  { kind: 'scale', label: 'Linear scale', hasOptions: false },
+  { kind: 'rating', label: 'Star rating', hasOptions: false },
+  { kind: 'date', label: 'Date', hasOptions: false },
+]
+
+export const QUESTION_LIMIT = 30
+export const OPTION_LIMIT = 20
+
+export function hasOptions(kind: QuestionKind): boolean {
+  return kind === 'choice' || kind === 'checkboxes' || kind === 'dropdown'
+}
+
+/** A new question of the given kind, with the defaults that make it immediately usable. */
+export function blankQuestion(kind: QuestionKind, id: string): SurveyQuestion {
+  const q: SurveyQuestion = { id, kind, title: '', required: false }
+  if (hasOptions(kind)) q.options = ['', '']
+  if (kind === 'scale') { q.scaleMin = 1; q.scaleMax = 5 }
+  if (kind === 'rating') q.stars = 5
+  return q
+}
+
+/** True when a visitor has left this question blank — used for the `required` check on both sides. */
+export function answerIsEmpty(a: SurveyAnswer | undefined): boolean {
+  if (a === undefined || a === null) return true
+  if (typeof a === 'string') return a.trim() === ''
+  if (Array.isArray(a)) return a.length === 0
+  return false
+}
+
+/**
+ * Structural problems an organizer can see and fix, in the order the questions appear. Shared so
+ * the builder can refuse to save exactly what the callable would refuse to accept.
+ */
+export function surveyProblems(title: string, questions: SurveyQuestion[]): string[] {
+  const out: string[] = []
+  if (!title.trim()) out.push('The survey needs a title.')
+  if (questions.length === 0) out.push('Add at least one question.')
+  if (questions.length > QUESTION_LIMIT) out.push(`At most ${QUESTION_LIMIT} questions.`)
+  questions.forEach((q, i) => {
+    const at = `Question ${i + 1}`
+    if (!q.title.trim()) out.push(`${at} has no question text.`)
+    if (hasOptions(q.kind)) {
+      const opts = (q.options ?? []).map((o) => o.trim()).filter(Boolean)
+      if (opts.length < 2) out.push(`${at} needs at least two options.`)
+      if (opts.length > OPTION_LIMIT) out.push(`${at} has more than ${OPTION_LIMIT} options.`)
+      if (new Set(opts).size !== opts.length) out.push(`${at} has two identical options.`)
+    }
+    if (q.kind === 'scale') {
+      const lo = q.scaleMin ?? 1, hi = q.scaleMax ?? 5
+      if (!(hi > lo)) out.push(`${at}: the scale's top must be above its bottom.`)
+      if (hi - lo > 10) out.push(`${at}: a scale wider than 11 points is unreadable on a phone.`)
+    }
+  })
+  return out
+}

@@ -39,6 +39,7 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
   const items: Array<{ to: string; label: string; end?: boolean }> = [
     { to: `/booth${q}`, label: t('nav.booth'), end: true },
     { to: `/booth/stats${q}`, label: t('nav.stats') },
+    { to: `/booth/survey${q}`, label: t('nav.survey') },
     ...(desk ? [{ to: '/redeem', label: t('nav.desk') }] : []),
     ...(role === 'admin' ? [{ to: '/admin', label: t('nav.admin') }] : []),
     { to: '/account', label: t('nav.account') },
