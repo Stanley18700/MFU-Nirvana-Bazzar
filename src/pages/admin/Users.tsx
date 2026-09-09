@@ -4,6 +4,7 @@ import { db } from '../../lib/firebase'
 import { api, errorMessage, type CreateUserInput, type UpdateUserInput } from '../../lib/api'
 import { useBooths, useCollection, useRefList, useTiers } from '../../lib/data'
 import { CopyButton, Drawer, Notice, Toast, type Msg } from '../../components/ui'
+import { Select } from '../../components/Select'
 import { COUNTRIES, countryName } from '../../lib/countries'
 import { ts } from '../../lib/eventText'
 import { useSlidingPill } from '../../lib/useSlidingPill'
@@ -113,10 +114,10 @@ export default function Users() {
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <input className="field" placeholder="Name" aria-label="Name" value={inv.name} onChange={(e) => setInv({ ...inv, name: e.target.value })} />
           <input className="field" placeholder="Email" aria-label="Email" type="email" value={inv.email} onChange={(e) => setInv({ ...inv, email: e.target.value })} />
-          <select className="field" aria-label="Role" value={inv.role} onChange={(e) => setInv({ ...inv, role: e.target.value as Role })}><option value="organizer">{ROLE_LABEL.organizer}</option><option value="admin">{ROLE_LABEL.admin}</option></select>
-          <select className="field" aria-label="Booth" value={inv.boothId} onChange={(e) => setInv({ ...inv, boothId: e.target.value })} disabled={inv.role === 'admin'}>
-            <option value="">— booth —</option>{booths.map((b) => <option key={b.id} value={b.id}>{b.nameEn}</option>)}
-          </select>
+          <Select ariaLabel="Role" value={inv.role} onChange={(v) => setInv({ ...inv, role: v as Role })}
+            options={[{ value: 'organizer', label: ROLE_LABEL.organizer }, { value: 'admin', label: ROLE_LABEL.admin }]} />
+          <Select ariaLabel="Booth" value={inv.boothId} onChange={(v) => setInv({ ...inv, boothId: v })} disabled={inv.role === 'admin'}
+            placeholder="— booth —" options={booths.map((b) => ({ value: b.id, label: b.nameEn }))} />
         </div>
         <details className="reveal-host mt-2 text-sm"><summary className="cursor-pointer text-ink-soft">Bulk: paste <code>name, email, boothId</code> per line</summary>
           <textarea className="field mt-2 font-mono text-xs" rows={4} value={inv.bulk} onChange={(e) => setInv({ ...inv, bulk: e.target.value })} placeholder={'Somchai Thongdee, somchai@mfu.ac.th, booth-01\n…'} />
@@ -171,7 +172,8 @@ export default function Users() {
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="stamp-text mr-auto text-ink-soft">Users</h2>
           <input className="field w-56" placeholder="Search name, ID, passport, contact" aria-label="Search users" value={q} onChange={(e) => setQ(e.target.value)} />
-          <select className="field w-44" aria-label="Filter by role" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | 'all')}><option value="all">All roles</option>{ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}s</option>)}</select>
+          <Select className="w-44" ariaLabel="Filter by role" value={roleFilter} onChange={(v) => setRoleFilter(v as Role | 'all')}
+            options={[{ value: 'all', label: 'All roles' }, ...ROLES.map((r) => ({ value: r, label: `${ROLE_LABEL[r]}s` }))]} />
         </div>
         <p className="mt-1 text-xs text-ink-soft">{searching ? `Searching all ${users.length.toLocaleString('en-US')} users` : `Showing the latest ${Math.min(users.length, pageSize)}`} · press a row to open it</p>
         <div className="mt-3 overflow-x-auto">
@@ -320,22 +322,18 @@ function CreateUser({ booths, onCreated, onError }: { booths: BoothOpt[]; onCrea
       <form onSubmit={submit} className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <input className="field" placeholder="Name" aria-label="Name" required maxLength={80} value={f.displayName} onChange={(e) => set('displayName', e.target.value)} />
         <input className="field" placeholder="Email (or phone for a visitor)" aria-label="Contact" required value={f.contact} onChange={(e) => set('contact', e.target.value)} />
-        <select className="field" aria-label="Role" value={f.role} onChange={(e) => set('role', e.target.value as Role)}>
-          {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-        </select>
+        <Select ariaLabel="Role" value={f.role} onChange={(v) => set('role', v as Role)}
+          options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} />
         {f.role === 'organizer' ? (
-          <select className="field" aria-label="Booth" value={f.boothId} onChange={(e) => set('boothId', e.target.value)} required>
-            <option value="">— booth —</option>{booths.map((b) => <option key={b.id} value={b.id}>{b.nameEn}</option>)}
-          </select>
+          <Select ariaLabel="Booth" value={f.boothId} onChange={(v) => set('boothId', v)}
+            placeholder="— booth —" options={booths.map((b) => ({ value: b.id, label: b.nameEn }))} />
         ) : <span className="hidden md:block" />}
         {f.role === 'visitor' && (
           <>
-            <select className="field" aria-label="Visitor type" value={f.visitorType} onChange={(e) => set('visitorType', e.target.value as VisitorType)}>
-              {VISITOR_TYPES.map((t) => <option key={t} value={t}>{VISITOR_TYPE_LABEL[t]}</option>)}
-            </select>
-            <select className="field" aria-label="Country" value={f.countryCode} onChange={(e) => set('countryCode', e.target.value)}>
-              {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
-            </select>
+            <Select ariaLabel="Visitor type" value={f.visitorType} onChange={(v) => set('visitorType', v as VisitorType)}
+              options={VISITOR_TYPES.map((t) => ({ value: t, label: VISITOR_TYPE_LABEL[t] }))} />
+            <Select ariaLabel="Country" value={f.countryCode} onChange={(v) => set('countryCode', v)}
+              options={COUNTRIES.map((c) => ({ value: c.code, label: c.name }))} />
             <input className="field" list="create-institutions" placeholder="Institution" aria-label="Institution" value={f.institution} onChange={(e) => set('institution', e.target.value)} />
             <datalist id="create-institutions">{institutions.map((i) => <option key={i} value={i} />)}</datalist>
             {f.institution === 'MFU' ? (
@@ -408,8 +406,10 @@ function UserDrawer({ u, booths, onClose, onRole, onUpdate, onSoftDelete, onHard
 
       <h3 className="stamp-text mt-5 text-ink-soft">Role</h3>
       <div className="mt-2 flex flex-wrap gap-2">
-        <select className="field w-auto" aria-label="Role" value={role} onChange={(e) => setRole(e.target.value as Role)}>{ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select>
-        {role === 'organizer' && <select className="field w-auto" aria-label="Booth" value={boothId} onChange={(e) => setBoothId(e.target.value)}><option value="">— booth —</option>{booths.map((b) => <option key={b.id} value={b.id}>{b.nameEn}</option>)}</select>}
+        <Select className="w-44" ariaLabel="Role" value={role} onChange={(v) => setRole(v as Role)}
+          options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))} />
+        {role === 'organizer' && <Select className="w-56" ariaLabel="Booth" value={boothId} onChange={setBoothId}
+          placeholder="— booth —" options={booths.map((b) => ({ value: b.id, label: b.nameEn }))} />}
         <button className="btn-primary" disabled={(role === u.role && boothId === (u.boothId ?? '')) || (role === 'organizer' && !boothId)} onClick={() => onRole(u, role, boothId || undefined)}>Apply</button>
       </div>
 
@@ -485,8 +485,10 @@ function EditForm({ u, onSave, onCancel }: { u: Row; onSave: (patch: Omit<Update
       <label className="col-span-2">Name<input className="field mt-1" required maxLength={80} value={f.displayName} onChange={(e) => set('displayName', e.target.value)} /></label>
       <label className="col-span-2">Contact <span className="text-xs text-ink-soft">(an email here also becomes the sign-in address)</span>
         <input className="field mt-1" required value={f.contact} onChange={(e) => set('contact', e.target.value)} /></label>
-      <label>Type<select className="field mt-1" value={f.visitorType} onChange={(e) => set('visitorType', e.target.value as VisitorType)}>{VISITOR_TYPES.map((t) => <option key={t} value={t}>{VISITOR_TYPE_LABEL[t]}</option>)}</select></label>
-      <label>Country<select className="field mt-1" value={f.countryCode} onChange={(e) => set('countryCode', e.target.value)}>{COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></label>
+      <div>Type<div className="mt-1"><Select ariaLabel="Type" value={f.visitorType} onChange={(v) => set('visitorType', v as VisitorType)}
+        options={VISITOR_TYPES.map((t) => ({ value: t, label: VISITOR_TYPE_LABEL[t] }))} /></div></div>
+      <div>Country<div className="mt-1"><Select ariaLabel="Country" value={f.countryCode} onChange={(v) => set('countryCode', v)}
+        options={COUNTRIES.map((c) => ({ value: c.code, label: c.name }))} /></div></div>
       <label>Institution<input className="field mt-1" list="edit-institutions" required value={f.institution} onChange={(e) => set('institution', e.target.value)} /></label>
       <datalist id="edit-institutions">{institutions.map((i) => <option key={i} value={i} />)}</datalist>
       <label>School<input className="field mt-1" list="edit-schools" value={f.school} onChange={(e) => set('school', e.target.value)} placeholder="(MFU only)" /></label>

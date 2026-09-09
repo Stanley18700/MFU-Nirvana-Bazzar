@@ -12,6 +12,7 @@ import { SurveyForm } from '../../components/SurveyForm'
 import { DataErrors, Notice, Spinner, Toast, fmt, type Msg } from '../../components/ui'
 import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import { num } from '../../lib/form'
+import { onChrome } from '../../lib/onChrome'
 import {
   OPTION_LIMIT, QUESTION_KINDS, QUESTION_LIMIT, blankQuestion, hasOptions, surveyProblems,
   type QuestionKind, type SurveyDoc, type SurveyQuestion,
@@ -141,7 +142,7 @@ export default function Survey() {
       <Toast msg={msg} onClose={() => setMsg(null)} />
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
-          <div className="stamp-text" style={{ color: booth.accentColor }}>Survey</div>
+          <div className="stamp-text" style={{ color: onChrome(booth.accentColor) }}>Survey</div>
           <h1 className="text-2xl font-bold">{pick(booth.nameEn, booth.nameTh)}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -223,7 +224,7 @@ export default function Survey() {
           <h2 className="stamp-text text-on-chrome-soft">Preview — exactly what a visitor sees</h2>
           <div className="mt-3">
             {/* The visitor's own renderer, read-only. Nothing here is an approximation. */}
-            <SurveyForm questions={questions} answers={{}} onChange={() => undefined} readOnly accent={booth.accentColor} />
+            <SurveyForm questions={questions} answers={{}} onChange={() => undefined} readOnly accent={onChrome(booth.accentColor)} />
           </div>
         </section>
       )}

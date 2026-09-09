@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, errorMessage, type EventRow, type PurgeScope } from '../../lib/api'
 import { Notice, Spinner, Toast, fmt, type Msg } from '../../components/ui'
+import { DateTimeField } from '../../components/DateTimeField'
 import { ZONE_LABEL } from '../../lib/labels'
 import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import { dayOf, type Zone } from '../../../shared/model'
@@ -171,8 +172,8 @@ export default function EventAdmin() {
         </h2>
         <label>Name (English)<input className="field mt-1" value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} /></label>
         <label>Name (Thai, optional)<input className="field mt-1" value={form.nameTh} onChange={(e) => setForm({ ...form, nameTh: e.target.value })} /></label>
-        <label>Starts<input className="field mt-1" type="datetime-local" value={form.startsAt} onChange={(e) => setDates(e.target.value, form.endsAt)} /></label>
-        <label>Ends<input className="field mt-1" type="datetime-local" value={form.endsAt} onChange={(e) => setDates(form.startsAt, e.target.value)} /></label>
+        <div>Starts<div className="mt-1"><DateTimeField id="ev-starts" ariaLabel="Starts" value={form.startsAt} onChange={(v) => setDates(v, form.endsAt)} /></div></div>
+        <div>Ends<div className="mt-1"><DateTimeField id="ev-ends" ariaLabel="Ends" value={form.endsAt} onChange={(v) => setDates(form.startsAt, v)} /></div></div>
 
         <fieldset className="md:col-span-2">
           <legend className="stamp-text text-ink-soft">Days the event runs</legend>

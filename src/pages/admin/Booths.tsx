@@ -9,6 +9,7 @@ import { Stamp } from '../../components/Stamp'
 import { stampMarks } from '../../lib/eventText'
 import { CopyButton, Notice, Toast, type Msg } from '../../components/ui'
 import { ZONE_LABEL } from '../../lib/labels'
+import { Select } from '../../components/Select'
 import { numOpt } from '../../lib/form'
 import { ACCENTS, type BoothDoc, type InviteDoc, type UserDoc, type Zone } from '../../../shared/model'
 
@@ -198,11 +199,10 @@ export default function Booths() {
           <label>Short name on stamp<input className="field mt-1" maxLength={6} value={editing.shortName ?? ''} onChange={(e) => setEditing({ ...editing, shortName: e.target.value.toUpperCase() })} /></label>
           <label>Host unit<input className="field mt-1" value={editing.hostUnit ?? ''} onChange={(e) => setEditing({ ...editing, hostUnit: e.target.value })} /></label>
           <label>Location<input className="field mt-1" value={editing.location ?? ''} onChange={(e) => setEditing({ ...editing, location: e.target.value })} /></label>
-          <label>Zone → default points
-            <select className="field mt-1" value={editing.zone} onChange={(e) => { const z = e.target.value as Zone; setEditing({ ...editing, zone: z, points: zonePoints[z] }) }}>
-              {(['entrance', 'middle', 'far'] as Zone[]).map((z) => <option key={z} value={z}>{ZONE_LABEL[z]} · {zonePoints[z]}</option>)}
-            </select>
-          </label>
+          <div>Zone → default points
+            <div className="mt-1"><Select ariaLabel="Zone" value={editing.zone} onChange={(v) => { const z = v as Zone; setEditing({ ...editing, zone: z, points: zonePoints[z] }) }}
+              options={(['entrance', 'middle', 'far'] as Zone[]).map((z) => ({ value: z, label: ZONE_LABEL[z], hint: `${zonePoints[z]} pts` }))} /></div>
+          </div>
           <label>Points (override)
             <input className={`field mt-1 ${pointsOk ? '' : 'border-danger'}`} type="number" min={1} max={100} value={Number.isFinite(editing.points) ? editing.points : ''} onChange={(e) => setEditing({ ...editing, points: e.target.value === '' ? NaN : Number(e.target.value) })} />
             {!pointsOk && <span className="text-xs text-danger-text">1 to 100</span>}
@@ -295,7 +295,7 @@ function BulkImport({ zonePoints, onDone }: { zonePoints: Record<Zone, number>; 
   }
 
   return (
-    <details className="card mt-4">
+    <details className="reveal-host card mt-4">
       <summary className="cursor-pointer rounded-lg transition hover:text-ink"><span className="stamp-text text-ink-soft">Bulk: paste a list of booths</span></summary>
       <p className="mt-2 text-xs text-ink-soft">
         One booth per line: <code>name, host unit, location, zone</code>, with an optional fifth column for points.

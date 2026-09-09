@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { BoothWatermark } from '../../components/OrganizerPage'
 import { stampMarks } from '../../lib/eventText'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth, useSignOut } from '../../lib/auth'
@@ -9,6 +8,9 @@ import { useLocale } from '../../lib/locale'
 import { QR } from '../../components/QR'
 import { BoothCard } from '../../components/BoothCard'
 import { OrganizerBar } from '../../components/OrganizerBar'
+import { onChrome } from '../../lib/onChrome'
+import { Stamp } from '../../components/Stamp'
+import { PaperHills } from '../auth/parts'
 import { DarkNotice, DataErrors, Icon, IconButton, LiveDot, Spinner, fmt } from '../../components/ui'
 import { APP_ORIGIN } from '../../lib/firebase'
 import { buildPayload, computeToken, counterFor, formatManualCode, msUntilRotation } from '../../../shared/token'
@@ -238,14 +240,16 @@ export default function Booth() {
   const box = size + 2 * FRAME_PAD + 2 * inset
   const left = Math.max(0, Math.min(1, msLeft / (session.period * 1000)))
   const urgent = msLeft <= 3000
+  const accent = onChrome(b.accentColor)
 
   return (
     <>
-    {/* The booth's own visa behind its screen, at the same fraction of the display everywhere.
-        The ground is a backdrop rather than a fill on `main`, or `main` paints over it. */}
+    {/* The ground is a backdrop rather than a fill on `main`, or `main` paints over it. */}
     <div className="fixed inset-0 -z-20 bg-chrome print:hidden" aria-hidden />
-    <BoothWatermark booth={b} marks={stampMarks(event)} />
-    <main className="booth-screen relative flex min-h-full flex-col text-white print:hidden">
+    {/* The design system's booth screen stands the code on the paper-cut campus, so a hall full of
+        these reads as one set. Turned right down — the visa behind the QR is the figure here. */}
+    <PaperHills className="pointer-events-none fixed inset-x-0 bottom-0 -z-10 h-[30vh] w-full print:hidden" opacity={0.12} />
+    <main className="booth-screen relative flex min-h-full flex-col overflow-hidden text-white print:hidden">
       {/*
        * Outside the header, not inside it: the bar is the top row of the screen on every organizer
        * page, so it must not inherit this one's padding — that is what put the kiosk's tabs at a
@@ -265,8 +269,11 @@ export default function Booth() {
       <header className="px-[4vw] pt-[2vh]">
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
           <div className="min-w-0">
-            <div className="stamp-text flex items-center gap-[0.5em] text-[0.55em] text-on-chrome-soft"><span className="inline-block h-[0.7em] w-[0.7em] shrink-0 rounded-full" style={{ background: b.accentColor }} aria-hidden />{t('booth.worth', { location: b.location, points: b.points })}</div>
-            <h1 className="mt-1 text-[1.6em] font-extrabold leading-[1.08] text-white">{pick(b.nameEn, b.nameTh)}</h1>
+            {/* Eyebrow, title and manual code in the booth's own colour, as the design system has
+                them — the swatch dot they used to need is redundant once the line itself is the
+                colour. `onChrome` is what makes that safe for the dark-green booths. */}
+            <div className="stamp-text text-[0.55em]" style={{ color: accent }}>{t('booth.worth', { location: b.location, points: b.points })}</div>
+            <h1 className="mt-1 text-[1.6em] font-extrabold leading-[1.08]" style={{ color: accent }}>{pick(b.nameEn, b.nameTh)}</h1>
             <div className="text-[0.6em] text-on-chrome-soft">{b.hostUnit}</div>
           </div>
           <LiveDot state={feedState} dark>
@@ -282,7 +289,21 @@ export default function Booth() {
         {live?.active && offToday && <DarkNotice tone="amber">{t('booth.notToday')}</DarkNotice>}
       </div>
 
-      <section ref={sectionRef} className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[3vh] px-4">
+      <section ref={sectionRef} className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-[3vh] px-4">
+        <div className="relative">
+        {/*
+         * The booth's visa, centred on the code rather than parked in a corner: it is the thing
+         * the QR is about to put in someone's passport. Centred on the frame and not on the
+         * section, so it does not slide down over the manual code; absolutely positioned, so it
+         * stays out of the measurement that sizes the QR; and clamped to the viewport, so a label
+         * wider than the frame cannot widen the document on a phone.
+         */}
+        <div
+          className="pointer-events-none absolute left-1/2 top-1/2 w-[min(96vw,var(--visa-w))] -translate-x-1/2 -translate-y-1/2 opacity-[0.09] mix-blend-luminosity"
+          style={{ ['--visa-w' as string]: `${Math.round(size * 1.8)}px` }} aria-hidden
+        >
+          <Stamp booth={b} collected size={720} className="!w-full" {...stampMarks(event)} />
+        </div>
         <div className="relative rounded-[36px] bg-white p-5" style={{ boxShadow: `0 0 0 ${ACCENT}px ${b.accentColor}, 0 30px 80px rgba(0,0,0,.45)` }}>
           {/* Keyed on the counter so the swap animation replays on every rotation. */}
           <div key={token.counter} className="qr-swap">
@@ -302,9 +323,10 @@ export default function Booth() {
             />
           </svg>
         </div>
+        </div>
         <div ref={codeRef} className="text-center">
           <div className="stamp-text text-[0.55em] text-on-chrome-soft">{t('booth.manualCode')}</div>
-          <div key={token.counter} className="code-swap fig text-[2em] tracking-[0.15em] text-white sm:text-[2.4em] sm:tracking-[0.25em]">
+          <div key={token.counter} className="code-swap fig text-[2em] tracking-[0.15em] sm:text-[2.4em] sm:tracking-[0.25em]" style={{ color: accent }}>
             {formatManualCode(token.token)}
           </div>
           <div className="text-[0.5em] text-on-chrome-soft">

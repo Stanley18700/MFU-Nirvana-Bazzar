@@ -56,18 +56,18 @@ function SideNav({ collapsed, onToggle }: { collapsed: boolean; onToggle?: () =>
   const nav = useSlidingPill<HTMLElement>()
   return (
     <>
-      <PaperHills className="pointer-events-none absolute -bottom-6 left-[-20%] -z-10 h-32 w-[140%]" opacity={0.14} />
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <PaperHills className="absolute -bottom-6 left-[-20%] h-32 w-[140%]" opacity={0.14} />
+      </div>
       <div className={`relative flex items-center gap-3 py-4 ${collapsed ? 'justify-center px-2' : 'px-5'}`}>
         {/* The design system's rail leads with the festival logo. That artwork is one of the five
             assets the design tool could not deliver, so the university seal — the one real mark we
             do have — stands in beside the wordmark. */}
         {!collapsed && <UniversityMark className="h-8 w-8" />}
-        {!collapsed && (
-          <div className="min-w-0 flex-1">
-            <div className="stamp-text truncate text-foil">{event.nameEn}</div>
-            <div className="truncate font-semibold">Passport admin</div>
-          </div>
-        )}
+        {/* One word, because two lines did not fit: at 15rem, minus the mark and the collapse
+            button, the rail served "MFU INTERNATI…" over "Passport ad…". The event's full name is
+            on the title attribute and on the Event page; the rail only has to say where you are. */}
+        {!collapsed && <div className="min-w-0 flex-1 truncate font-semibold" title={event.nameEn}>Admin</div>}
         {onToggle && (
           <button
             type="button" onClick={onToggle} className="btn-dark btn-sm btn-icon-sm"
@@ -101,8 +101,8 @@ function SideNav({ collapsed, onToggle }: { collapsed: boolean; onToggle?: () =>
         ))}
       </nav>
 
-      <div className={`mt-auto border-t border-white/10 py-3 ${collapsed ? 'flex justify-center px-2' : 'px-4'}`}>
-        <AccountMenu dark up compact={collapsed} className={collapsed ? '' : 'w-full'} />
+      <div className={`mt-auto border-t border-white/10 py-3 ${collapsed ? 'flex justify-center px-2' : 'px-3'}`}>
+        <AccountMenu dark up rail={collapsed ? 'icon' : 'full'} />
       </div>
     </>
   )
@@ -158,7 +158,7 @@ export default function AdminLayout() {
         * kiosk measures its QR against. `self-start` is mandatory: a stretched flex item is already
         * the container's height, so it has no slack to stick with and silently will not move.
         */}
-      <aside className={`sticky top-0 hidden h-dvh shrink-0 flex-col self-start overflow-hidden bg-chrome text-white isolate transition-[width] duration-200 lg:flex ${collapsed ? 'w-[72px]' : 'w-60'}`}>
+      <aside className={`sticky top-0 hidden h-dvh shrink-0 flex-col self-start bg-chrome text-white isolate transition-[width] duration-200 lg:flex ${collapsed ? 'w-[72px]' : 'w-60'}`}>
         <SideNav collapsed={collapsed} onToggle={toggleRail} />
       </aside>
 

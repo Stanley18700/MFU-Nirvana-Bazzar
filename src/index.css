@@ -367,9 +367,18 @@ input, select, textarea, button { font: inherit; }
   from { opacity: 0; transform: scale(.97) translateY(-4px); }
   to { opacity: 1; transform: none; }
 }
+@keyframes pop-in-up {
+  from { opacity: 0; transform: scale(.97) translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
 .pop { transform-origin: top left; }
 .pop-right { transform-origin: top right; }
 details[open] > .pop { animation: pop-in var(--dur-fast) var(--ease-enter) backwards; }
+/* A panel above its trigger grows up out of it. With the default origin and slide it scaled from a
+ * corner it does not touch and drifted downwards, against the direction it had just opened in. */
+.pop-up { transform-origin: bottom left; }
+.pop-up.pop-right { transform-origin: bottom right; }
+details[open] > .pop-up { animation-name: pop-in-up; }
 
 /*
  * An inline disclosure — the bulk-paste box, the archive section, an audit row's JSON, the

@@ -6,6 +6,7 @@ import { api, errorMessage, type TierInput } from '../../lib/api'
 import { useBooths, useCollection, useTiers } from '../../lib/data'
 import { Notice, Toast, fmt, type Msg } from '../../components/ui'
 import { ts } from '../../lib/eventText'
+import { Select } from '../../components/Select'
 import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 
 /** A small label above a field; the placeholder used to be the only label and vanished once typed over. */
@@ -143,8 +144,8 @@ export default function Prizes() {
           <h2 className="stamp-text text-ink-soft">Adjust stock</h2>
           <p className="mt-1 text-xs text-ink-soft">Counts are never typed over: every change is an adjustment with a reason so the end-of-event figures reconcile with what was loaded in.</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <div><L htmlFor="adj-tier">Tier</L><select id="adj-tier" className="field" value={adjust.tierId} onChange={(e) => setAdjust({ ...adjust, tierId: e.target.value })}><option value="">— tier —</option>{tiers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
-            <div><L htmlFor="adj-kind">Kind</L><select id="adj-kind" className="field" value={adjust.kind} onChange={(e) => setAdjust({ ...adjust, kind: e.target.value as 'restock' | 'correction' })}><option value="restock">Restock (+)</option><option value="correction">Correction (±)</option></select></div>
+            <div><L htmlFor="adj-tier">Tier</L><Select id="adj-tier" ariaLabel="Tier" value={adjust.tierId} onChange={(v) => setAdjust({ ...adjust, tierId: v })} placeholder="— tier —" options={tiers.map((t) => ({ value: t.id, label: t.name }))} /></div>
+            <div><L htmlFor="adj-kind">Kind</L><Select id="adj-kind" ariaLabel="Kind" value={adjust.kind} onChange={(v) => setAdjust({ ...adjust, kind: v as 'restock' | 'correction' })} options={[{ value: 'restock', label: 'Restock (+)' }, { value: 'correction', label: 'Correction (±)' }]} /></div>
             <div><L htmlFor="adj-delta">Change (whole number, e.g. 50 or -3)</L><input id="adj-delta" className="field" type="number" step={1} value={adjust.delta} onChange={(e) => setAdjust({ ...adjust, delta: e.target.value })} /></div>
             <div><L htmlFor="adj-reason">Reason (kept in the ledger)</L><input id="adj-reason" className="field" value={adjust.reason} onChange={(e) => setAdjust({ ...adjust, reason: e.target.value })} /></div>
           </div>
@@ -162,7 +163,7 @@ export default function Prizes() {
           </p>
           <div className="mt-3 grid gap-2">
             <div><L htmlFor="void-uid">User ID</L><input id="void-uid" className="field font-mono text-xs" value={voidForm.visitorId} onChange={(e) => setVoidForm({ ...voidForm, visitorId: e.target.value })} /></div>
-            <div><L htmlFor="void-tier">Tier</L><select id="void-tier" className="field" value={voidForm.tierId} onChange={(e) => setVoidForm({ ...voidForm, tierId: e.target.value })}><option value="">— tier —</option>{tiers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></div>
+            <div><L htmlFor="void-tier">Tier</L><Select id="void-tier" ariaLabel="Tier" value={voidForm.tierId} onChange={(v) => setVoidForm({ ...voidForm, tierId: v })} placeholder="— tier —" options={tiers.map((t) => ({ value: t.id, label: t.name }))} /></div>
             <div><L htmlFor="void-reason">Reason (kept in the audit log)</L><input id="void-reason" className="field" value={voidForm.reason} onChange={(e) => setVoidForm({ ...voidForm, reason: e.target.value })} /></div>
           </div>
           <button className="btn-danger mt-3" disabled={!voidForm.visitorId.trim() || !voidForm.tierId || !voidForm.reason.trim() || busy !== null} onClick={doVoid}>{busy === 'void' ? 'Voiding…' : 'Void redemption…'}</button>

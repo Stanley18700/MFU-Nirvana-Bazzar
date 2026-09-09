@@ -3,6 +3,7 @@ import { collection, limit, orderBy, query, where } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { useCollection } from '../../lib/data'
 import { CsvButton, fmt } from '../../components/ui'
+import { Select } from '../../components/Select'
 import { ts } from '../../lib/eventText'
 import type { UserDoc } from '../../../shared/model'
 
@@ -33,36 +34,60 @@ export default function Audit() {
 
   return (
     <div className="page-in">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Audit log</h1>
-          <p className="mt-1 text-sm text-ink-soft">Showing {filtered.length === rows.length ? fmt(rows.length) : `${fmt(filtered.length)} of ${fmt(rows.length)}`} most recent entries.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <select className="field w-auto py-1.5 text-sm" value={action} onChange={(e) => setAction(e.target.value)} aria-label="Filter by action">
-            <option value="">All actions</option>
-            {actions.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
-          <input className="field w-48 py-1.5 text-sm" placeholder="Search target, actor…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" />
-          {/* The before/after diffs of updateUser carry contacts and student ids. */}
-          <CsvButton rows={csvRows} name="audit-log" label="CSV (contains personal data)"
-            confirm="This export includes before/after values from user edits, which contain contact details. Continue?" />
-        </div>
+      <header>
+        <h1 className="text-2xl font-bold">Audit log</h1>
+        <p className="mt-1 text-sm text-ink-soft">Every admin action, newest first. Showing {filtered.length === rows.length ? fmt(rows.length) : `${fmt(filtered.length)} of ${fmt(rows.length)}`}.</p>
       </header>
+
+      {/*
+        * The filters get their own row. They used to sit in the header opposite the title, where
+        * `.field` — which is `w-full` and unlayered, so it beats a `w-auto` utility — stretched the
+        * action picker across the page and shoved the whole group onto a line of its own above the
+        * heading. Width now belongs to the wrapper, which is not a `.field`.
+        */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Select className="w-52" ariaLabel="Filter by action" value={action} onChange={setAction}
+          options={[{ value: '', label: 'All actions' }, ...actions.map((a) => ({ value: a, label: a }))]} />
+        <input className="field w-56" placeholder="Search target, actor…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" />
+        <CsvButton className="ml-auto" rows={csvRows} name="audit-log" label="CSV (contains personal data)"
+          confirm="This export includes before/after values from user edits, which contain contact details. Continue?" />
+      </div>
+
       <div className="card mt-4 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr className="text-left text-xs text-ink-soft"><th className="py-1">When</th><th>Action</th><th>Target</th><th>Actor</th><th>Change</th></tr></thead>
+        {/* A minimum width rather than a squeeze: five columns of timestamps, ids and JSON do not
+            fit a phone, and the card already scrolls sideways. Crushing them fits nothing. */}
+        <table className="w-full min-w-[54rem] border-separate border-spacing-0 text-sm">
+          <thead>
+            <tr className="stamp-text text-left text-[10px] text-ink-soft">
+              <th className="px-3 pb-2 font-medium">When</th>
+              <th className="px-3 pb-2 font-medium">Action</th>
+              <th className="px-3 pb-2 font-medium">Target</th>
+              <th className="px-3 pb-2 font-medium">Actor</th>
+              <th className="px-3 pb-2 text-right font-medium">Change</th>
+            </tr>
+          </thead>
           <tbody>
             {filtered.map((r) => (
-              <tr key={r.id} className="border-t rule align-top">
-                <td className="whitespace-nowrap py-1.5 text-xs text-ink-soft">{ts(r.createdAt)}</td>
-                <td className="font-medium">{r.action}</td>
-                <td className="text-xs">{r.targetType} <span className="font-mono">{r.targetId}</span></td>
-                <td className="text-xs" title={r.actorUid}>{names.get(r.actorUid) ?? <span className="font-mono">{r.actorUid.slice(0, 8)}…</span>}</td>
-                <td><details className="reveal-host text-xs"><summary className="btn-quiet btn-sm inline-flex list-none">diff</summary><pre className="max-w-md overflow-x-auto whitespace-pre-wrap">{JSON.stringify({ before: r.before, after: r.after }, null, 1)}</pre></details></td>
+              <tr key={r.id} className="align-top transition-colors hover:bg-ink/4">
+                <td className="whitespace-nowrap border-t rule px-3 py-3 text-xs tabular-nums text-ink-soft">{ts(r.createdAt)}</td>
+                <td className="border-t rule px-3 py-3 font-medium">{r.action}</td>
+                <td className="border-t rule px-3 py-3">
+                  <div className="text-xs text-ink-soft">{r.targetType}</div>
+                  <div className="font-mono text-xs break-all">{r.targetId}</div>
+                </td>
+                <td className="border-t rule px-3 py-3 text-xs">
+                  {names.get(r.actorUid)
+                    ?? <span className="font-mono text-ink-soft" title={r.actorUid}>{r.actorUid.slice(0, 8)}…</span>}
+                </td>
+                <td className="border-t rule px-3 py-3 text-right">
+                  <details className="reveal-host text-xs">
+                    <summary className="btn-quiet btn-sm inline-flex list-none">diff</summary>
+                    <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-ink/4 p-2 text-left">{JSON.stringify({ before: r.before, after: r.after }, null, 1)}</pre>
+                  </details>
+                </td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={5} className="py-4 text-center text-ink-soft">{rows.length ? 'Nothing matches' : 'Nothing yet'}</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={5} className="border-t rule py-8 text-center text-ink-soft">{rows.length ? 'Nothing matches' : 'Nothing yet'}</td></tr>}
           </tbody>
         </table>
         {rows.length >= pageSize && (
