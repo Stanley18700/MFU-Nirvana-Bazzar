@@ -14,4 +14,7 @@ export {
   refreshRanks, bootstrapAdmin, setupStatus,
 } from './admin'
 export { createEvent, updateEvent, deleteEvent, goLive, archiveEvent, purgeEventData, listEvents } from './event'
+export {
+  saveSurvey, setSurveyActive, deleteSurvey, surveyForBooth, submitSurveyResponse,
+} from './survey'
 export { onScanCreate, onUserWrite, rankBooths, sweepActive, purgePersonalData } from './triggers'

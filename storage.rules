@@ -8,6 +8,17 @@ service firebase.storage {
                    && request.resource.size < 2 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
     }
+    // Survey artwork: a header image and one image per question. Unlike booth art this is
+    // written by the booth's own organizer, so the path segment must match their claim.
+    match /surveys/{boothId}/{file} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+                   && (request.auth.token.role == 'admin'
+                       || (request.auth.token.role == 'organizer' && request.auth.token.boothId == boothId))
+                   && request.resource.size < 2 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }
