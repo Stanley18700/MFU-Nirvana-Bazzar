@@ -55,7 +55,7 @@ export default function SurveyResults() {
 
   const bar = <OrganizerBar boothId={boothId} dark className="mb-4" />
   const shell = (children: React.ReactNode) => (
-    <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="on-navy mx-auto min-h-full max-w-3xl px-5 py-6">{bar}{children}</main></>
+    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="on-chrome mx-auto min-h-full max-w-3xl px-5 py-6">{bar}{children}</main></>
   )
   if (boothId && loading) return shell(<Spinner label={t('stats.loading')} />)
   if (!boothId || !booth) return shell(<Notice tone="amber">{!boothId ? t('stats.noBooth') : t('stats.boothGone')}</Notice>)
@@ -107,7 +107,7 @@ export default function SurveyResults() {
       {rows.length > 0 && (
         <section className="card mt-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="stamp-text text-navy-soft">Every response · {fmt(rows.length)}</h2>
+            <h2 className="stamp-text text-ink-soft">Every response · {fmt(rows.length)}</h2>
             <div className="flex items-center gap-2">
               <button className="btn-quiet btn-sm" onClick={() => setShowAll((s) => !s)}>
                 {showAll ? 'Show 20' : 'Show all'}
@@ -115,14 +115,14 @@ export default function SurveyResults() {
               <CsvButton rows={csv} name={`${boothId}-survey-responses`} />
             </div>
           </div>
-          <p className="mt-1 text-xs text-navy-soft">
+          <p className="mt-1 text-xs text-ink-soft">
             In the order they arrived. Answers are not linked to a visitor — nobody's name or
             passport number is stored with them.
           </p>
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-xs text-navy-soft">
+                <tr className="text-left text-xs text-ink-soft">
                   <th className="py-1 pr-2">#</th><th className="pr-2">When</th>
                   {questions.map((q, i) => <th key={q.id} className="pr-2">{q.title || `Q${i + 1}`}</th>)}
                 </tr>
@@ -130,10 +130,10 @@ export default function SurveyResults() {
               <tbody>
                 {(showAll ? rows : rows.slice(0, 20)).map((r, i) => (
                   <tr key={r.id} className="border-t rule align-top">
-                    <td className="py-1.5 pr-2 text-xs text-navy-soft tabular-nums">{rows.length - i}</td>
-                    <td className="pr-2 text-xs text-navy-soft">{ms(r.submittedAt) ? clock(ms(r.submittedAt)!) : '–'}</td>
+                    <td className="py-1.5 pr-2 text-xs text-ink-soft tabular-nums">{rows.length - i}</td>
+                    <td className="pr-2 text-xs text-ink-soft">{ms(r.submittedAt) ? clock(ms(r.submittedAt)!) : '–'}</td>
                     {questions.map((q) => (
-                      <td key={q.id} className="max-w-[16rem] pr-2">{formatAnswer(r.answers?.[q.id]) || <span className="text-navy-soft">–</span>}</td>
+                      <td key={q.id} className="max-w-[16rem] pr-2">{formatAnswer(r.answers?.[q.id]) || <span className="text-ink-soft">–</span>}</td>
                     ))}
                   </tr>
                 ))}
@@ -141,7 +141,7 @@ export default function SurveyResults() {
             </table>
           </div>
           {!showAll && rows.length > 20 && (
-            <p className="mt-2 text-xs text-navy-soft">Showing the 20 most recent of {fmt(rows.length)}.</p>
+            <p className="mt-2 text-xs text-ink-soft">Showing the 20 most recent of {fmt(rows.length)}.</p>
           )}
         </section>
       )}
@@ -200,9 +200,9 @@ function QuestionResult({ q, index, rows, accent, boothId, showAll }: {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">
-            <span className="text-navy-soft">{index + 1}.</span> {q.title || `Question ${index + 1}`}
+            <span className="text-ink-soft">{index + 1}.</span> {q.title || `Question ${index + 1}`}
           </h2>
-          <p className="mt-0.5 text-xs text-navy-soft">
+          <p className="mt-0.5 text-xs text-ink-soft">
             {fmt(answered.length)} answered{skipped > 0 && ` · ${fmt(skipped)} skipped`}
             {average !== null && ` · average ${average.toFixed(1)}${q.kind === 'rating' ? ` of ${q.stars ?? 5}` : ''}`}
           </p>
@@ -226,7 +226,7 @@ function QuestionResult({ q, index, rows, accent, boothId, showAll }: {
                     <span className="min-w-0 break-words">{b.label}</span>
                     <span className="fig shrink-0 tabular-nums">{b.count}</span>
                   </div>
-                  <div className="mt-1 h-2 rounded-full bg-navy/5">
+                  <div className="mt-1 h-2 rounded-full bg-ink/5">
                     <div className="h-2 rounded-full" style={{ width: `${(b.count / top) * 100}%`, background: accent }} />
                   </div>
                 </li>
@@ -250,16 +250,16 @@ function QuestionResult({ q, index, rows, accent, boothId, showAll }: {
 
       {isText(q) && (
         texts.length === 0
-          ? <p className="mt-3 text-sm text-navy-soft">Nobody answered this one.</p>
+          ? <p className="mt-3 text-sm text-ink-soft">Nobody answered this one.</p>
           : <ul className="mt-3 flex flex-col gap-2">
               {(showAll ? texts : texts.slice(0, 10)).map((x) => (
                 <li key={x.id} className="rounded-lg bg-white/50 px-3 py-2 text-sm">
                   <span className="break-words">{x.text}</span>
-                  {x.at && <span className="ml-2 text-xs text-navy-soft">{clock(x.at)}</span>}
+                  {x.at && <span className="ml-2 text-xs text-ink-soft">{clock(x.at)}</span>}
                 </li>
               ))}
               {!showAll && texts.length > 10 && (
-                <li className="text-xs text-navy-soft">…and {fmt(texts.length - 10)} more — use Show all, or export the CSV.</li>
+                <li className="text-xs text-ink-soft">…and {fmt(texts.length - 10)} more — use Show all, or export the CSV.</li>
               )}
             </ul>
       )}

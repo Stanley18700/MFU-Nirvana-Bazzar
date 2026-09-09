@@ -49,10 +49,10 @@ export default function Survey() {
   }
 
   const shell = (children: React.ReactNode) => (
-    <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="mx-auto flex min-h-full max-w-md flex-col bg-navy-deep text-paper">
+    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="mx-auto flex min-h-full max-w-md flex-col bg-chrome text-white">
       <header className="flex items-center justify-between px-5 py-4">
-        <Link to="/passport/stamps" className="text-sm text-paper/70">← Passport</Link>
-        <div className="stamp-text text-gold">{booth?.nameEn ?? 'Booth'}</div>
+        <Link to="/passport/stamps" className="text-sm text-on-chrome-soft">← Passport</Link>
+        <div className="stamp-text text-foil">{booth?.nameEn ?? 'Booth'}</div>
         <span className="w-16" />
       </header>
       <div className="flex-1 px-5 pb-8">{children}</div>
@@ -67,11 +67,11 @@ export default function Survey() {
       <div className="flex flex-col items-center gap-4 py-10 text-center page-in">
         <div className="text-5xl" aria-hidden>✓</div>
         <div>
-          <div className="stamp-text text-gold">Thank you</div>
-          <p className="mt-1 text-paper/80">{booth?.nameEn} has your answers.</p>
+          <div className="stamp-text text-foil">Thank you</div>
+          <p className="mt-1 text-on-chrome-soft">{booth?.nameEn} has your answers.</p>
         </div>
         <Link to="/scan" className="btn-gold w-full py-3.5 text-lg">Scan another booth</Link>
-        <Link to="/passport/stamps" className="text-sm text-paper/60 underline">My stamps</Link>
+        <Link to="/passport/stamps" className="text-sm text-on-chrome-soft underline">My stamps</Link>
       </div>,
     )
   }
@@ -93,17 +93,17 @@ export default function Survey() {
     <div className="page-in">
       {offer.headerImageUrl && <img src={offer.headerImageUrl} alt="" className="mb-4 max-h-40 w-full rounded-xl object-cover" />}
       <h1 className="text-2xl font-bold">{offer.title}</h1>
-      {offer.description && <p className="mt-1 text-sm text-paper/75">{offer.description}</p>}
-      <p className="mt-2 text-xs text-paper/55">
+      {offer.description && <p className="mt-1 text-sm text-on-chrome-soft">{offer.description}</p>}
+      <p className="mt-2 text-xs text-on-chrome-soft">
         {questions.length} question{questions.length === 1 ? '' : 's'} · your stamp and points are already saved
       </p>
 
       {/*
-        * A paper panel, exactly as Scan.tsx frames a scan result: `card` is a light surface, and
-        * the page around it is navy with light text, so without resetting the colour here the
+        * A white panel, exactly as Scan.tsx frames a scan result: `card` is a light surface, and
+        * the page around it is chrome with light text, so without resetting the colour here the
         * questions render light-on-light and cannot be read.
         */}
-      <div className="mt-5 rounded-3xl bg-paper p-3 text-navy">
+      <div className="mt-5 rounded-3xl bg-white p-3 text-ink">
         {/* Anchors for the scroll-to-first-missing jump. */}
         {questions.map((q) => <span key={q.id} id={`q-${q.id}`} />)}
         <SurveyForm questions={questions} answers={answers} onChange={setAnswers}
@@ -121,7 +121,7 @@ export default function Survey() {
         <button className="btn-gold py-3.5 text-lg" onClick={submit} disabled={busy}>
           {busy ? 'Sending…' : 'Submit'}
         </button>
-        <button className="text-sm text-paper/60 underline" onClick={() => nav('/scan', { replace: true })}>
+        <button className="text-sm text-on-chrome-soft underline" onClick={() => nav('/scan', { replace: true })}>
           Skip — I would rather keep scanning
         </button>
       </div>

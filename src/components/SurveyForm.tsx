@@ -35,13 +35,13 @@ export function SurveyForm({ questions, answers, onChange, showErrors = false, r
       {questions.map((q, i) => {
         const missing = showErrors && q.required && answerIsEmpty(answers[q.id])
         return (
-          <li key={q.id} className={`card ${missing ? 'ring-1 ring-vermilion' : ''}`}>
+          <li key={q.id} className={`card ${missing ? 'ring-1 ring-danger' : ''}`}>
             <fieldset disabled={readOnly} className="min-w-0">
               <legend className="text-sm font-semibold">
-                <span className="text-navy-soft">{i + 1}.</span> {q.title || <span className="text-navy-soft">(no question text yet)</span>}
-                {q.required && <span className="ml-1 text-vermilion" aria-label="required">*</span>}
+                <span className="text-ink-soft">{i + 1}.</span> {q.title || <span className="text-ink-soft">(no question text yet)</span>}
+                {q.required && <span className="ml-1 text-danger-text" aria-label="required">*</span>}
               </legend>
-              {q.help && <p className="mt-1 text-xs text-navy-soft">{q.help}</p>}
+              {q.help && <p className="mt-1 text-xs text-ink-soft">{q.help}</p>}
               {q.imageUrl && (
                 // Organizer-supplied artwork of unknown proportions: cap the height so one tall
                 // image cannot push the questions under it off the screen.
@@ -50,7 +50,7 @@ export function SurveyForm({ questions, answers, onChange, showErrors = false, r
               <div className="mt-3">
                 <QuestionInput q={q} value={answers[q.id]} onChange={(v) => set(q.id, v)} accent={accent} />
               </div>
-              {missing && <p className="mt-2 text-xs text-vermilion">This one is required.</p>}
+              {missing && <p className="mt-2 text-xs text-danger-text">This one is required.</p>}
             </fieldset>
           </li>
         )
@@ -97,7 +97,7 @@ function QuestionInput({ q, value, onChange, accent }: {
             </label>
           ))}
           {value !== undefined && (
-            <button type="button" className="self-start text-xs underline text-navy-soft" onClick={() => onChange(undefined)}>
+            <button type="button" className="self-start text-xs underline text-ink-soft" onClick={() => onChange(undefined)}>
               Clear
             </button>
           )}
@@ -132,15 +132,15 @@ function QuestionInput({ q, value, onChange, accent }: {
               const on = value === n
               return (
                 <button key={n} type="button" role="radio" aria-checked={on} onClick={() => onChange(on ? undefined : n)}
-                  className={`h-11 min-w-11 rounded-lg border px-2 text-sm tabular-nums ${on ? 'border-transparent text-paper' : 'border-navy/15 hover:bg-navy/5'}`}
-                  style={on ? { background: accent ?? '#16233a' } : undefined}>
+                  className={`h-11 min-w-11 rounded-lg border px-2 text-sm tabular-nums ${on ? 'border-transparent text-white' : 'border-ink/15 hover:bg-ink/5'}`}
+                  style={on ? { background: accent ?? '#12708A' } : undefined}>
                   {n}
                 </button>
               )
             })}
           </div>
           {(q.scaleMinLabel || q.scaleMaxLabel) && (
-            <div className="mt-1 flex justify-between text-xs text-navy-soft">
+            <div className="mt-1 flex justify-between text-xs text-ink-soft">
               <span>{q.scaleMinLabel}</span><span>{q.scaleMaxLabel}</span>
             </div>
           )}
@@ -161,7 +161,7 @@ function QuestionInput({ q, value, onChange, accent }: {
               ★
             </button>
           ))}
-          {chosen > 0 && <span className="ml-2 text-sm text-navy-soft tabular-nums">{chosen} / {stars}</span>}
+          {chosen > 0 && <span className="ml-2 text-sm text-ink-soft tabular-nums">{chosen} / {stars}</span>}
         </div>
       )
     }

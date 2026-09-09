@@ -78,9 +78,9 @@ function SurveyOffer({ boothId, accent }: { boothId: string; accent?: string }) 
   if (!survey?.active || count === 0 || taken) return null
 
   return (
-    <div className="w-full rounded-xl border border-navy/10 bg-white/50 p-4 text-left">
+    <div className="w-full rounded-xl border border-ink/10 bg-sky-100 p-4 text-left">
       <div className="stamp-text" style={{ color: accent }}>{survey.title || 'A few questions'}</div>
-      <p className="mt-1 text-sm text-navy-soft">
+      <p className="mt-1 text-sm text-ink-soft">
         {count} question{count === 1 ? '' : 's'} from this booth. Optional — your points are already saved.
       </p>
       <Link to={`/survey/${boothId}`} className="btn-primary mt-3 w-full">Answer</Link>

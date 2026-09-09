@@ -132,7 +132,7 @@ export default function Survey() {
 
   const bar = <OrganizerBar boothId={boothId} dark className="mb-4" />
   const shell = (children: React.ReactNode) => (
-    <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="on-navy mx-auto min-h-full max-w-3xl px-5 py-6">{bar}{children}</main></>
+    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="on-chrome mx-auto min-h-full max-w-3xl px-5 py-6">{bar}{children}</main></>
   )
   if (boothId && loading) return shell(<Spinner label={t('stats.loading')} />)
   if (!boothId || !booth) return shell(<Notice tone="amber">{!boothId ? t('stats.noBooth') : t('stats.boothGone')}</Notice>)
@@ -146,7 +146,7 @@ export default function Survey() {
           <h1 className="text-2xl font-bold">{pick(booth.nameEn, booth.nameTh)}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`rounded-full px-2.5 py-1 text-xs ${published ? 'bg-jade/20 text-jade' : 'bg-paper/10 text-paper/70'}`}>
+          <span className={`rounded-full px-2.5 py-1 text-xs ${published ? 'bg-success/20 text-success-text' : 'bg-white/10 text-on-chrome-soft'}`}>
             {published ? 'Live' : 'Draft'}
           </span>
           <Link to={`/booth/survey/results${role === 'admin' ? `?boothId=${boothId}` : ''}`} className="btn-dark btn-sm">
@@ -154,19 +154,19 @@ export default function Survey() {
           </Link>
         </div>
       </div>
-      <p className="mt-2 max-w-prose text-sm text-paper/70">
+      <p className="mt-2 max-w-prose text-sm text-on-chrome-soft">
         Offered to a visitor straight after they collect this booth's stamp. Answering is optional
         and never changes their points, and you see the answers without seeing who gave them.
       </p>
       <DataErrors dark className="mt-3" />
 
       <section className="card mt-5">
-        <h2 className="stamp-text text-navy-soft">The form</h2>
+        <h2 className="stamp-text text-ink-soft">The form</h2>
         <label className="mt-3 block text-sm">Title
           <input className="field mt-1" maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)}
             placeholder="Tell us about your visit" />
         </label>
-        <label className="mt-3 block text-sm">Description <span className="text-navy-soft">(optional)</span>
+        <label className="mt-3 block text-sm">Description <span className="text-ink-soft">(optional)</span>
           <textarea className="field mt-1" rows={2} maxLength={1000} value={description}
             onChange={(e) => setDescription(e.target.value)} placeholder="Two or three questions, about 30 seconds." />
         </label>
@@ -185,7 +185,7 @@ export default function Survey() {
       </section>
 
       <section className="card mt-4">
-        <h2 className="stamp-text text-navy-soft">Add a question</h2>
+        <h2 className="stamp-text text-ink-soft">Add a question</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {QUESTION_KINDS.map((k) => (
             <button key={k.kind} className="btn-quiet btn-sm" onClick={() => add(k.kind)}>+ {k.label}</button>
@@ -221,7 +221,7 @@ export default function Survey() {
 
       {preview && questions.length > 0 && (
         <section className="mt-5">
-          <h2 className="stamp-text text-paper/60">Preview — exactly what a visitor sees</h2>
+          <h2 className="stamp-text text-on-chrome-soft">Preview — exactly what a visitor sees</h2>
           <div className="mt-3">
             {/* The visitor's own renderer, read-only. Nothing here is an approximation. */}
             <SurveyForm questions={questions} answers={{}} onChange={() => undefined} readOnly accent={booth.accentColor} />
@@ -250,7 +250,7 @@ function QuestionCard({ q, index, count, boothId, onPatch, onRetype, onMove, onD
   return (
     <div className="card">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="stamp-text text-navy-soft">Question {index + 1}</span>
+        <span className="stamp-text text-ink-soft">Question {index + 1}</span>
         <select className="field w-auto" value={q.kind} onChange={(e) => onRetype(e.target.value as QuestionKind)}>
           {QUESTION_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
         </select>
@@ -263,7 +263,7 @@ function QuestionCard({ q, index, count, boothId, onPatch, onRetype, onMove, onD
           <button className="btn-quiet btn-sm" onClick={() => onMove(-1)} disabled={index === 0} aria-label="Move up">↑</button>
           <button className="btn-quiet btn-sm" onClick={() => onMove(1)} disabled={index === count - 1} aria-label="Move down">↓</button>
           <button className="btn-quiet btn-sm" onClick={onDuplicate}>Duplicate</button>
-          <button className="btn-sm text-vermilion underline" onClick={onRemove}>Remove</button>
+          <button className="btn-sm text-danger-text underline" onClick={onRemove}>Remove</button>
         </div>
       </div>
 
@@ -277,14 +277,14 @@ function QuestionCard({ q, index, count, boothId, onPatch, onRetype, onMove, onD
 
       {hasOptions(q.kind) && (
         <div className="mt-3">
-          <div className="stamp-text text-navy-soft">Options</div>
+          <div className="stamp-text text-ink-soft">Options</div>
           <div className="mt-2 flex flex-col gap-1.5">
             {options.map((o, i) => (
               <div key={i} className="flex items-center gap-2">
-                <span className="w-5 text-xs text-navy-soft tabular-nums">{i + 1}</span>
+                <span className="w-5 text-xs text-ink-soft tabular-nums">{i + 1}</span>
                 <input className="field" maxLength={200} value={o}
                   onChange={(e) => onPatch({ options: options.map((x, j) => (j === i ? e.target.value : x)) })} />
-                <button className="btn-sm text-vermilion underline" disabled={options.length <= 2}
+                <button className="btn-sm text-danger-text underline" disabled={options.length <= 2}
                   onClick={() => onPatch({ options: options.filter((_, j) => j !== i) })} aria-label={`Remove option ${i + 1}`}>✕</button>
               </div>
             ))}
@@ -366,24 +366,24 @@ function ImageField({ boothId, slot, url, onChange, label, onError }: {
 
   if (!url && !open) {
     return (
-      <button type="button" className="mt-2 text-xs underline text-navy-soft" onClick={() => setOpen(true)}>
+      <button type="button" className="mt-2 text-xs underline text-ink-soft" onClick={() => setOpen(true)}>
         + {label}
       </button>
     )
   }
   return (
     <div className="mt-3">
-      <div className="stamp-text text-navy-soft">{label}</div>
+      <div className="stamp-text text-ink-soft">{label}</div>
       {url
         ? <img src={url} alt="" className="mt-2 max-h-32 w-auto rounded-lg object-contain" />
         : (
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <input ref={input} type="file" accept="image/*" className="field w-auto text-sm" disabled={busy}
               onChange={(e) => { const f = e.target.files?.[0]; if (f) void pick(f) }} />
-            {busy && <span className="text-xs text-navy-soft">Uploading…</span>}
+            {busy && <span className="text-xs text-ink-soft">Uploading…</span>}
           </div>
         )}
-      <button className="mt-2 text-xs underline text-vermilion" onClick={remove}>
+      <button className="mt-2 text-xs underline text-danger-text" onClick={remove}>
         {url ? 'Remove image' : 'Cancel'}
       </button>
     </div>
