@@ -3,7 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { authError, signInWithGoogle, signUpWithEmail } from '../../lib/authActions'
 import { Spinner } from '../../components/ui'
-import { AuthShell, DarkNotice, Divider, Field, GoogleButton } from './parts'
+import { AuthShell, Notice, Divider, Field, GoogleButton } from './parts'
 
 const MIN_PASSWORD = 8
 
@@ -48,7 +48,7 @@ export default function SignUp() {
     <AuthShell
       title="Create your account"
       lead="One account holds your passport for the whole festival. Sign in again on a new phone and every stamp is still there."
-      foot={<>Already have one? <Link to="/signin" state={{ from }} className="link font-semibold text-gold">Sign in</Link></>}
+      foot={<>Already have one? <Link to="/signin" state={{ from }} className="link font-semibold text-action">Sign in</Link></>}
     >
       <div className="mt-6">
         <GoogleButton onClick={google} busy={busy === 'google'} label="Sign up with Google" />
@@ -66,11 +66,11 @@ export default function SignUp() {
           placeholder={`At least ${MIN_PASSWORD} characters`} value={password} onChange={(e) => setPassword(e.target.value)} />
         <Field label="Confirm password" type="password" required autoComplete="new-password"
           placeholder="Type it once more" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-        {err && <DarkNotice tone="red">{err}</DarkNotice>}
-        <button className="btn-gold py-3.5 text-lg" disabled={busy !== null}>
+        {err && <Notice tone="red">{err}</Notice>}
+        <button className="btn-primary py-3.5 text-lg" disabled={busy !== null}>
           {busy === 'email' ? 'Creating…' : 'Create account'}
         </button>
-        <p className="text-xs text-paper/45">
+        <p className="text-xs text-ink-soft">
           By continuing you agree to how MFU handles your details — see the{' '}
           <a className="link" href="/privacy.html" target="_blank" rel="noreferrer">privacy notice</a>.
         </p>

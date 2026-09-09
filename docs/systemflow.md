@@ -1,6 +1,6 @@
 # System flow
 
-How the MFU Go Global Passport actually works end to end: the pieces, who may call what, and
+How the MFU InterFest Passport actually works end to end: the pieces, who may call what, and
 the order things happen in. Companion to `spec/spec.md` (the *what* and *why*), `SETUP.md`
 (how to stand it up) and `docs/UAT.md` (how to test it by hand).
 

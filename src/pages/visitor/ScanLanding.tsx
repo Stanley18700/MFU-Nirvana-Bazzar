@@ -37,13 +37,13 @@ export default function ScanLanding() {
   if (role === 'organizer') return <Navigate to="/booth" state={{ notice: "Staff accounts do not collect stamps — that code was for a visitor's phone." }} replace />
 
   return (
-    <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="mx-auto min-h-full max-w-md bg-navy-deep p-4 text-paper">
+    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="mx-auto min-h-full max-w-md bg-chrome p-4 text-white">
       <header className="flex items-center justify-between px-1 py-3">
-        <Link to="/passport" className="text-sm text-paper/70">← Passport</Link>
-        <div className="stamp-text text-gold">Booth check-in</div>
+        <Link to="/passport" className="text-sm text-on-chrome-soft">← Passport</Link>
+        <div className="stamp-text text-foil">Booth check-in</div>
         <span className="w-16" />
       </header>
-      <div className="rounded-3xl bg-paper text-navy">
+      <div className="rounded-3xl bg-white text-ink">
         {err ? <div className="p-6"><Notice tone="red">{err}</Notice></div>
           // `replace`: from a camera-opened tab the history is just [/s/token], and Back landing
           // there would re-fire the scan and show "already stamped".

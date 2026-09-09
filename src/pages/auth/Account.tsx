@@ -23,13 +23,13 @@ export default function Account() {
   const home = role === 'admin' ? '/admin' : role === 'organizer' ? '/booth' : '/passport'
 
   return (
-    <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="on-navy mx-auto min-h-full max-w-md px-5 pb-16 pt-8 page-in">
+    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="on-chrome mx-auto min-h-full max-w-md px-5 pb-16 pt-8 page-in">
       <div className="flex items-center justify-between gap-3">
-        <Link to={home} className="text-sm text-navy-soft">← {t('account.back')}</Link>
+        <Link to={home} className="text-sm text-ink-soft">← {t('account.back')}</Link>
         <LangToggle dark />
       </div>
       <h1 className="mt-3 text-2xl font-bold">{t('account.title')}</h1>
-      <p className="mt-1 text-sm text-navy-soft">
+      <p className="mt-1 text-sm text-ink-soft">
         {profile?.displayName ?? user.displayName ?? t('account.signedIn')}
         {profile?.passportNo && <> · <span className="font-mono tracking-widest">{profile.passportNo}</span></>}
       </p>
@@ -37,8 +37,8 @@ export default function Account() {
       <Section title={t('acct.email.title')} note={
         <>{t('acct.email.note')}{' '}
           {emailVerified
-            ? <span className="text-jade">{t('acct.email.confirmed')}</span>
-            : <span className="text-vermilion">{t('acct.email.unconfirmed')}</span>}
+            ? <span className="text-success-text">{t('acct.email.confirmed')}</span>
+            : <span className="text-danger-text">{t('acct.email.unconfirmed')}</span>}
         </>
       }>
         <div className="text-sm font-medium break-all">{user.email ?? '—'}</div>
@@ -71,8 +71,8 @@ function Section({ title, note, children }: { title: string; note?: ReactNode; c
   return (
     <section className="card mt-5 flex flex-col gap-3">
       <div>
-        <h2 className="stamp-text text-navy-soft">{title}</h2>
-        {note && <p className="mt-1 text-xs text-navy-soft">{note}</p>}
+        <h2 className="stamp-text text-ink-soft">{title}</h2>
+        {note && <p className="mt-1 text-xs text-ink-soft">{note}</p>}
       </div>
       {children}
     </section>
@@ -132,13 +132,13 @@ function ChangeEmail() {
   return (
     <form onSubmit={submit} className="flex flex-col gap-3 border-t rule pt-3">
       <label className="block">
-        <span className="stamp-text text-navy-soft">{t('acct.email.new')}</span>
+        <span className="stamp-text text-ink-soft">{t('acct.email.new')}</span>
         <input className="field mt-1" type="email" required inputMode="email" autoComplete="email"
           placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
       </label>
       {needsPassword && (
         <label className="block">
-          <span className="stamp-text text-navy-soft">{t('acct.pw.current')}</span>
+          <span className="stamp-text text-ink-soft">{t('acct.pw.current')}</span>
           <input className="field mt-1" type="password" required autoComplete="current-password"
             value={current} onChange={(e) => setCurrent(e.target.value)} />
         </label>
@@ -179,7 +179,7 @@ function ChangePassword() {
       <div className="flex flex-col gap-2">
         {done && <Notice tone="green">{t('acct.pw.changed')}</Notice>}
         <button className="btn-ghost" onClick={() => { setOpen(true); setDone(false) }}>{t('acct.pw.change')}</button>
-        <Link to="/forgot-password" className="link text-xs text-navy-soft hover:text-navy">{t('acct.pw.forgot')}</Link>
+        <Link to="/forgot-password" className="link text-xs text-ink-soft hover:text-ink">{t('acct.pw.forgot')}</Link>
       </div>
     )
   }
@@ -187,15 +187,15 @@ function ChangePassword() {
   return (
     <form onSubmit={submit} className="flex flex-col gap-3 border-t rule pt-3">
       <label className="block">
-        <span className="stamp-text text-navy-soft">{t('acct.pw.current')}</span>
+        <span className="stamp-text text-ink-soft">{t('acct.pw.current')}</span>
         <input className="field mt-1" type="password" required autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
       </label>
       <label className="block">
-        <span className="stamp-text text-navy-soft">{t('acct.pw.new')}</span>
+        <span className="stamp-text text-ink-soft">{t('acct.pw.new')}</span>
         <input className="field mt-1" type="password" required minLength={MIN_PASSWORD} autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />
       </label>
       <label className="block">
-        <span className="stamp-text text-navy-soft">{t('acct.pw.confirm')}</span>
+        <span className="stamp-text text-ink-soft">{t('acct.pw.confirm')}</span>
         <input className="field mt-1" type="password" required autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
       </label>
       {err && <Notice tone="red">{err}</Notice>}
@@ -230,7 +230,7 @@ function AddPassword() {
   return (
     <form onSubmit={submit} className="flex flex-col gap-3 border-t rule pt-3">
       <label className="block">
-        <span className="stamp-text text-navy-soft">{t('acct.pw.new')}</span>
+        <span className="stamp-text text-ink-soft">{t('acct.pw.new')}</span>
         <input className="field mt-1" type="password" required minLength={MIN_PASSWORD} autoComplete="new-password"
           placeholder={`At least ${MIN_PASSWORD} characters`} value={next} onChange={(e) => setNext(e.target.value)} />
       </label>

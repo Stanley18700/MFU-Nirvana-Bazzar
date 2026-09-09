@@ -24,8 +24,8 @@ export default function Setup() {
   return (
     <main className="mx-auto max-w-md px-5 pt-10 page-in">
       <h1 className="text-2xl font-bold">First-admin setup</h1>
-      <p className="mt-1 text-sm text-navy-soft">Signed in as <b>{user.email}</b> — this is the account that becomes admin.</p>
-      <p className="mt-1 text-sm text-navy-soft">Enter the bootstrap key you set with <code>firebase functions:secrets:set ADMIN_BOOTSTRAP_KEY</code>. Works once — while no admin exists yet. Add further admins from the admin panel.</p>
+      <p className="mt-1 text-sm text-ink-soft">Signed in as <b>{user.email}</b> — this is the account that becomes admin.</p>
+      <p className="mt-1 text-sm text-ink-soft">Enter the bootstrap key you set with <code>firebase functions:secrets:set ADMIN_BOOTSTRAP_KEY</code>. Works once — while no admin exists yet. Add further admins from the admin panel.</p>
       {role === 'admin' && <div className="mt-4"><Notice tone="green">This account is already an admin.</Notice></div>}
       <form onSubmit={submit} className="mt-6 flex flex-col gap-3">
         <input className="field" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />

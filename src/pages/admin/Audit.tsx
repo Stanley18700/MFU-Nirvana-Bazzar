@@ -36,7 +36,7 @@ export default function Audit() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Audit log</h1>
-          <p className="mt-1 text-sm text-navy-soft">Showing {filtered.length === rows.length ? fmt(rows.length) : `${fmt(filtered.length)} of ${fmt(rows.length)}`} most recent entries.</p>
+          <p className="mt-1 text-sm text-ink-soft">Showing {filtered.length === rows.length ? fmt(rows.length) : `${fmt(filtered.length)} of ${fmt(rows.length)}`} most recent entries.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select className="field w-auto py-1.5 text-sm" value={action} onChange={(e) => setAction(e.target.value)} aria-label="Filter by action">
@@ -51,18 +51,18 @@ export default function Audit() {
       </header>
       <div className="card mt-4 overflow-x-auto">
         <table className="w-full text-sm">
-          <thead><tr className="text-left text-xs text-navy-soft"><th className="py-1">When</th><th>Action</th><th>Target</th><th>Actor</th><th>Change</th></tr></thead>
+          <thead><tr className="text-left text-xs text-ink-soft"><th className="py-1">When</th><th>Action</th><th>Target</th><th>Actor</th><th>Change</th></tr></thead>
           <tbody>
             {filtered.map((r) => (
               <tr key={r.id} className="border-t rule align-top">
-                <td className="whitespace-nowrap py-1.5 text-xs text-navy-soft">{ts(r.createdAt)}</td>
+                <td className="whitespace-nowrap py-1.5 text-xs text-ink-soft">{ts(r.createdAt)}</td>
                 <td className="font-medium">{r.action}</td>
                 <td className="text-xs">{r.targetType} <span className="font-mono">{r.targetId}</span></td>
                 <td className="text-xs" title={r.actorUid}>{names.get(r.actorUid) ?? <span className="font-mono">{r.actorUid.slice(0, 8)}…</span>}</td>
                 <td><details className="text-xs"><summary className="btn-quiet btn-sm inline-flex list-none">diff</summary><pre className="max-w-md overflow-x-auto whitespace-pre-wrap">{JSON.stringify({ before: r.before, after: r.after }, null, 1)}</pre></details></td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={5} className="py-4 text-center text-navy-soft">{rows.length ? 'Nothing matches' : 'Nothing yet'}</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={5} className="py-4 text-center text-ink-soft">{rows.length ? 'Nothing matches' : 'Nothing yet'}</td></tr>}
           </tbody>
         </table>
         {rows.length >= pageSize && (

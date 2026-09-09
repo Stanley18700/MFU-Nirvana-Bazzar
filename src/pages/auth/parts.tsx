@@ -2,12 +2,96 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { useEvent } from '../../lib/data'
 import { eventDateLine } from '../../lib/eventText'
-import { Crest } from '../../components/ui'
 
 // DarkNotice moved to components/ui so the booth screen and shared notices can use it; kept here for the auth pages.
-export { DarkNotice } from '../../components/ui'
+export { Notice } from '../../components/ui'
 
-/** The navy card every signed-out screen sits in, so /signin matches the landing page. */
+/**
+ * The festival set behind the signed-out screens and the passport pages, after the key visual: a
+ * sky ground with wave bands, white paper-cut clouds, a paper sun, the line-art globe, and layered
+ * green paper hills at the foot. The hills are drawn in SVG because the supplied
+ * `illus-campus-papercut.png` could not be pulled from the design tool (see .design-sync/NOTES.md);
+ * swap them for that image when it arrives. `hills={false}` for pages with a bottom tab bar.
+ */
+export function FestivalBackdrop({ hills = true }: { hills?: boolean }) {
+  const layers: Array<[string, string]> = [
+    ['M0 110C140 70 260 60 400 90 540 120 640 40 800 70 960 100 1060 30 1200 60 1320 85 1400 70 1440 80V320H0Z', '#8FC08C'],
+    ['M0 190C160 150 280 170 420 150 560 130 660 100 820 140 980 180 1080 110 1220 140 1340 165 1400 150 1440 160V320H0Z', '#6E9E6B'],
+    ['M0 250C200 220 340 240 480 225 640 208 720 190 900 220 1060 248 1200 205 1440 240V320H0Z', '#4C764F'],
+  ]
+  return (
+    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-page" aria-hidden>
+      {/* Wave bands: two lighter sky sheets, the way the wave field lightens toward the horizon. */}
+      <svg className="absolute inset-x-0 top-0 h-full w-full" viewBox="0 0 1440 900" preserveAspectRatio="none" fill="#93E4F4">
+        <path d="M0 260C240 220 420 300 720 270 1020 240 1200 300 1440 250V420C1200 460 1020 400 720 430 420 460 240 400 0 440Z" />
+        <path d="M0 600C240 560 480 640 720 610 960 580 1200 640 1440 590V900H0Z" fill="#AEEAF7" opacity=".7" />
+      </svg>
+      <svg className="sun-drift absolute right-[5%] top-[3%] h-12 w-12 sm:right-[8%] sm:top-[7%] sm:h-24 sm:w-24" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#fff" opacity=".9" /></svg>
+      {/* Paper clouds: flat white bumps on a straight base, three sizes, never symmetrical. */}
+      <svg className="cloud-a absolute left-[-4%] top-[14%] w-[52%] max-w-[380px]" viewBox="0 0 380 130" fill="#fff" opacity=".92">
+        <circle cx="90" cy="86" r="44" /><circle cx="160" cy="62" r="58" /><circle cx="250" cy="76" r="50" /><circle cx="320" cy="94" r="36" /><rect x="46" y="86" width="310" height="44" rx="22" />
+      </svg>
+      <svg className="cloud-b absolute right-[-6%] top-[66%] w-[44%] max-w-[300px] sm:top-[36%]" viewBox="0 0 380 130" fill="#fff" opacity=".85">
+        <circle cx="110" cy="80" r="40" /><circle cx="190" cy="60" r="54" /><circle cx="280" cy="84" r="42" /><rect x="70" y="84" width="260" height="46" rx="23" />
+      </svg>
+      {/* The poster's rocket, cut from flat paper: coral body, cream porthole, deep-sky fins, an orange
+          flame. Drawn in SVG because `illus-rocket.png` could not be pulled from the design tool; on a
+          phone it keeps to the one text-free row beside the seal, from `sm` it climbs top-right. */}
+      <PaperRocket className={`drift absolute ${hills
+        ? 'right-[-9%] top-[21%] w-[27vw] sm:right-[13%] sm:top-[21%] sm:w-[150px]'
+        : 'right-[4%] bottom-[max(16vh,130px)] w-[min(24vw,130px)]'}`} />
+      {hills && (
+        <svg className="absolute bottom-0 left-0 h-[min(13vh,110px)] w-full sm:h-[min(20vh,170px)]" viewBox="0 0 1440 320" preserveAspectRatio="none">
+          {layers.map(([d, fill]) => <path key={fill} d={d} fill={fill} />)}
+        </svg>
+      )}
+    </div>
+  )
+}
+
+function PaperRocket({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 120 200" aria-hidden style={{ transform: 'rotate(28deg)' }}>
+      {/* flame */}
+      <path d="M46 156c-4 14 2 30 14 40 12-10 18-26 14-40z" fill="#F0A445" />
+      <path d="M52 158c-2 9 2 18 8 24 6-6 10-15 8-24z" fill="#F5C63C" />
+      {/* fins */}
+      <path d="M32 112 12 148c14-2 26-6 34-16z" fill="#12708A" />
+      <path d="M88 112l20 36c-14-2-26-6-34-16z" fill="#12708A" />
+      {/* body */}
+      <path d="M60 8c-26 26-34 60-30 96l4 34c2 10 8 16 26 16s24-6 26-16l4-34c4-36-4-70-30-96z" fill="#EF5F5F" />
+      <path d="M60 8c14 30 20 62 16 96l-4 34c-1 8-4 14-12 16 18 0 24-6 26-16l4-34c4-36-4-70-30-96z" fill="#D94A48" />
+      <path d="M60 8c-26 26-34 60-30 96l4 34c2 10 8 16 26 16v-18c-8-2-12-8-13-18l-3-30c-3-30 4-56 16-80z" fill="#FF919C" opacity=".55" />
+      {/* porthole */}
+      <circle cx="60" cy="86" r="18" fill="#F4E4C4" />
+      <circle cx="60" cy="86" r="11" fill="#7EDFF2" />
+      <circle cx="56" cy="82" r="3.5" fill="#fff" opacity=".85" />
+      {/* nose band */}
+      <path d="M60 8c-8 8-14 18-18 28h36c-4-10-10-20-18-28z" fill="#F4E4C4" />
+    </svg>
+  )
+}
+
+/** The Global MFU seal — the one real university mark supplied with the design system. */
+export function UniversityMark({ className = 'h-14 w-14' }: { className?: string }) {
+  return <img src="/brand/logo-global-mfu.png" alt="Global MFU" className={`${className} shrink-0 rounded-full shadow-float`} width={183} height={180} />
+}
+
+/**
+ * A torn-paper label, as the poster names each activity: flat colour, 2px corner, a small fixed
+ * tilt, a hard offset shadow. Text is ink on the light scraps and white only on the two dark ones.
+ */
+const SCRAP = {
+  forest: 'bg-green-700 text-white', red: 'bg-danger text-white', orange: 'bg-orange-400 text-ink',
+  sky: 'bg-sky-300 text-ink', cream: 'bg-panel-warm text-ink',
+} as const
+export function ScrapLabel({ tone = 'forest', tilt = -2.5, className = '', children }: { tone?: keyof typeof SCRAP; tilt?: number; className?: string; children: ReactNode }) {
+  return (
+    <span className={`inline-block rounded-[2px] px-3 py-1.5 text-sm font-semibold shadow-paper ${SCRAP[tone]} ${className}`} style={{ transform: `rotate(${tilt}deg)` }}>{children}</span>
+  )
+}
+
+/** The white paper card every signed-out screen sits in, on the same sky as the landing page. */
 export function AuthShell({ title, lead, children, foot, back = '/' }: {
   title: string
   lead?: ReactNode
@@ -18,24 +102,24 @@ export function AuthShell({ title, lead, children, foot, back = '/' }: {
   const event = useEvent()
   return (
     <>
-      <div className="fixed inset-0 -z-10 bg-navy" aria-hidden />
-      <main className="mx-auto flex min-h-full max-w-md flex-col bg-navy px-6 py-8 text-paper">
-        {back && <Link to={back} className="text-sm text-paper/60 hover:text-paper">← Back</Link>}
-        <div className="mt-6 flex items-center gap-4">
-          <Crest className="h-14 w-14 shrink-0 text-gold" />
-          <div className="min-w-0">
-            <div className="stamp-text text-gold">{event.nameEn}</div>
-            <div className="text-xs text-paper/50">{eventDateLine(event, false)}</div>
-          </div>
+      <FestivalBackdrop />
+      <main className="relative mx-auto flex min-h-full max-w-md flex-col px-5 pb-[max(15vh,130px)] pt-6 text-ink sm:pb-12">
+        <div className="flex items-center justify-between gap-3">
+          {back ? <Link to={back} className="link text-sm text-ink-soft hover:text-ink">← Back</Link> : <span />}
+          <UniversityMark className="h-11 w-11" />
+        </div>
+        <div className="haze mt-5 self-start">
+          <div className="stamp-text text-ink">{event.nameEn}</div>
+          <div className="text-xs text-ink-soft">{eventDateLine(event, false)}</div>
         </div>
 
-        <div className="page-in mt-8">
+        <section className="page-in mt-5 rounded-[28px] bg-white p-6 shadow-float">
           <h1 className="text-2xl font-bold">{title}</h1>
-          {lead && <p className="mt-2 text-sm text-paper/70">{lead}</p>}
+          {lead && <p className="mt-2 text-sm text-ink-soft">{lead}</p>}
           {children}
-        </div>
+        </section>
 
-        {foot && <div className="mt-auto pt-10 text-center text-sm text-paper/60">{foot}</div>}
+        {foot && <div className="mt-6 text-center text-sm text-ink">{foot}</div>}
       </main>
     </>
   )
@@ -44,7 +128,7 @@ export function AuthShell({ title, lead, children, foot, back = '/' }: {
 export function GoogleButton({ onClick, busy, label }: { onClick: () => void; busy?: boolean; label: string }) {
   return (
     <button type="button" onClick={onClick} disabled={busy}
-      className="inline-flex w-full items-center justify-center gap-3 rounded-lg bg-paper px-4 py-3.5 font-semibold text-navy-deep transition hover:brightness-105 active:scale-[0.98] disabled:opacity-50">
+      className="inline-flex w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-ink/15 bg-white px-4 py-3.5 font-semibold text-ink transition hover:bg-sky-100 active:scale-[0.98] disabled:opacity-50">
       <GoogleMark />
       {busy ? 'Opening Google…' : label}
     </button>
@@ -64,22 +148,18 @@ function GoogleMark() {
 
 export function Divider({ children }: { children: ReactNode }) {
   return (
-    <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-widest text-paper/40">
-      <span className="h-px flex-1 bg-paper/15" />{children}<span className="h-px flex-1 bg-paper/15" />
+    <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-widest text-ink-soft">
+      <span className="h-px flex-1 bg-ink/15" />{children}<span className="h-px flex-1 bg-ink/15" />
     </div>
   )
 }
 
-/** White-on-navy text input; `field` in index.css assumes the paper background. */
-export const darkField =
-  'mt-1 w-full rounded-lg border border-paper/20 bg-paper/10 px-3.5 py-3 text-paper placeholder:text-paper/35 outline-none transition focus:border-gold focus:bg-paper/15'
-
 export function Field({ label, hint, ...input }: { label: string; hint?: ReactNode } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className="block">
-      <span className="stamp-text text-paper/60">{label}</span>
-      <input className={darkField} {...input} />
-      {hint && <span className="mt-1 block text-xs text-paper/45">{hint}</span>}
+      <span className="stamp-text text-ink-soft">{label}</span>
+      <input className="field mt-1" {...input} />
+      {hint && <span className="mt-1 block text-xs text-ink-soft">{hint}</span>}
     </label>
   )
 }

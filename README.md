@@ -1,6 +1,6 @@
-# MFU Go Global Passport
+# MFU InterFest Passport
 
-A digital passport for the **MFU Go Global International Festival**, 16–18 September 2026.
+A digital passport for the **MFU International Festival 2026**, 16–18 September 2026.
 Visitors collect a stamp at each booth by scanning a rotating QR code on their own phone, and
 redeem a prize once they reach a threshold.
 

@@ -73,12 +73,12 @@ export default function Join() {
   return (
     <main className="mx-auto max-w-md px-5 pb-16 pt-8 page-in">
       <h1 className="text-2xl font-bold">Start your passport</h1>
-      <p className="mt-1 text-sm text-navy-soft">Under a minute — a few details for the organisers, then your passport opens.</p>
+      <p className="mt-1 text-sm text-ink-soft">Under a minute — a few details for the organisers, then your passport opens.</p>
 
       {/* The account email is the contact; it is already confirmed, so it is shown, not asked for. */}
       <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border rule bg-white/40 px-3.5 py-3">
         <div className="min-w-0">
-          <div className="stamp-text text-navy-soft">Signed in as</div>
+          <div className="stamp-text text-ink-soft">Signed in as</div>
           <div className="truncate text-sm font-medium">{user?.email}</div>
         </div>
         <button type="button" className="btn-quiet btn-sm shrink-0" onClick={() => void signOut()}>Not you?</button>
@@ -88,15 +88,15 @@ export default function Join() {
 
       <form onSubmit={submit} className="mt-6 flex flex-col gap-5">
         <label className="block">
-          <span className="stamp-text text-navy-soft">Your name</span>
+          <span className="stamp-text text-ink-soft">Your name</span>
           <input className="field mt-1" required maxLength={80} autoComplete="name" value={f.displayName} onChange={(e) => set('displayName', e.target.value)} placeholder="Shown on your passport cover" />
         </label>
 
         <fieldset>
-          <legend className="stamp-text text-navy-soft">I am a</legend>
+          <legend className="stamp-text text-ink-soft">I am a</legend>
           <div className="mt-1 grid grid-cols-2 gap-2">
             {TYPES.map((t) => (
-              <label key={t.v} className={`cursor-pointer rounded-lg border px-3 py-2.5 text-sm font-medium ${f.visitorType === t.v ? 'border-stamp-blue bg-stamp-blue/10 text-seal' : 'border-navy/15 bg-white/60'}`}>
+              <label key={t.v} className={`cursor-pointer rounded-lg border px-3 py-2.5 text-sm font-medium ${f.visitorType === t.v ? 'border-action bg-action/10 text-ink' : 'border-ink/15 bg-white/60'}`}>
                 <input type="radio" name="vt" className="sr-only" checked={f.visitorType === t.v} onChange={() => set('visitorType', t.v)} />
                 {t.label}
               </label>
@@ -106,34 +106,34 @@ export default function Join() {
 
         {f.visitorType !== 'guest' && (
           <label className="block">
-            <span className="stamp-text text-navy-soft">Student / staff ID <span className="font-normal normal-case tracking-normal">(optional)</span></span>
+            <span className="stamp-text text-ink-soft">Student / staff ID <span className="font-normal normal-case tracking-normal">(optional)</span></span>
             <input className="field mt-1" maxLength={40} inputMode="numeric" value={f.studentId} onChange={(e) => set('studentId', e.target.value)} />
           </label>
         )}
 
         <label className="block">
-          <span className="stamp-text text-navy-soft">University / institution</span>
+          <span className="stamp-text text-ink-soft">University / institution</span>
           <input className="field mt-1" required list="institutions" value={f.institution} onChange={(e) => set('institution', e.target.value)} placeholder="Start typing…" />
           <datalist id="institutions">{institutions.map((i) => <option key={i} value={i} />)}</datalist>
         </label>
 
         {f.institution === 'Other' && (
           <label className="block">
-            <span className="stamp-text text-navy-soft">Institution name</span>
+            <span className="stamp-text text-ink-soft">Institution name</span>
             <input className="field mt-1" required maxLength={120} value={f.institutionOther} onChange={(e) => set('institutionOther', e.target.value)} />
           </label>
         )}
 
         {f.institution === 'MFU' && (
           <label className="block">
-            <span className="stamp-text text-navy-soft">School / office</span>
+            <span className="stamp-text text-ink-soft">School / office</span>
             <input className="field mt-1" required list="schools" value={f.school} onChange={(e) => set('school', e.target.value)} placeholder="Start typing…" />
             <datalist id="schools">{schools.map((s) => <option key={s} value={s} />)}</datalist>
           </label>
         )}
 
         <label className="block">
-          <span className="stamp-text text-navy-soft">Country of origin</span>
+          <span className="stamp-text text-ink-soft">Country of origin</span>
           <select className="field mt-1" required value={f.countryCode} onChange={(e) => { set('countryCode', e.target.value); set('ethnicGroup', ''); set('ethnicConsent', false) }}>
             {countries.map((c, i) => (
               <option key={c.code} value={c.code}>{c.name}{i === PINNED_COUNTRIES.length - 1 ? '  ────────' : ''}</option>
@@ -143,8 +143,8 @@ export default function Join() {
 
         <div className="rounded-xl border rule bg-white/40 p-3">
           <label className="block">
-            <span className="stamp-text text-navy-soft">Ethnic group / community <span className="font-normal normal-case tracking-normal">(optional)</span></span>
-            <p className="mt-1 text-xs text-navy-soft">
+            <span className="stamp-text text-ink-soft">Ethnic group / community <span className="font-normal normal-case tracking-normal">(optional)</span></span>
+            <p className="mt-1 text-xs text-ink-soft">
               MFU serves students from many communities across the Mekong region. The Office of International Affairs asks this only to show, in aggregate, that the festival reached them. It is never shown with your name.
             </p>
             <input className="field mt-2" list="ethnic" maxLength={80} value={f.ethnicGroup} onChange={(e) => set('ethnicGroup', e.target.value)} placeholder="Type, choose, or leave blank" />
@@ -156,7 +156,7 @@ export default function Join() {
           {f.ethnicGroup && f.ethnicGroup !== 'Prefer not to say' && (
             <label className="mt-3 flex items-start gap-2 text-sm">
               <input type="checkbox" className="mt-1" checked={f.ethnicConsent} onChange={(e) => set('ethnicConsent', e.target.checked)} />
-              <span>I consent to my ethnic group being collected for aggregate event statistics only. <span className="text-navy-soft">(Leave unticked and it will not be stored.)</span></span>
+              <span>I consent to my ethnic group being collected for aggregate event statistics only. <span className="text-ink-soft">(Leave unticked and it will not be stored.)</span></span>
             </label>
           )}
         </div>

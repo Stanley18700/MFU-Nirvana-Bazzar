@@ -106,8 +106,8 @@ export default function Users() {
       <ErasureInbox requests={erasures} onErase={hardDelete} onDismiss={dismissErasure} />
 
       <section className="card mt-4">
-        <h2 className="stamp-text text-navy-soft">Invite booth organizers</h2>
-        <p className="mt-1 text-xs text-navy-soft">The link signs them in on the booth device with their own account and opens their screen. Single-use, expires in 14 days or at the end of the event.</p>
+        <h2 className="stamp-text text-ink-soft">Invite booth organizers</h2>
+        <p className="mt-1 text-xs text-ink-soft">The link signs them in on the booth device with their own account and opens their screen. Single-use, expires in 14 days or at the end of the event.</p>
         <div className="mt-3 grid gap-2 md:grid-cols-4">
           <input className="field" placeholder="Name" aria-label="Name" value={inv.name} onChange={(e) => setInv({ ...inv, name: e.target.value })} />
           <input className="field" placeholder="Email" aria-label="Email" type="email" value={inv.email} onChange={(e) => setInv({ ...inv, email: e.target.value })} />
@@ -116,7 +116,7 @@ export default function Users() {
             <option value="">— booth —</option>{booths.map((b) => <option key={b.id} value={b.id}>{b.nameEn}</option>)}
           </select>
         </div>
-        <details className="mt-2 text-sm"><summary className="cursor-pointer text-navy-soft">Bulk: paste <code>name, email, boothId</code> per line</summary>
+        <details className="mt-2 text-sm"><summary className="cursor-pointer text-ink-soft">Bulk: paste <code>name, email, boothId</code> per line</summary>
           <textarea className="field mt-2 font-mono text-xs" rows={4} value={inv.bulk} onChange={(e) => setInv({ ...inv, bulk: e.target.value })} placeholder={'Somchai Thongdee, somchai@mfu.ac.th, booth-01\n…'} />
         </details>
         <button className="btn-primary mt-3" onClick={sendInvites} disabled={!inv.bulk.trim() && (!inv.name || !inv.email || (inv.role === 'organizer' && !inv.boothId))}>Send invitation{inv.bulk.trim() ? 's' : ''}</button>
@@ -127,23 +127,23 @@ export default function Users() {
         )}
         {invites.length > 0 && (
           <>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-navy-soft">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-soft">
               <span>Showing {shownInvites.length} of {invites.length} invitation{invites.length === 1 ? '' : 's'}{invites.length >= 100 ? ' (latest 100)' : ''}</span>
               <div className="flex gap-1" role="tablist" aria-label="Invitation filter">
                 {(['pending', 'all'] as const).map((f) => (
                   <button key={f} role="tab" aria-selected={inviteFilter === f} onClick={() => setInviteFilter(f)}
-                    className="tab bg-navy/5">{f === 'pending' ? 'Pending' : 'All'}</button>
+                    className="tab bg-ink/5">{f === 'pending' ? 'Pending' : 'All'}</button>
                 ))}
               </div>
             </div>
             <table className="mt-2 w-full text-sm">
-              <thead><tr className="text-left text-xs text-navy-soft"><th className="py-1">Name</th><th>Email</th><th>Booth</th><th>Status</th><th>Sent</th><th></th></tr></thead>
+              <thead><tr className="text-left text-xs text-ink-soft"><th className="py-1">Name</th><th>Email</th><th>Booth</th><th>Status</th><th>Sent</th><th></th></tr></thead>
               <tbody>
                 {shownInvites.map((i) => (
                   <tr key={i.id} className="border-t rule">
                     <td className="py-1.5">{i.displayName}</td><td className="truncate">{i.email}</td><td>{booths.find((b) => b.id === i.boothId)?.nameEn ?? ROLE_LABEL[i.role]}</td>
-                    <td><span className={`rounded-full px-2 py-0.5 text-xs ${i.status === 'accepted' ? 'bg-jade/15 text-jade' : i.status === 'opened' ? 'bg-stamp-blue/10 text-seal' : i.status === 'sent' ? 'bg-navy/5' : 'bg-vermilion/10 text-vermilion'}`}>{i.status}</span></td>
-                    <td className="text-xs text-navy-soft">{ts(i.sentAt)}</td>
+                    <td><span className={`rounded-full px-2 py-0.5 text-xs ${i.status === 'accepted' ? 'bg-success/15 text-success-text' : i.status === 'opened' ? 'bg-action/10 text-ink' : i.status === 'sent' ? 'bg-ink/5' : 'bg-danger/10 text-danger-text'}`}>{i.status}</span></td>
+                    <td className="text-xs text-ink-soft">{ts(i.sentAt)}</td>
                     <td className="text-right text-xs">
                       {i.status !== 'accepted' && i.status !== 'revoked' && <div className="flex justify-end gap-1">
                         <button className="btn-quiet btn-sm" onClick={() => resend(i)}>Resend</button>
@@ -152,7 +152,7 @@ export default function Users() {
                     </td>
                   </tr>
                 ))}
-                {shownInvites.length === 0 && <tr><td colSpan={6} className="py-3 text-center text-xs text-navy-soft">No pending invitations.</td></tr>}
+                {shownInvites.length === 0 && <tr><td colSpan={6} className="py-3 text-center text-xs text-ink-soft">No pending invitations.</td></tr>}
               </tbody>
             </table>
           </>
@@ -163,28 +163,28 @@ export default function Users() {
 
       <section className="card mt-4">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="stamp-text mr-auto text-navy-soft">Users</h2>
+          <h2 className="stamp-text mr-auto text-ink-soft">Users</h2>
           <input className="field w-56" placeholder="Search name, ID, passport, contact" aria-label="Search users" value={q} onChange={(e) => setQ(e.target.value)} />
           <select className="field w-44" aria-label="Filter by role" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as Role | 'all')}><option value="all">All roles</option>{ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}s</option>)}</select>
         </div>
-        <p className="mt-1 text-xs text-navy-soft">{searching ? `Searching all ${users.length.toLocaleString('en-US')} users` : `Showing the latest ${Math.min(users.length, pageSize)}`} · press a row to open it</p>
+        <p className="mt-1 text-xs text-ink-soft">{searching ? `Searching all ${users.length.toLocaleString('en-US')} users` : `Showing the latest ${Math.min(users.length, pageSize)}`} · press a row to open it</p>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-xs text-navy-soft"><th className="py-1">Name</th><th>Role</th><th>Affiliation</th><th>Country</th><th>Stamps</th><th>Points</th><th>Registered</th></tr></thead>
+            <thead><tr className="text-left text-xs text-ink-soft"><th className="py-1">Name</th><th>Role</th><th>Affiliation</th><th>Country</th><th>Stamps</th><th>Points</th><th>Registered</th></tr></thead>
             <tbody>
               {filtered.map((u) => (
                 <tr key={u.id} tabIndex={0} role="button" aria-label={`Open ${u.displayName}`}
-                  className={`cursor-pointer border-t rule hover:bg-white/50 focus:outline-none focus-visible:bg-white/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-stamp-blue/50 ${u.deletedAt ? 'opacity-50' : ''}`}
+                  className={`cursor-pointer border-t rule hover:bg-white/50 focus:outline-none focus-visible:bg-white/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-action/50 ${u.deletedAt ? 'opacity-50' : ''}`}
                   onClick={() => openRow(u.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRow(u.id) } }}>
-                  <td className="py-1.5 font-medium">{u.displayName}<div className="text-xs text-navy-soft">{u.passportNo ?? u.contact}</div></td>
-                  <td>{ROLE_LABEL[u.role]}{u.boothId ? <div className="text-xs text-navy-soft">{booths.find((b) => b.id === u.boothId)?.nameEn}</div> : null}</td>
+                  <td className="py-1.5 font-medium">{u.displayName}<div className="text-xs text-ink-soft">{u.passportNo ?? u.contact}</div></td>
+                  <td>{ROLE_LABEL[u.role]}{u.boothId ? <div className="text-xs text-ink-soft">{booths.find((b) => b.id === u.boothId)?.nameEn}</div> : null}</td>
                   <td className="text-xs">{u.institution}{u.school ? ` · ${u.school}` : ''}</td>
                   <td className="text-xs">{u.countryCode ? countryName(u.countryCode) : ''}</td>
                   <td className="fig">{u.stampCount}</td><td className="fig">{u.points}</td>
-                  <td className="text-xs text-navy-soft">{ts(u.createdAt)}</td>
+                  <td className="text-xs text-ink-soft">{ts(u.createdAt)}</td>
                 </tr>
               ))}
-              {filtered.length === 0 && <tr><td colSpan={7} className="py-4 text-center text-navy-soft">{users.length ? 'Nothing matches' : 'No users yet'}</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={7} className="py-4 text-center text-ink-soft">{users.length ? 'Nothing matches' : 'No users yet'}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -212,9 +212,9 @@ function LinkRow({ email, link }: { email: string; link: string }) {
 function ErasureInbox({ requests, onErase, onDismiss }: { requests: Array<ErasureRequest & { id: string }>; onErase: (uid: string, label: string) => Promise<void>; onDismiss: (uid: string, reason: string) => Promise<void> }) {
   if (!requests.length) return null
   return (
-    <section className="mt-4 rounded-2xl border-2 border-vermilion/40 p-4">
-      <h2 className="stamp-text text-vermilion">Erasure requests · {requests.length}</h2>
-      <p className="mt-1 text-xs text-navy-soft">Erasing removes the account, passport, stamps and prize unlocks; booth counters stay. Dismiss a duplicate or test request with a reason — both actions are audited.</p>
+    <section className="mt-4 rounded-2xl border-2 border-danger/40 p-4">
+      <h2 className="stamp-text text-danger-text">Erasure requests · {requests.length}</h2>
+      <p className="mt-1 text-xs text-ink-soft">Erasing removes the account, passport, stamps and prize unlocks; booth counters stay. Dismiss a duplicate or test request with a reason — both actions are audited.</p>
       <ul className="mt-3 flex flex-col gap-3">
         {requests.map((r) => <ErasureRow key={r.id} r={r} onErase={onErase} onDismiss={onDismiss} />)}
       </ul>
@@ -233,8 +233,8 @@ function ErasureRow({ r, onErase, onDismiss }: { r: ErasureRequest; onErase: (ui
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <b>{r.displayName ?? 'Unknown name'}</b>{' '}
-          <span className="text-navy-soft">{[r.passportNo, r.contact ?? r.uid].filter(Boolean).join(' · ')}</span>
-          <div className="text-xs text-navy-soft">Requested {ts(r.requestedAt)}</div>
+          <span className="text-ink-soft">{[r.passportNo, r.contact ?? r.uid].filter(Boolean).join(' · ')}</span>
+          <div className="text-xs text-ink-soft">Requested {ts(r.requestedAt)}</div>
         </div>
         {mode === 'idle' && (
           <div className="flex gap-2">
@@ -263,9 +263,9 @@ function TypedConfirm({ expect, busy, onConfirm, onCancel }: { expect: string; b
   const [typed, setTyped] = useState('')
   const ok = typed.trim().toLowerCase() === expect.trim().toLowerCase()
   return (
-    <div className="mt-2 flex flex-col gap-2 rounded-xl bg-vermilion/10 p-3 text-sm">
+    <div className="mt-2 flex flex-col gap-2 rounded-xl bg-danger/10 p-3 text-sm">
       <p>This removes the account, passport, stamps and prize unlocks. Booth counters stay. It cannot be undone.</p>
-      <label className="text-xs text-navy-soft">Type <b className="font-mono">{expect}</b> to confirm
+      <label className="text-xs text-ink-soft">Type <b className="font-mono">{expect}</b> to confirm
         <input className="field mt-1" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus autoComplete="off" />
       </label>
       <div className="flex gap-2">
@@ -304,8 +304,8 @@ function CreateUser({ booths, onCreated, onError }: { booths: BoothOpt[]; onCrea
 
   return (
     <details className="card mt-4">
-      <summary className="cursor-pointer"><span className="stamp-text text-navy-soft">Create a user at the desk</span></summary>
-      <p className="mt-2 text-xs text-navy-soft">
+      <summary className="cursor-pointer"><span className="stamp-text text-ink-soft">Create a user at the desk</span></summary>
+      <p className="mt-2 text-xs text-ink-soft">
         Staff normally arrive through an invitation above. Use this for a walk-up visitor who cannot sign up on their own phone, or a
         staff account with a set password. An email contact counts as confirmed — you are vouching for it.
       </p>
@@ -339,10 +339,10 @@ function CreateUser({ booths, onCreated, onError }: { booths: BoothOpt[]; onCrea
             <input className="field" placeholder="Student ID (optional)" aria-label="Student ID" maxLength={40} value={f.studentId} onChange={(e) => set('studentId', e.target.value)} />
           </>
         )}
-        <input className={`field md:col-span-2 ${f.password && !passwordOk ? 'border-vermilion' : ''}`} type="text" autoComplete="off" placeholder="Password (optional · 10+ characters · needs an email contact)" aria-label="Password" value={f.password} onChange={(e) => set('password', e.target.value)} />
+        <input className={`field md:col-span-2 ${f.password && !passwordOk ? 'border-danger' : ''}`} type="text" autoComplete="off" placeholder="Password (optional · 10+ characters · needs an email contact)" aria-label="Password" value={f.password} onChange={(e) => set('password', e.target.value)} />
         <div className="md:col-span-4">
           <button className="btn-primary" disabled={busy || !canSubmit}>{busy ? 'Creating…' : 'Create account'}</button>
-          {!f.password && <span className="ml-3 text-xs text-navy-soft">Without a password the person signs in with Google on that address, or uses “Forgot your password?” to set one.</span>}
+          {!f.password && <span className="ml-3 text-xs text-ink-soft">Without a password the person signs in with Google on that address, or uses “Forgot your password?” to set one.</span>}
         </div>
       </form>
     </details>
@@ -366,9 +366,9 @@ function UserDrawer({ u, booths, onClose, onRole, onUpdate, onSoftDelete, onHard
   return (
     <Drawer title={u.displayName} onClose={onClose}
       actions={!editing && !u.deletedAt ? <button className="btn-quiet btn-sm" onClick={() => setEditing(true)}>Edit details</button> : null}>
-      <div className="text-sm text-navy-soft">{[u.passportNo, u.contact].filter(Boolean).join(' · ')}</div>
+      <div className="text-sm text-ink-soft">{[u.passportNo, u.contact].filter(Boolean).join(' · ')}</div>
       {/* The user id is what "Void a redemption" on Prizes asks for; it was shown nowhere before. */}
-      <div className="mt-1 flex items-center gap-2 text-xs text-navy-soft">
+      <div className="mt-1 flex items-center gap-2 text-xs text-ink-soft">
         <span>ID</span>
         <input ref={uidRef} readOnly className="min-w-0 flex-1 bg-transparent font-mono text-[11px]" value={u.id} onFocus={(e) => e.currentTarget.select()} aria-label="User id" />
         <CopyButton text={u.id} inputRef={uidRef} />
@@ -379,38 +379,38 @@ function UserDrawer({ u, booths, onClose, onRole, onUpdate, onSoftDelete, onHard
         <EditForm u={u} onCancel={() => setEditing(false)} onSave={async (patch) => { await onUpdate(u, patch); setEditing(false) }} />
       ) : (
         <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
-          <dt className="text-navy-soft">Type</dt><dd>{u.visitorType ? VISITOR_TYPE_LABEL[u.visitorType] : '–'}</dd>
-          <dt className="text-navy-soft">Institution</dt><dd>{u.institution}{u.school ? ` · ${u.school}` : ''}</dd>
-          <dt className="text-navy-soft">Student ID</dt><dd>{u.studentId || '–'}</dd>
-          <dt className="text-navy-soft">Country</dt><dd>{u.countryCode ? countryName(u.countryCode) : '–'}</dd>
-          <dt className="text-navy-soft">Points</dt><dd className="fig">{u.points} · {u.stampCount} stamps</dd>
-          <dt className="text-navy-soft">Days</dt><dd>{u.daysAttended?.join(', ') || '–'}</dd>
-          <dt className="text-navy-soft">Last seen</dt><dd>{ts(u.lastSeenAt)}</dd>
+          <dt className="text-ink-soft">Type</dt><dd>{u.visitorType ? VISITOR_TYPE_LABEL[u.visitorType] : '–'}</dd>
+          <dt className="text-ink-soft">Institution</dt><dd>{u.institution}{u.school ? ` · ${u.school}` : ''}</dd>
+          <dt className="text-ink-soft">Student ID</dt><dd>{u.studentId || '–'}</dd>
+          <dt className="text-ink-soft">Country</dt><dd>{u.countryCode ? countryName(u.countryCode) : '–'}</dd>
+          <dt className="text-ink-soft">Points</dt><dd className="fig">{u.points} · {u.stampCount} stamps</dd>
+          <dt className="text-ink-soft">Days</dt><dd>{u.daysAttended?.join(', ') || '–'}</dd>
+          <dt className="text-ink-soft">Last seen</dt><dd>{ts(u.lastSeenAt)}</dd>
         </dl>
       )}
-      <p className="mt-2 text-xs text-navy-soft">Ethnic group is never shown per person — it exists only as an aggregate on the dashboard.</p>
+      <p className="mt-2 text-xs text-ink-soft">Ethnic group is never shown per person — it exists only as an aggregate on the dashboard.</p>
 
-      <h3 className="stamp-text mt-5 text-navy-soft">Route walked</h3>
+      <h3 className="stamp-text mt-5 text-ink-soft">Route walked</h3>
       <ol className="mt-2 flex flex-col gap-1 text-sm">
-        {scans.map((s) => <li key={s.id} className="flex justify-between"><span>{booths.find((b) => b.id === s.boothId)?.nameEn ?? s.boothId}</span><span className="text-xs text-navy-soft">{ts(s.scannedAt)} · +{s.pointsAwarded}</span></li>)}
-        {scans.length === 0 && <li className="text-navy-soft">No stamps yet</li>}
+        {scans.map((s) => <li key={s.id} className="flex justify-between"><span>{booths.find((b) => b.id === s.boothId)?.nameEn ?? s.boothId}</span><span className="text-xs text-ink-soft">{ts(s.scannedAt)} · +{s.pointsAwarded}</span></li>)}
+        {scans.length === 0 && <li className="text-ink-soft">No stamps yet</li>}
       </ol>
 
       {u.role === 'visitor' && <PrizesCollected u={u} onMsg={onMsg} />}
 
-      <h3 className="stamp-text mt-5 text-navy-soft">Role</h3>
+      <h3 className="stamp-text mt-5 text-ink-soft">Role</h3>
       <div className="mt-2 flex flex-wrap gap-2">
         <select className="field w-auto" aria-label="Role" value={role} onChange={(e) => setRole(e.target.value as Role)}>{ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select>
         {role === 'organizer' && <select className="field w-auto" aria-label="Booth" value={boothId} onChange={(e) => setBoothId(e.target.value)}><option value="">— booth —</option>{booths.map((b) => <option key={b.id} value={b.id}>{b.nameEn}</option>)}</select>}
         <button className="btn-primary" disabled={(role === u.role && boothId === (u.boothId ?? '')) || (role === 'organizer' && !boothId)} onClick={() => onRole(u, role, boothId || undefined)}>Apply</button>
       </div>
 
-      <h3 className="stamp-text mt-6 text-navy-soft">Remove</h3>
+      <h3 className="stamp-text mt-6 text-ink-soft">Remove</h3>
       <div className="mt-2 flex flex-wrap gap-2">
         {!u.deletedAt && <button className="btn-ghost" onClick={() => onSoftDelete(u)}>Delete (soft)</button>}
         {!erasing && <button className="btn-danger" onClick={() => setErasing(true)}>Erase permanently (PDPA)</button>}
       </div>
-      <p className="mt-1 text-xs text-navy-soft">Soft delete anonymises the contact and disables sign-in; stamps stay in the statistics. Erase is the right to be forgotten: everything about the person goes.</p>
+      <p className="mt-1 text-xs text-ink-soft">Soft delete anonymises the contact and disables sign-in; stamps stay in the statistics. Erase is the right to be forgotten: everything about the person goes.</p>
       {erasing && <TypedConfirm expect={u.passportNo ?? u.displayName} onCancel={() => setErasing(false)} onConfirm={() => onHardDelete(u.id, u.displayName)} />}
     </Drawer>
   )
@@ -435,7 +435,7 @@ function PrizesCollected({ u, onMsg }: { u: Row; onMsg: (m: Msg) => void }) {
   }
   return (
     <>
-      <h3 className="stamp-text mt-5 text-navy-soft">Prizes</h3>
+      <h3 className="stamp-text mt-5 text-ink-soft">Prizes</h3>
       <ul className="mt-2 flex flex-col gap-1.5 text-sm">
         {rows.map((t) => {
           const un = unlocks.find((x) => x.tierId === t.id)!
@@ -443,7 +443,7 @@ function PrizesCollected({ u, onMsg }: { u: Row; onMsg: (m: Msg) => void }) {
           return (
             <li key={t.id} className="rounded-xl bg-white/50 px-3 py-2">
               <div className="flex items-center justify-between gap-2">
-                <span><b>{t.name}</b> <span className="text-xs text-navy-soft">{redeemed ? `handed over ${ts(un.redeemedAt)}` : un.voidedAt ? 'voided — can collect again' : 'unlocked, not yet collected'}</span></span>
+                <span><b>{t.name}</b> <span className="text-xs text-ink-soft">{redeemed ? `handed over ${ts(un.redeemedAt)}` : un.voidedAt ? 'voided — can collect again' : 'unlocked, not yet collected'}</span></span>
                 {redeemed && voiding !== t.id && <button className="btn-danger-soft btn-sm" onClick={() => { setVoiding(t.id); setReason('') }}>Void</button>}
               </div>
               {voiding === t.id && (
@@ -475,7 +475,7 @@ function EditForm({ u, onSave, onCancel }: { u: Row; onSave: (patch: Omit<Update
   return (
     <form className="mt-3 grid grid-cols-2 gap-2 text-sm" onSubmit={async (e) => { e.preventDefault(); setBusy(true); try { await onSave(patch) } catch { /* reported by the parent */ } finally { setBusy(false) } }}>
       <label className="col-span-2">Name<input className="field mt-1" required maxLength={80} value={f.displayName} onChange={(e) => set('displayName', e.target.value)} /></label>
-      <label className="col-span-2">Contact <span className="text-xs text-navy-soft">(an email here also becomes the sign-in address)</span>
+      <label className="col-span-2">Contact <span className="text-xs text-ink-soft">(an email here also becomes the sign-in address)</span>
         <input className="field mt-1" required value={f.contact} onChange={(e) => set('contact', e.target.value)} /></label>
       <label>Type<select className="field mt-1" value={f.visitorType} onChange={(e) => set('visitorType', e.target.value as VisitorType)}>{VISITOR_TYPES.map((t) => <option key={t} value={t}>{VISITOR_TYPE_LABEL[t]}</option>)}</select></label>
       <label>Country<select className="field mt-1" value={f.countryCode} onChange={(e) => set('countryCode', e.target.value)}>{COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></label>

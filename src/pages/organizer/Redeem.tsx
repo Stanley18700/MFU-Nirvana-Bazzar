@@ -120,11 +120,11 @@ export default function Redeem() {
   function reset() { setLookup(null); setCred(null); setMsg(null); setDone(null); setArmed(null); setStale(false); setPassport(''); setCode('') }
 
   const shell = (children: React.ReactNode) => (
-    <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="mx-auto min-h-full max-w-lg bg-navy-deep px-4 pb-8 text-paper">
+    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="mx-auto min-h-full max-w-lg bg-chrome px-4 pb-8 text-white">
       <header className="py-4">
         {/* The bar above the title, as on /booth and /booth/stats. */}
         <OrganizerBar boothId={role === 'admin' ? null : claimBooth} dark compact className="mb-3" />
-        <div className="stamp-text text-gold">Prize desk</div>
+        <div className="stamp-text text-foil">Prize desk</div>
       </header>
       {children}
     </main></>
@@ -153,7 +153,7 @@ export default function Redeem() {
   return shell(
     <>
       {/* §4.4 — live stock strip, with a stale flag when the figures come from the cache */}
-      <div className="flex items-center justify-between text-xs text-paper/60">
+      <div className="flex items-center justify-between text-xs text-on-chrome-soft">
         <span>Stock</span>
         <LiveDot state={offline ? 'offline' : stockStale ? 'stale' : 'live'} dark size="sm">
           {offline ? 'Offline — figures may be old' : tiersState.fromCache ? 'Reconnecting' : 'Live'}
@@ -162,11 +162,11 @@ export default function Redeem() {
       <div className="mt-1 grid grid-cols-2 gap-2 xs:grid-cols-3">
         {tiers.map((t) => {
           const pct = t.stockTotal ? t.stockRemaining / t.stockTotal : 0
-          const tone = t.stockRemaining <= 5 ? 'text-vermilion' : pct < 0.2 ? 'text-amber' : 'text-jade'
+          const tone = t.stockRemaining <= 5 ? 'text-danger-text' : pct < 0.2 ? 'text-warn-text' : 'text-success-text'
           return (
             <div key={t.id} className="rounded-xl bg-white/5 p-3">
-              <div className="stamp-text text-paper/60">{t.name}</div>
-              <div className={`fig text-xl xs:text-2xl ${tone}`}>{fmt(t.stockRemaining)}<span className="text-sm text-paper/40"> / {fmt(t.stockTotal)}</span></div>
+              <div className="stamp-text text-on-chrome-soft">{t.name}</div>
+              <div className={`fig text-xl xs:text-2xl ${tone}`}>{fmt(t.stockRemaining)}<span className="text-sm text-on-chrome-soft"> / {fmt(t.stockTotal)}</span></div>
             </div>
           )
         })}
@@ -174,7 +174,7 @@ export default function Redeem() {
       <DataErrors dark className="mt-3 text-sm" />
 
       {done ? (
-        <section className="mt-4 rounded-3xl bg-jade p-6 text-center text-white page-in" role="status" aria-live="polite">
+        <section className="mt-4 rounded-3xl bg-success p-6 text-center text-white page-in" role="status" aria-live="polite">
           <div className="stamp-text text-white/70">Handed over</div>
           <div className="fig mt-2 text-4xl">{done.tier}</div>
           {done.reward && <div className="mt-1 text-white/85">{done.reward}</div>}
@@ -184,19 +184,19 @@ export default function Redeem() {
           <button className="btn-dark btn-sm mt-3" onClick={() => setDone(null)}>Hand over another tier to {done.name.split(' ')[0]}</button>
         </section>
       ) : lookup ? (
-        <section className="mt-4 rounded-3xl bg-paper p-5 text-navy page-in">
-          <div className="stamp-text text-navy-soft">Visitor</div>
+        <section className="mt-4 rounded-3xl bg-white p-5 text-ink page-in">
+          <div className="stamp-text text-ink-soft">Visitor</div>
           <div className="text-2xl font-bold">{lookup.visitor.displayName}</div>
-          <div className="text-sm text-navy-soft">{[lookup.visitor.passportNo, `${lookup.visitor.points} points`, `${lookup.visitor.stampCount} stamps`].filter(Boolean).join(' · ')}</div>
+          <div className="text-sm text-ink-soft">{[lookup.visitor.passportNo, `${lookup.visitor.points} points`, `${lookup.visitor.stampCount} stamps`].filter(Boolean).join(' · ')}</div>
           <ul className="mt-4 flex flex-col gap-2">
             {lookup.tiers.map((t) => (
-              <li key={t.id} className={`flex items-center gap-3 rounded-2xl p-3 ${t.unlocked ? 'bg-white' : 'bg-navy/5 opacity-70'}`}>
+              <li key={t.id} className={`flex items-center gap-3 rounded-2xl p-3 ${t.unlocked ? 'bg-white' : 'bg-ink/5 opacity-70'}`}>
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold">{t.name} <span className="text-xs font-normal text-navy-soft">{t.thresholdPoints} pts</span></div>
-                  <div className="text-xs text-navy-soft">{t.reward}</div>
-                  {t.redeemedAt && <div className="text-xs text-jade">Handed over {clock(t.redeemedAt)}{t.redeemedByName ? ` by ${t.redeemedByName}` : ''}</div>}
+                  <div className="font-semibold">{t.name} <span className="text-xs font-normal text-ink-soft">{t.thresholdPoints} pts</span></div>
+                  <div className="text-xs text-ink-soft">{t.reward}</div>
+                  {t.redeemedAt && <div className="text-xs text-success-text">Handed over {clock(t.redeemedAt)}{t.redeemedByName ? ` by ${t.redeemedByName}` : ''}</div>}
                 </div>
-                {t.redeemedAt ? <span className="shrink-0 rounded-full bg-jade/15 px-3 py-1 text-xs font-semibold text-jade">Done</span>
+                {t.redeemedAt ? <span className="shrink-0 rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success-text">Done</span>
                   : t.unlocked ? (
                     <button
                       className={`${armed === t.id ? 'btn-gold' : 'btn-primary'} shrink-0`}
@@ -207,11 +207,11 @@ export default function Redeem() {
                       {t.stockRemaining <= 0 ? 'Out of stock' : armed === t.id ? `Confirm ${t.name}` : 'Hand over'}
                     </button>
                   )
-                  : <span className="shrink-0 text-xs text-navy-soft">{t.thresholdPoints - lookup.visitor.points} pts short</span>}
+                  : <span className="shrink-0 text-xs text-ink-soft">{t.thresholdPoints - lookup.visitor.points} pts short</span>}
               </li>
             ))}
           </ul>
-          {armed && <p className="mt-2 text-xs text-navy-soft">Press the gold button again to confirm — a hand-over cannot be undone at the desk.</p>}
+          {armed && <p className="mt-2 text-xs text-ink-soft">Press the gold button again to confirm — a hand-over cannot be undone at the desk.</p>}
           {msg && <div className="mt-3"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
           {stale && (
             <form onSubmit={useFreshCode} className="mt-3 flex gap-2">
@@ -228,29 +228,29 @@ export default function Redeem() {
         <Scanner onResult={(t) => void onCred({ payload: t })} paused={busy || !!lookup || !!done} className="mt-4 aspect-[4/3]" />
         {busy && <Spinner label="Looking up…" />}
         <form onSubmit={submitManual} className="mt-4 rounded-2xl bg-white/5 p-4">
-          <div className="stamp-text text-paper/60">Or type what the visitor reads out</div>
+          <div className="stamp-text text-on-chrome-soft">Or type what the visitor reads out</div>
           <div className="mt-2 grid gap-2 xs:grid-cols-[1fr_1fr_auto]">
-            <label className="block text-xs text-paper/60">Passport number
+            <label className="block text-xs text-on-chrome-soft">Passport number
               <input className="field mt-1 bg-white/90 font-mono uppercase" value={passport} onChange={(e) => setPassport(e.target.value.toUpperCase())}
                 placeholder={`${prefix}-0042`} autoCapitalize="characters" autoComplete="off" inputMode="text" />
             </label>
-            <label className="block text-xs text-paper/60">8-character code
+            <label className="block text-xs text-on-chrome-soft">8-character code
               <input className="field mt-1 bg-white/90 font-mono uppercase" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())}
                 placeholder="ABCD EFGH" autoCapitalize="characters" autoComplete="off" />
             </label>
             <button className="btn-gold self-end" disabled={busy || !(PAYLOAD_RE.test(code) || (passport.trim() && code.replace(/\s+/g, '').length === 8))}>Look up</button>
           </div>
-          <p className="mt-2 text-xs text-paper/50">Both are on the visitor's Prize page. Just the digits work for the passport number ("42" means {prefix}-0042).</p>
+          <p className="mt-2 text-xs text-on-chrome-soft">Both are on the visitor's Prize page. Just the digits work for the passport number ("42" means {prefix}-0042).</p>
         </form>
         {msg && <div className="mt-3"><DarkNotice tone={msg.tone}>{msg.text}</DarkNotice></div>}
         {recent.length > 0 && (
           <section className="mt-5">
-            <h2 className="stamp-text text-paper/60">Handed over on this device</h2>
+            <h2 className="stamp-text text-on-chrome-soft">Handed over on this device</h2>
             <ul className="mt-2 flex flex-col gap-1 text-sm">
               {recent.map((r) => (
                 <li key={r.at} className="flex justify-between gap-3 rounded-lg bg-white/5 px-3 py-2">
-                  <span className="truncate"><b>{r.tier}</b> · {r.name}{r.passportNo ? <span className="text-paper/50"> · {r.passportNo}</span> : null}</span>
-                  <span className="shrink-0 tabular-nums text-paper/60">{clock(r.at)}</span>
+                  <span className="truncate"><b>{r.tier}</b> · {r.name}{r.passportNo ? <span className="text-on-chrome-soft"> · {r.passportNo}</span> : null}</span>
+                  <span className="shrink-0 tabular-nums text-on-chrome-soft">{clock(r.at)}</span>
                 </li>
               ))}
             </ul>

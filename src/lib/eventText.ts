@@ -25,7 +25,7 @@ export function eventDateLine(ev: LiveEvent, withTimes = true): string {
   return withTimes ? `${dates} · ${time(a)}–${time(b)}` : dates
 }
 
-/** The passport cover mark, e.g. "MFU GO GLOBAL · 2026". */
+/** The passport cover mark, e.g. "MFU INTERFEST · 2026". */
 export function eventMark(ev: LiveEvent): string {
   if (ev.stampMarkTop) return ev.stampMarkBottom ? `${ev.stampMarkTop} · ${ev.stampMarkBottom}` : ev.stampMarkTop
   const a = d(ev.startsAt)

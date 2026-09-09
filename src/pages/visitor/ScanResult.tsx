@@ -11,11 +11,11 @@ export function ScanResultView({ result, onRetry }: { result: ScanResult; onRetr
   if (result.status === 'success') {
     return (
       <div className="flex flex-col items-center gap-4 p-6 text-center page-in">
-        {booth && <Stamp booth={booth} collected animate tilt={(Math.random() * 8 - 4) | 0 || 5} size={160} />}
+        {booth && <Stamp booth={booth} collected animate tilt={(Math.random() * 8 - 4) | 0 || 5} size={300} />}
         <div>
-          <div className="stamp-text" style={{ color: booth?.accentColor }}>Stamp collected</div>
-          <div className="fig mt-1 text-4xl" style={{ color: booth?.accentColor }}>+{result.pointsAwarded} points</div>
-          <div className="mt-1 text-sm text-navy-soft">{booth?.nameEn} · {result.points} points total · {result.stampCount} stamps</div>
+          <div className="stamp-text text-ink-soft">Stamp collected</div>
+          <div className="fig mt-1 text-4xl text-ink">+{result.pointsAwarded} points</div>
+          <div className="mt-1 text-sm text-ink-soft">{booth?.nameEn} · {result.points} points total · {result.stampCount} stamps</div>
         </div>
         {result.unlockedTierIds.length > 0 && <Notice tone="green">You just unlocked a prize tier. Check the Prize page.</Notice>}
         <div className="flex w-full gap-2">
@@ -28,9 +28,9 @@ export function ScanResultView({ result, onRetry }: { result: ScanResult; onRetr
   if (result.status === 'already') {
     return (
       <div className="flex flex-col items-center gap-4 p-6 text-center page-in">
-        {booth && <Stamp booth={booth} collected size={120} className="pulse-once" />}
+        {booth && <Stamp booth={booth} collected size={240} className="pulse-once" />}
         <div className="font-semibold">Already stamped here</div>
-        <div className="text-sm text-navy-soft">{booth?.nameEn} is in your passport. Try a booth you have not visited.</div>
+        <div className="text-sm text-ink-soft">{booth?.nameEn} is in your passport. Try a booth you have not visited.</div>
         <div className="flex w-full gap-2">
           <button className="btn-ghost flex-1" onClick={onRetry}>Scan another</button>
           <Link to="/passport/stamps" className="btn-primary flex-1">See what's left</Link>

@@ -3,7 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { authError, signInWithEmail, signInWithGoogle } from '../../lib/authActions'
 import { Spinner } from '../../components/ui'
-import { AuthShell, DarkNotice, Divider, Field, GoogleButton } from './parts'
+import { AuthShell, Notice, Divider, Field, GoogleButton } from './parts'
 
 export default function SignIn() {
   const { ready, user } = useAuth()
@@ -40,7 +40,7 @@ export default function SignIn() {
     <AuthShell
       title="Sign in"
       lead="Your passport, stamps and points follow the account — sign in on any phone and they are all there."
-      foot={<>New here? <Link to="/signup" state={{ from, email }} className="link font-semibold text-gold">Create an account</Link></>}
+      foot={<>New here? <Link to="/signup" state={{ from, email }} className="link font-semibold text-action">Create an account</Link></>}
     >
       <div className="mt-6">
         <GoogleButton onClick={google} busy={busy === 'google'} label="Continue with Google" />
@@ -55,11 +55,11 @@ export default function SignIn() {
           <Field label="Password" type="password" required autoComplete="current-password"
             placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
           <div className="mt-2 text-right">
-            <Link to="/forgot-password" state={{ email }} className="link text-xs text-paper/60 hover:text-paper">Forgot your password?</Link>
+            <Link to="/forgot-password" state={{ email }} className="link text-xs text-ink-soft hover:text-ink">Forgot your password?</Link>
           </div>
         </div>
-        {err && <DarkNotice tone="red">{err}</DarkNotice>}
-        <button className="btn-gold py-3.5 text-lg" disabled={busy !== null}>
+        {err && <Notice tone="red">{err}</Notice>}
+        <button className="btn-primary py-3.5 text-lg" disabled={busy !== null}>
           {busy === 'email' ? 'Signing in…' : 'Sign in'}
         </button>
       </form>

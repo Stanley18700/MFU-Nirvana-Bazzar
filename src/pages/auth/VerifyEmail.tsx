@@ -5,7 +5,7 @@ import { useAuth } from '../../lib/auth'
 import { authError, sendVerification } from '../../lib/authActions'
 import { auth } from '../../lib/firebase'
 import { Spinner } from '../../components/ui'
-import { AuthShell, DarkNotice } from './parts'
+import { AuthShell, Notice } from './parts'
 
 const COOLDOWN = 45
 
@@ -60,25 +60,25 @@ export default function VerifyEmail() {
     <AuthShell
       back={null}
       title="Confirm your email"
-      lead={<>We sent a link to <b className="text-paper">{user.email}</b>. Tap it and your passport opens.</>}
+      lead={<>We sent a link to <b className="text-ink">{user.email}</b>. Tap it and your passport opens.</>}
     >
       <div className="mt-6 flex flex-col gap-4">
-        <div className="flex items-center gap-3 rounded-xl bg-paper/10 px-4 py-3 text-sm text-paper/70">
-          <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-paper/25 border-t-gold" />
+        <div className="flex items-center gap-3 rounded-[20px] bg-sky-100 px-4 py-3 text-sm text-ink-soft">
+          <span className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-white/25 border-t-foil" />
           Waiting for you to tap the link — this page moves on by itself.
         </div>
 
-        {note && <DarkNotice tone="green">{note}</DarkNotice>}
-        {err && <DarkNotice tone="red">{err}</DarkNotice>}
+        {note && <Notice tone="green">{note}</Notice>}
+        {err && <Notice tone="red">{err}</Notice>}
 
         <button className="btn-gold py-3.5" onClick={check}>I have tapped it — continue</button>
-        <button className="btn-ghost bg-paper/10 text-paper hover:bg-paper/20" onClick={resend} disabled={busy || left > 0}>
+        <button className="btn-ghost" onClick={resend} disabled={busy || left > 0}>
           {busy ? 'Sending…' : left > 0 ? `Send it again in ${left}s` : 'Send the link again'}
         </button>
 
-        <p className="pt-2 text-xs text-paper/45">
+        <p className="pt-2 text-xs text-ink-soft">
           Typed the address wrong?{' '}
-          <button className="btn-dark btn-sm mx-1" onClick={useAnother}>Start again with another email</button>
+          <button className="btn-quiet btn-sm mx-1" onClick={useAnother}>Start again with another email</button>
         </p>
       </div>
     </AuthShell>

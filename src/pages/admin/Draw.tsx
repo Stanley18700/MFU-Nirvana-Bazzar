@@ -32,27 +32,27 @@ export default function Draw() {
   return (
     <div className="page-in">
       <h1 className="text-2xl font-bold">Stage draw</h1>
-      <p className="mt-1 text-sm text-navy-soft">Picks at random from visitors holding a tier that grants a draw entry. Previous winners are excluded automatically. Every draw is logged.</p>
-      <section className="mt-4 rounded-3xl bg-navy p-8 text-center text-paper">
-        <Crest className={`mx-auto h-24 w-24 text-gold ${rolling ? 'animate-spin' : ''}`} />
+      <p className="mt-1 text-sm text-ink-soft">Picks at random from visitors holding a tier that grants a draw entry. Previous winners are excluded automatically. Every draw is logged.</p>
+      <section className="mt-4 rounded-3xl bg-chrome p-8 text-center text-white">
+        <Crest className={`mx-auto h-24 w-24 text-foil ${rolling ? 'animate-spin' : ''}`} />
         {winners ? (
           <div className="mt-6 page-in">
-            <div className="stamp-text text-gold">Winner{winners.length > 1 ? 's' : ''} · drawn from {pool} entries</div>
-            <ul className="mt-3 flex flex-col gap-2">{winners.map((w) => <li key={w.uid}><div className="fig text-4xl">{w.displayName}</div><div className="font-mono text-gold">{w.passportNo}</div></li>)}</ul>
-            {winners.length === 0 && <p className="mt-3 text-paper/70">Nobody eligible yet.</p>}
+            <div className="stamp-text text-foil">Winner{winners.length > 1 ? 's' : ''} · drawn from {pool} entries</div>
+            <ul className="mt-3 flex flex-col gap-2">{winners.map((w) => <li key={w.uid}><div className="fig text-4xl">{w.displayName}</div><div className="font-mono text-foil">{w.passportNo}</div></li>)}</ul>
+            {winners.length === 0 && <p className="mt-3 text-on-chrome-soft">Nobody eligible yet.</p>}
           </div>
-        ) : <p className="mt-6 text-paper/70">{rolling ? 'Drawing…' : 'Ready'}</p>}
+        ) : <p className="mt-6 text-on-chrome-soft">{rolling ? 'Drawing…' : 'Ready'}</p>}
         <div className="mt-8 flex items-center justify-center gap-3">
-          <label className="text-sm text-paper/70">Winners <input type="number" min={1} max={20} className={`field ml-2 w-20 text-navy ${countOk ? '' : 'border-vermilion'}`} value={Number.isFinite(count) ? count : ''} onChange={(e) => setCount(e.target.value === '' ? NaN : Number(e.target.value))} /></label>
+          <label className="text-sm text-on-chrome-soft">Winners <input type="number" min={1} max={20} className={`field ml-2 w-20 text-ink ${countOk ? '' : 'border-danger'}`} value={Number.isFinite(count) ? count : ''} onChange={(e) => setCount(e.target.value === '' ? NaN : Number(e.target.value))} /></label>
           <button className="btn-gold px-8 py-3 text-lg" onClick={run} disabled={busy || !countOk}>Draw</button>
         </div>
-        {!countOk && <p className="mt-2 text-xs text-amber">Choose between 1 and 20 winners.</p>}
+        {!countOk && <p className="mt-2 text-xs text-warn-text">Choose between 1 and 20 winners.</p>}
         {err && <div className="mt-4"><Notice tone="red">{err}</Notice></div>}
       </section>
       {history.length > 0 && (
         <section className="card mt-4 text-sm">
-          <h2 className="stamp-text text-navy-soft">Previous draws</h2>
-          <ul className="mt-2 flex flex-col gap-1">{history.map((d) => <li key={d.id}>{d.names.map((n) => `${n.displayName} (${n.passportNo})`).join(', ')} <span className="text-xs text-navy-soft">· pool {d.poolSize}</span></li>)}</ul>
+          <h2 className="stamp-text text-ink-soft">Previous draws</h2>
+          <ul className="mt-2 flex flex-col gap-1">{history.map((d) => <li key={d.id}>{d.names.map((n) => `${n.displayName} (${n.passportNo})`).join(', ')} <span className="text-xs text-ink-soft">· pool {d.poolSize}</span></li>)}</ul>
         </section>
       )}
     </div>

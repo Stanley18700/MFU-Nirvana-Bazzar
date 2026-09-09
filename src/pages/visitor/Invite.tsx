@@ -46,9 +46,9 @@ export default function Invite() {
   }
 
   return (
-    <><div className="fixed inset-0 -z-10 bg-navy" aria-hidden /><main className="mx-auto flex min-h-full max-w-md flex-col bg-navy px-6 py-10 text-paper">
-      <div className="stamp-text text-gold">{event.nameEn} · {eventDateLine(event, false)}</div>
-      <div className="my-8 flex justify-center"><Crest className="h-28 w-28 text-gold" /></div>
+    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="mx-auto flex min-h-full max-w-md flex-col bg-chrome px-6 py-10 text-white">
+      <div className="stamp-text text-foil">{event.nameEn} · {eventDateLine(event, false)}</div>
+      <div className="my-8 flex justify-center"><Crest className="h-28 w-28 text-foil" /></div>
       {!info && !err && <Spinner label="Reading your invitation…" />}
       {err && <div className="mb-4"><Notice tone="red">{err}</Notice></div>}
       {info && info.status !== 'ok' && (
@@ -62,21 +62,21 @@ export default function Invite() {
       {info && info.status === 'ok' && (
         <div className="page-in">
           <h1 className="text-2xl font-bold">Hello {info.displayName}</h1>
-          <p className="mt-2 text-paper/80">
+          <p className="mt-2 text-on-chrome-soft">
             You are invited to run {info.role === 'admin' ? <b>the admin dashboard</b> : <>the booth screen for <b>{info.boothName}</b></>}.
             Use the tablet or laptop that will sit on the booth.
           </p>
-          <p className="mt-2 text-xs text-paper/60">Sent to {info.email}. The link works once.</p>
+          <p className="mt-2 text-xs text-on-chrome-soft">Sent to {info.email}. The link works once.</p>
 
           {!ready ? <div className="mt-6"><Spinner label="Checking this device…" /></div>
             : !user ? (
               <div className="mt-6 flex flex-col gap-3">
-                <p className="text-sm text-paper/70">Sign in as <b className="text-paper">{info.email}</b> to accept.</p>
+                <p className="text-sm text-on-chrome-soft">Sign in as <b className="text-white">{info.email}</b> to accept.</p>
                 <GoogleButton onClick={google} busy={busy} label="Continue with Google" />
                 <Link to="/signin" state={{ from: `/invite/${token}`, email: info.email }}
                   className="btn-dark">Use an email and password</Link>
                 <Link to="/signup" state={{ from: `/invite/${token}`, email: info.email }}
-                  className="link self-center text-center text-xs text-paper/55 hover:text-paper">No account for that address yet? Create one</Link>
+                  className="link self-center text-center text-xs text-on-chrome-soft hover:text-white">No account for that address yet? Create one</Link>
               </div>
             ) : wrongAccount ? (
               <div className="mt-6 flex flex-col gap-3">
@@ -91,7 +91,7 @@ export default function Invite() {
                 {role && role !== 'visitor' && (
                   <Notice tone="amber">This account is already {role}. Accepting will switch it to this invitation.</Notice>
                 )}
-                <p className="text-sm text-paper/70">Signed in as <b className="text-paper">{signedInAs}</b>.</p>
+                <p className="text-sm text-on-chrome-soft">Signed in as <b className="text-white">{signedInAs}</b>.</p>
                 <button className="btn-gold w-full py-3.5 text-lg" onClick={accept} disabled={busy}>
                   {busy ? 'Setting up…' : info.role === 'admin' ? 'Accept and open the dashboard' : 'Accept and open my booth'}
                 </button>

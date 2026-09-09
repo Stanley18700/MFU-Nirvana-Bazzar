@@ -1,45 +1,116 @@
 @import 'tailwindcss';
 
-/* Spec §2.2 — palette as tokens. One accent dominates any screen. */
+/*
+ * MFU International Festival 2026 — one theme for the guest app, the booth kiosk and the admin
+ * console. Values come from design-system/tokens/*.css (mirrored from the Claude Design project);
+ * this block maps them onto Tailwind utility names. Semantic names, not raw scale steps, are what
+ * pages use: `text-ink`, `bg-chrome`, `bg-action`, `text-foil`.
+ */
 @theme {
-  --color-navy: #17263f;
-  --color-navy-soft: #4a5872;
-  --color-navy-deep: #0e1826;
-  --color-paper: #e9e5dc;
-  --color-paper-2: #dfdace;
-  --color-stamp-blue: #1b52a8;
-  --color-seal: #0f2e6e;
-  --color-gold: #c8a24a;
-  --color-vermilion: #e0533d;
-  --color-jade: #1e8a6e;
-  --color-amber: #d4762a;
+  /* Sky scale — grounds and fills. Only 900/950 carry white text. */
+  --color-sky-100: #EDFBFE;
+  --color-sky-200: #D6F4FB;
+  --color-sky-300: #AEEAF7;
+  --color-sky-400: #93E4F4;
+  --color-sky-500: #7EDFF2;
+  --color-sky-600: #4FCBE6;
+  --color-sky-700: #23A9C9;
+  --color-sky-800: #1A8AA6;
+  --color-sky-900: #12708A;
+  --color-sky-950: #0D5A70;
+  /* Green — mountains, chrome, "connected". */
+  --color-green-300: #8FC08C;
+  --color-green-500: #4C764F;
+  --color-green-700: #2F5D3E;
+  --color-green-900: #1E3F2A;
+  /* Orange and gold — energy, reward, foil. */
+  --color-orange-300: #FFD9A3;
+  --color-orange-400: #FABD6D;
+  --color-orange-500: #F0A445;
+  --color-orange-600: #DC8A2A;
+  --color-gold: #F5C63C;
+
+  /* Ink — deep teal, never black. `ink-soft` is the only muted text: 7.7:1 on white, 5:1 on sky. */
+  --color-ink: #17414E;
+  --color-ink-soft: #1F5A6B;
+  --color-ink-line: #5E93A1;        /* rules, chart tracks, disabled fills — never text (3.4:1) */
+
+  /* Surfaces */
+  --color-page: #7EDFF2;            /* visitor phone ground — full sky */
+  --color-page-quiet: #EDFBFE;      /* console ground */
+  --color-panel: #FFFFFF;
+  --color-panel-warm: #F4E4C4;
+  --color-chrome: #1E3F2A;          /* sidebar, kiosk, cover, auth */
+  --color-chrome-soft: #2F5D3E;
+  --color-on-chrome-soft: #CFE0D3;  /* secondary text on chrome — solid, 8.5:1. Never white/60. */
+
+  /* Interactive */
+  --color-action: #12708A;          /* the one sky step that carries white text (5.7:1) */
+  --color-action-hover: #0D5A70;
+  --color-foil: #F5C63C;            /* reward states: tier pips, unlocked visa border, crest */
+  --color-reward: #FABD6D;          /* prize fill — under ink, never under white */
+
+  /* Status — each has a fill (dots, bars), a text value, and a ground. Fills never carry type. */
+  --color-success: #4C764F;
+  --color-success-text: #1F4A25;
+  --color-success-bg: #E4F2E5;
+  --color-warn: #DC8A2A;
+  --color-warn-text: #9A5A0F;
+  --color-warn-bg: #FDEFD9;
+  --color-danger: #C13A38;
+  --color-danger-text: #8F2A1C;
+  --color-danger-bg: #FCE6E5;
+  --color-offline: #D94A48;
+
   --font-sans: 'IBM Plex Sans Thai', 'IBM Plex Sans', system-ui, sans-serif;
+  --font-display: 'Baloo 2', 'Mitr', 'IBM Plex Sans Thai', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   /* Small-phone tier. Tailwind ships nothing below sm (640px), but §12.11 asks for 320px. */
   --breakpoint-xs: 380px;
+
+  /* Shadows are teal-tinted, never grey. */
+  --shadow-card: 0 2px 10px rgba(23, 65, 78, .08);
+  --shadow-raised: 0 8px 24px rgba(23, 65, 78, .12);
+  --shadow-float: 0 18px 44px rgba(23, 65, 78, .18);
+  --shadow-paper: 2px 3px 0 rgba(23, 65, 78, .14);
+
+  --radius-card: 28px;
+  --radius-frame: 36px;
+  --radius-scrap: 2px;
+
+  --ease-standard: cubic-bezier(.2, .8, .3, 1);
+  --ease-settle: cubic-bezier(.2, .9, .3, 1.2);
 }
 
 :root {
-  --rule: rgba(23, 38, 63, 0.16);
+  --rule: rgba(23, 65, 78, 0.14);
   color-scheme: light;
 }
 
 html, body, #root { height: 100%; }
 body {
   margin: 0;
-  background: var(--color-paper);
-  color: var(--color-navy);
+  background: var(--color-page-quiet);
+  color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
 }
 
+/*
+ * Display type is the rounded festival voice. Every heading and every figure takes it; eyebrows
+ * (`.stamp-text`) stay in the body face because uppercase Baloo reads as a toy.
+ */
+h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.015em; line-height: 1.18; }
 .fig {
+  font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1;
 }
 .stamp-text {
+  font-family: var(--font-sans);
   text-transform: uppercase;
   letter-spacing: 0.14em;
   font-size: 0.7rem;
@@ -47,19 +118,19 @@ body {
 }
 .rule { border-color: var(--rule); }
 
-/* §2.4 motion */
+/* §2.4 motion — paper drops, settles and drifts. One overshoot, never two. */
 @keyframes stamp-land {
-  0% { transform: scale(1.6) rotate(var(--tilt, 6deg)); opacity: 0; }
-  60% { transform: scale(0.96) rotate(var(--tilt, 6deg)); opacity: 1; }
+  0% { transform: scale(1.5) rotate(var(--tilt, 6deg)); opacity: 0; }
+  60% { transform: scale(0.97) rotate(var(--tilt, 6deg)); opacity: 1; }
   100% { transform: scale(1) rotate(var(--tilt, 6deg)); opacity: 1; }
 }
-.stamp-land { animation: stamp-land 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.stamp-land { animation: stamp-land 420ms var(--ease-settle) both; }
 
 @keyframes page-in {
-  from { transform: translateX(24px) scale(0.98); opacity: 0; }
+  from { transform: translateX(20px) scale(0.985); opacity: 0; }
   to { transform: none; opacity: 1; }
 }
-.page-in { animation: page-in 320ms ease-out both; }
+.page-in { animation: page-in 320ms cubic-bezier(0, 0, .28, 1) both; }
 
 @keyframes pulse-once { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
 .pulse-once { animation: pulse-once 500ms ease-in-out 1; }
@@ -86,11 +157,40 @@ body {
 .code-swap { animation: code-swap 260ms ease-out both; }
 
 /* The countdown border eases between the 100 ms ticks that drive it. */
-.qr-countdown { transition: stroke-dashoffset 110ms linear, stroke 300ms ease; }
+.qr-countdown { transition: stroke-dashoffset 110ms linear, stroke 260ms var(--ease-standard); }
+
+/*
+ * Text protection over the illustrated sky: a soft-edged sheet of the sky itself at 72% over an 8px
+ * blur, so clouds and the rocket soften into haze behind type without a card breaking the poster.
+ * Blur only ever over the sky ground (design system rule) — never over chrome.
+ */
+.haze { position: relative; isolation: isolate; }
+.haze::before {
+  content: '';
+  position: absolute;
+  inset: -12px -28px;
+  z-index: -1;
+  background: rgb(126 223 242 / 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  /* The sheet dissolves toward its edge: what sits half under it turns to haze rather than being cut. */
+  mask-image: radial-gradient(ellipse at center, #000 52%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 52%, transparent 100%);
+}
+
+/* Ambient weather: clouds cross a few px over half a minute, the sun breathes. transform only. */
+@keyframes cloud-drift { from { transform: translateX(-14px); } to { transform: translateX(14px); } }
+.cloud-a { animation: cloud-drift 26s ease-in-out infinite alternate; }
+.cloud-b { animation: cloud-drift 34s ease-in-out infinite alternate-reverse; }
+@keyframes sun-drift { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(6px) scale(1.04); } }
+.sun-drift { animation: sun-drift 12s ease-in-out infinite; }
+@keyframes drift { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-10px) rotate(1deg); } }
+.drift { animation: drift 9s cubic-bezier(.45, 0, .55, 1) infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   .stamp-land, .page-in, .pulse-once, .seal-draw,
   .qr-swap, .code-swap { animation-duration: 1ms !important; }
+  .drift, .cloud-a, .cloud-b, .sun-drift { animation: none; }
   .qr-countdown { transition: none; }
 }
 
@@ -102,32 +202,35 @@ body {
 }
 
 input, select, textarea, button { font: inherit; }
+/* 14px corner, hairline at 28% ink, focus = solid sky-800 border plus a 3px sky ring at 20%. */
 .field {
-  @apply w-full rounded-lg border border-navy/20 bg-white/70 px-3 py-2.5 text-navy outline-none focus:border-stamp-blue focus:ring-2 focus:ring-stamp-blue/20;
+  @apply w-full rounded-[14px] border border-ink/28 bg-white px-3.5 py-2.5 text-ink outline-none transition
+    placeholder:text-ink-soft/70 focus:border-sky-800 focus:ring-[3px] focus:ring-sky-700/20;
 }
 /*
- * Every clickable control shares one recipe — shape, hover, press, keyboard focus ring, disabled
- * look — so a button reads as a button wherever it sits. Underlined text used to stand in for
- * about fifty of them. Variants only add colour; `btn-sm` shrinks any of them.
+ * Every clickable control shares one recipe — a pill, hover darkens (never lightens), press
+ * shrinks to .98, keyboard focus ring, disabled look — so a button reads as a button wherever it
+ * sits. Variants only add colour; `btn-sm` shrinks any of them.
  */
 .btn, .btn-primary, .btn-ghost, .btn-gold, .btn-danger, .btn-quiet, .btn-danger-soft, .btn-amber-soft, .btn-dark {
-  @apply inline-flex cursor-pointer select-none items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-semibold transition
+  @apply inline-flex cursor-pointer select-none items-center justify-center gap-2 rounded-full px-[18px] py-2.5 font-semibold transition
     active:scale-[0.98]
-    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stamp-blue/45 focus-visible:ring-offset-2 focus-visible:ring-offset-paper
-    disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
+    focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-sky-700/45 focus-visible:ring-offset-2 focus-visible:ring-offset-page-quiet
+    disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100;
 }
-.btn-primary { @apply bg-stamp-blue text-white hover:bg-seal; }
-.btn-ghost { @apply bg-navy/5 text-navy hover:bg-navy/10; }
-.btn-gold { @apply bg-gold text-navy-deep hover:brightness-105; }
-.btn-danger { @apply bg-vermilion text-white hover:brightness-95; }
+.btn-primary { @apply bg-action text-white hover:bg-action-hover; }
+.btn-ghost { @apply bg-ink/6 text-ink hover:bg-ink/12; }
+/* Reward moments: orange under ink, never white. */
+.btn-gold { @apply bg-reward text-ink hover:bg-orange-500; }
+.btn-danger { @apply bg-danger text-white hover:bg-[#A32E2C]; }
 /* Low-emphasis actions that used to be underlined words: Resend, Edit details, CSV, Copy, Hide. */
-.btn-quiet { @apply border border-navy/15 bg-white/40 font-medium text-navy-soft hover:border-navy/30 hover:bg-white/80 hover:text-navy; }
+.btn-quiet { @apply bg-white font-medium text-ink-soft shadow-[0_1px_2px_rgba(23,65,78,.08)] hover:bg-sky-100 hover:text-ink; }
 /* Destructive but secondary: Revoke, Delete draft, Remove, Void. */
-.btn-danger-soft { @apply bg-vermilion/8 font-medium text-[#8f2a1c] hover:bg-vermilion/15; }
-.btn-amber-soft { @apply bg-amber/12 font-medium text-[#8a4a12] hover:bg-amber/20; }
-/* On navy: the kiosk, the desk, the auth screens. */
-.btn-dark { @apply border border-paper/20 bg-paper/10 text-paper hover:bg-paper/20 focus-visible:ring-gold/60 focus-visible:ring-offset-navy-deep; }
-.btn-sm { @apply gap-1.5 rounded-md px-2.5 py-1.5 text-xs; }
+.btn-danger-soft { @apply bg-danger-bg font-medium text-danger-text hover:bg-danger/20; }
+.btn-amber-soft { @apply bg-warn-bg font-medium text-warn-text hover:bg-warn/25; }
+/* On chrome: the kiosk, the desk, the auth screens. */
+.btn-dark { @apply bg-white/14 text-white hover:bg-white/22 focus-visible:ring-foil/60 focus-visible:ring-offset-chrome; }
+.btn-sm { @apply gap-1.5 px-3.5 py-1.5 text-xs; }
 /* Square, and exactly as tall as `.btn-sm` (12px padding + a 16px text-xs line), so an icon-only
  * control and a labelled one sit at the same height in one row. */
 .btn-icon-sm { @apply h-7 w-7 shrink-0 p-0; }
@@ -145,13 +248,13 @@ input, select, textarea, button { font: inherit; }
 }
 .tip:hover > .tip-label, .tip:focus-visible > .tip-label { @apply translate-y-0 opacity-100; }
 /* Inverted against whatever it sits on, so it reads as a tooltip and not another button. */
-.tip-dark > .tip-label { @apply bg-paper text-navy; }
-.tip-light > .tip-label { @apply bg-navy text-paper; }
+.tip-dark > .tip-label { @apply bg-white text-ink; }
+.tip-light > .tip-label { @apply bg-ink text-white; }
 
 /* Rows inside a card's "More" popover. */
 .menu-item {
-  @apply flex w-full cursor-pointer items-center rounded-lg px-3 py-1.5 text-left text-sm text-navy transition
-    hover:bg-navy/5 focus-visible:bg-navy/5 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50;
+  @apply flex w-full cursor-pointer items-center rounded-lg px-3 py-1.5 text-left text-sm text-ink transition
+    hover:bg-ink/6 focus-visible:bg-ink/6 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50;
 }
 
 /*
@@ -162,26 +265,26 @@ input, select, textarea, button { font: inherit; }
  * Metrics deliberately match `.btn-sm`, so a nav item and a button sit at the same height and
  * radius when they share a row — which is the whole point of grouping them.
  */
-.seg { @apply flex flex-wrap items-center gap-0.5 rounded-lg p-0.5; }
+.seg { @apply flex flex-wrap items-center gap-0.5 rounded-full p-0.5; }
 .seg-item {
-  @apply cursor-pointer select-none rounded-md px-2.5 py-1.5 text-xs font-medium transition
+  @apply cursor-pointer select-none rounded-full px-3.5 py-1.5 text-xs font-medium transition
     focus-visible:outline-none focus-visible:ring-2;
 }
-.seg-light { @apply bg-navy/5; }
-.seg-light .seg-item { @apply text-navy-soft hover:bg-white/70 hover:text-navy focus-visible:ring-stamp-blue/45; }
+.seg-light { @apply bg-ink/6; }
+.seg-light .seg-item { @apply text-ink-soft hover:bg-white/70 hover:text-ink focus-visible:ring-sky-700/45; }
 .seg-light .seg-item[aria-current="page"],
-.seg-light .seg-item[aria-pressed="true"] { @apply bg-white text-navy shadow-sm hover:bg-white; }
-.seg-dark { @apply bg-white/5; }
-.seg-dark .seg-item { @apply text-paper/70 hover:bg-white/10 hover:text-paper focus-visible:ring-gold/60; }
+.seg-light .seg-item[aria-pressed="true"] { @apply bg-white text-ink shadow-sm hover:bg-white; }
+.seg-dark { @apply bg-white/8; }
+.seg-dark .seg-item { @apply text-on-chrome-soft hover:bg-white/14 hover:text-white focus-visible:ring-foil/60; }
 .seg-dark .seg-item[aria-current="page"],
-.seg-dark .seg-item[aria-pressed="true"] { @apply bg-paper/15 text-paper hover:bg-paper/15; }
+.seg-dark .seg-item[aria-pressed="true"] { @apply bg-white text-ink hover:bg-white hover:text-ink; }
 
 /* Segmented tabs: the day picker, the invitation filter, the reference-list tabs. */
 .tab {
-  @apply cursor-pointer rounded-full px-3 py-1 text-xs font-medium text-navy-soft transition
-    hover:bg-navy/10 hover:text-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stamp-blue/45;
+  @apply cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium text-ink-soft transition
+    hover:bg-ink/10 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700/45;
 }
-.tab[aria-selected="true"] { @apply bg-navy text-paper hover:bg-navy hover:text-paper; }
+.tab[aria-selected="true"] { @apply bg-white font-semibold text-ink shadow-sm hover:bg-white hover:text-ink; }
 
 /*
  * Thai typography, for the booth and school names the toggle now surfaces.
@@ -196,74 +299,71 @@ input, select, textarea, button { font: inherit; }
 :lang(th) { line-break: loose; overflow-wrap: anywhere; }
 /* A figure is a figure in either language — never break one mid-number. */
 :lang(th) .fig { overflow-wrap: normal; }
+/* Thai display headings fall through to Mitr; Baloo 2 has no Thai glyphs. */
+:lang(th) h1, :lang(th) h2, :lang(th) h3, :lang(th) .fig { font-family: 'Mitr', var(--font-sans); }
 
 /* A link inside a sentence stays a link, but gets a hover and a focus ring like everything else. */
 .link {
   @apply rounded-sm underline decoration-current/40 underline-offset-2 transition
-    hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stamp-blue/45;
+    hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700/45;
 }
-.card { @apply rounded-2xl bg-paper-2 p-4 shadow-[0_1px_0_rgba(23,38,63,.08)]; }
+/* White ground, 28px corner, teal shadow, no border — separation comes from the sky behind it. */
+.card { @apply rounded-[28px] bg-white p-5 shadow-card; }
 
 /*
- * Glass panel, for figures sitting on the navy kiosk. `backdrop-blur` has little to chew on over
- * flat navy, so the read comes from the translucent fill, a hairline border and a lit top edge —
+ * Glass panel, for figures sitting on the green kiosk. `backdrop-blur` has little to chew on over
+ * flat chrome, so the read comes from the translucent fill, a hairline border and a lit top edge —
  * the blur only earns its keep where a panel overlaps the QR frame's glow. The gradient is what
  * stops it looking like a plain grey box.
  */
 .glass {
-  @apply rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur-xl;
+  @apply rounded-[20px] border border-white/10 bg-white/[0.05] backdrop-blur-xl;
   /* Fades to nothing at the foot, so the pane has a lit top and no visible bottom edge. */
   background-image: linear-gradient(to bottom, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0));
-  /*
-   * The inset hairline is what actually reads as glass — a pane catching light along its top
-   * edge. Cranking the fill instead just produces a grey box, which is the mistake this
-   * replaces. The outer shadow is soft and offset low so it lifts the pane without drawing
-   * its outline.
-   */
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.20), 0 10px 30px -20px rgb(0 0 0 / 0.75);
 }
 
-/* The four Notice tones on paper. Class-driven so `.on-navy` below can restate them. */
-.notice { @apply rounded-xl px-4 py-3 text-sm; }
-.notice-info { @apply bg-stamp-blue/10 text-seal; }
-.notice-amber { @apply bg-amber/15 text-[#8a4a12]; }
-.notice-red { @apply bg-vermilion/12 text-[#8f2a1c]; }
-.notice-green { @apply bg-jade/12 text-[#125a47]; }
+/* The four Notice tones on light grounds. Class-driven so `.on-chrome` below can restate them. */
+.notice { @apply rounded-[20px] px-4 py-3 text-sm; }
+.notice-info { @apply bg-sky-200 text-ink; }
+.notice-amber { @apply bg-warn-bg text-warn-text; }
+.notice-red { @apply bg-danger-bg text-danger-text; }
+.notice-green { @apply bg-success-bg text-success-text; }
 
 /*
- * A navy page built out of the light components.
+ * A chrome (green-900) page built out of the light components.
  *
  * `/booth/stats` and `/account` match the booth kiosk's ground without forking a component or
  * threading a `dark` prop through Fig, CsvButton, Notice, Spinner and the rest: every shared
  * surface is restated once here for a dark ground. Shape stays defined above — only colour
  * changes. A descendant selector outranks the bare utility it overrides, which is what lets a
- * page keep `text-navy-soft` in its markup and still read correctly on navy.
+ * page keep `text-ink-soft` in its markup and still read correctly on chrome.
  */
-.on-navy { @apply bg-navy-deep text-paper; }
-.on-navy .card { @apply bg-white/[0.06] shadow-none; }
-.on-navy .field { @apply border-paper/25 bg-white/10 text-paper placeholder:text-paper/40 focus:border-gold focus:ring-gold/25; }
-.on-navy .btn-ghost, .on-navy .btn-quiet { @apply border border-paper/20 bg-paper/10 font-medium text-paper hover:border-paper/30 hover:bg-paper/20 hover:text-paper focus-visible:ring-gold/60 focus-visible:ring-offset-navy-deep; }
-.on-navy .btn-primary { @apply bg-gold text-navy-deep hover:brightness-105 focus-visible:ring-gold/60 focus-visible:ring-offset-navy-deep; }
-.on-navy .btn-danger-soft { @apply bg-vermilion/20 text-[#ffc9bf] hover:bg-vermilion/30; }
-.on-navy .btn-amber-soft { @apply bg-amber/20 text-amber hover:bg-amber/30; }
-.on-navy .tab { @apply text-paper/60 hover:bg-white/10 hover:text-paper focus-visible:ring-gold/60; }
-.on-navy .tab[aria-selected="true"] { @apply bg-paper/20 text-paper hover:bg-paper/20 hover:text-paper; }
-.on-navy .link { @apply text-paper; }
-/* The Notice tones again, on navy — the same values DarkNotice uses, so the two agree. */
-.on-navy .notice-info { @apply bg-paper/10 text-paper/90; }
-.on-navy .notice-amber { @apply bg-amber/20 text-amber; }
-.on-navy .notice-red { @apply bg-vermilion/20 text-[#ffc9bf]; }
-.on-navy .notice-green { @apply bg-jade/20 text-[#9fe3cd]; }
+.on-chrome { @apply bg-chrome text-white; }
+.on-chrome .card { @apply bg-white/[0.07] shadow-none; }
+.on-chrome .field { @apply border-white/25 bg-white/10 text-white placeholder:text-on-chrome-soft/70 focus:border-foil focus:ring-foil/25; }
+.on-chrome .btn-ghost, .on-chrome .btn-quiet { @apply bg-white/14 font-medium text-white shadow-none hover:bg-white/22 hover:text-white focus-visible:ring-foil/60 focus-visible:ring-offset-chrome; }
+.on-chrome .btn-primary { @apply bg-reward text-ink hover:bg-orange-500 focus-visible:ring-foil/60 focus-visible:ring-offset-chrome; }
+.on-chrome .btn-danger-soft { @apply bg-[rgba(217,74,72,.26)] text-[#FFC9BF] hover:bg-[rgba(217,74,72,.36)]; }
+.on-chrome .btn-amber-soft { @apply bg-[rgba(250,189,109,.24)] text-orange-300 hover:bg-[rgba(250,189,109,.34)]; }
+.on-chrome .tab { @apply text-on-chrome-soft hover:bg-white/14 hover:text-white focus-visible:ring-foil/60; }
+.on-chrome .tab[aria-selected="true"] { @apply bg-white text-ink hover:bg-white hover:text-ink; }
+.on-chrome .link { @apply text-white; }
+/* The Notice tones again, on chrome — the same values DarkNotice uses, so the two agree. */
+.on-chrome .notice-info { @apply bg-white/12 text-white; }
+.on-chrome .notice-amber { @apply bg-[rgba(250,189,109,.24)] text-orange-300; }
+.on-chrome .notice-red { @apply bg-[rgba(217,74,72,.26)] text-[#FFC9BF]; }
+.on-chrome .notice-green { @apply bg-[rgba(76,118,79,.34)] text-[#BDE8C4]; }
 /* Utilities the light components set inline. Two classes beat one, so these win. */
-.on-navy .text-navy-soft { @apply text-paper/65; }
-.on-navy .text-navy { @apply text-paper; }
-.on-navy .text-seal { @apply text-gold; }
-.on-navy .text-jade { @apply text-[#9fe3cd]; }
-.on-navy .text-vermilion { @apply text-[#ffc9bf]; }
-.on-navy .bg-white\/50, .on-navy .bg-white\/70 { @apply bg-white/[0.06]; }
-.on-navy .bg-navy\/5 { @apply bg-white/[0.06]; }
-.on-navy .border-navy\/10, .on-navy .border-navy\/15, .on-navy .border-navy\/20 { @apply border-paper/20; }
-.on-navy .border-t-stamp-blue { @apply border-t-gold; }
+.on-chrome .text-ink-soft { @apply text-on-chrome-soft; }
+.on-chrome .text-ink { @apply text-white; }
+.on-chrome .text-success-text { @apply text-[#BDE8C4]; }
+.on-chrome .text-danger-text { @apply text-[#FFC9BF]; }
+.on-chrome .text-warn-text { @apply text-orange-300; }
+.on-chrome .bg-white\/50, .on-chrome .bg-white\/70 { @apply bg-white/[0.07]; }
+.on-chrome .bg-ink\/5, .on-chrome .bg-ink\/6 { @apply bg-white/[0.07]; }
+.on-chrome .border-ink\/10, .on-chrome .border-ink\/15, .on-chrome .border-ink\/20 { @apply border-white/20; }
+.on-chrome .border-t-action { @apply border-t-foil; }
 
 /* Paper: the booth table card (organizer/Booth.tsx) and the dashboard summary (admin/Print.tsx). */
 @page { size: A4; margin: 12mm; }

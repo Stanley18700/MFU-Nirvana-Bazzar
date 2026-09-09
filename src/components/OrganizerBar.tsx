@@ -82,7 +82,7 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
       </div>
       {/* The rule keeps it separate even when the row has no slack left to push it with. */}
       {/* Language sits with Sign out: both are settings for whoever is holding the tablet. */}
-      <div className={`flex shrink-0 items-center gap-2 border-l pl-3 ${dark ? 'border-paper/15' : 'border-navy/10'}`}>
+      <div className={`flex shrink-0 items-center gap-2 border-l pl-3 ${dark ? 'border-white/15' : 'border-ink/10'}`}>
         <LangToggle dark={dark} />
         <button type="button" onClick={leave} className={`${dark ? 'btn-dark' : 'btn-quiet'} btn-sm`}>{t('nav.signOut')}</button>
       </div>

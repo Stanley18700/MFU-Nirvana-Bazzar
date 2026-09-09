@@ -22,8 +22,8 @@ export default function Print() {
 
   return (
     <div className="min-h-full bg-white">
-      <div className="mx-auto max-w-[190mm] p-6 text-[11px] leading-snug text-[#17263F] print:p-0">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-navy/5 p-3 print:hidden">
+      <div className="mx-auto max-w-[190mm] p-6 text-[11px] leading-snug text-[#17414E] print:p-0">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-ink/5 p-3 print:hidden">
           <span className="text-sm">In the print dialog choose “Save as PDF” for the report. Landscape is not needed.</span>
           <div className="flex gap-2">
             <button className="btn-primary" onClick={() => window.print()}>{Icon.print}Print / Save as PDF</button>
@@ -31,10 +31,10 @@ export default function Print() {
           </div>
         </div>
 
-        <header className="border-b-2 border-[#17263F] pb-2">
-          <div className="text-[9px] uppercase tracking-[0.2em] text-[#4A5872]">{m.event.nameEn} · {eventDateLine(m.event, false)}</div>
+        <header className="border-b-2 border-[#17414E] pb-2">
+          <div className="text-[9px] uppercase tracking-[0.2em] text-[#1F5A6B]">{m.event.nameEn} · {eventDateLine(m.event, false)}</div>
           <h1 className="text-xl font-bold">Passport dashboard · {dayLabel}</h1>
-          <div className="text-[9px] text-[#4A5872]">Generated {generated} · {age}</div>
+          <div className="text-[9px] text-[#1F5A6B]">Generated {generated} · {age}</div>
         </header>
 
         <section className="mt-3 grid grid-cols-4 gap-2">
@@ -42,9 +42,9 @@ export default function Print() {
             ['Visitors registered', m.scoped.visitors], ['Stamps collected', m.scoped.stamps],
             ['Prizes redeemed', m.ev.totals.redeemed], ['Active last 15 min', m.ev.activeLast15m],
           ] as Array<[string, number]>).map(([l, v]) => (
-            <div key={l} className="rounded-lg border border-[#17263F]/15 p-2">
+            <div key={l} className="rounded-lg border border-[#17414E]/15 p-2">
               <div className="text-2xl font-bold leading-none">{fmt(v)}</div>
-              <div className="mt-1 text-[9px] uppercase tracking-wider text-[#4A5872]">{l}</div>
+              <div className="mt-1 text-[9px] uppercase tracking-wider text-[#1F5A6B]">{l}</div>
             </div>
           ))}
         </section>
@@ -54,25 +54,25 @@ export default function Print() {
             <table className="w-full">
               <tbody>
                 {m.board.map((b, i) => (
-                  <tr key={b.id} className="border-t border-[#17263F]/10">
-                    <td className="py-0.5 pr-1 text-right text-[#4A5872]">{i + 1}</td>
+                  <tr key={b.id} className="border-t border-[#17414E]/10">
+                    <td className="py-0.5 pr-1 text-right text-[#1F5A6B]">{i + 1}</td>
                     <td className="py-0.5"><span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: b.accentColor }} />{b.nameEn}</td>
                     <td className="py-0.5 text-right font-semibold">{fmt(b.stamps)}</td>
-                    <td className="py-0.5 pl-2 text-right text-[#4A5872]">{b.points} pts</td>
+                    <td className="py-0.5 pl-2 text-right text-[#1F5A6B]">{b.points} pts</td>
                   </tr>
                 ))}
-                {m.board.length === 0 && <tr><td className="py-1 text-[#4A5872]">No booths</td></tr>}
+                {m.board.length === 0 && <tr><td className="py-1 text-[#1F5A6B]">No booths</td></tr>}
               </tbody>
             </table>
           </Panel>
 
           <Panel title="Stamps per 5 minutes">
-            {m.timeline.length === 0 ? <p className="text-[#4A5872]">No scans yet</p> : (
+            {m.timeline.length === 0 ? <p className="text-[#1F5A6B]">No scans yet</p> : (
               <AreaChart width={330} height={150} data={m.timeline} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke="rgba(23,38,63,.12)" />
-                <XAxis dataKey="t" tick={{ fontSize: 9, fill: '#4A5872' }} axisLine={false} tickLine={false} minTickGap={28} />
-                <YAxis tick={{ fontSize: 9, fill: '#4A5872' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Area type="monotone" dataKey="stamps" stroke="#1B52A8" strokeWidth={1.5} fill="rgba(27,82,168,.18)" dot={false} isAnimationActive={false} />
+                <XAxis dataKey="t" tick={{ fontSize: 9, fill: '#1F5A6B' }} axisLine={false} tickLine={false} minTickGap={28} />
+                <YAxis tick={{ fontSize: 9, fill: '#1F5A6B' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Area type="monotone" dataKey="stamps" stroke="#1A8AA6" strokeWidth={1.5} fill="rgba(26,138,166,.18)" dot={false} isAnimationActive={false} />
               </AreaChart>
             )}
           </Panel>
@@ -84,10 +84,10 @@ export default function Print() {
           <Panel title="Participation">
             <div className="grid grid-cols-3 gap-1">
               {([['Thai', m.thai], ['International', m.intl], ...m.visitorTypes] as Array<[string, number]>).map(([l, v]) => (
-                <div key={l}><span className="text-base font-bold">{fmt(v)}</span> <span className="text-[9px] uppercase text-[#4A5872]">{l}</span></div>
+                <div key={l}><span className="text-base font-bold">{fmt(v)}</span> <span className="text-[9px] uppercase text-[#1F5A6B]">{l}</span></div>
               ))}
             </div>
-            <div className="mt-2 text-[9px] uppercase tracking-wider text-[#4A5872]">Visitor funnel</div>
+            <div className="mt-2 text-[9px] uppercase tracking-wider text-[#1F5A6B]">Visitor funnel</div>
             <TwoCol rows={m.funnel} />
           </Panel>
 
@@ -102,9 +102,9 @@ export default function Print() {
             <table className="w-full">
               <tbody>
                 {m.stock.map((t) => (
-                  <tr key={t.id} className="border-t border-[#17263F]/10">
+                  <tr key={t.id} className="border-t border-[#17414E]/10">
                     <td className="py-0.5">{t.name}</td>
-                    <td className="py-0.5 text-right font-semibold">{fmt(t.remaining)} <span className="font-normal text-[#4A5872]">/ {fmt(t.total)}</span></td>
+                    <td className="py-0.5 text-right font-semibold">{fmt(t.remaining)} <span className="font-normal text-[#1F5A6B]">/ {fmt(t.total)}</span></td>
                     <td className="py-0.5 pl-2 text-right" style={{ color: t.tone }}>{Math.round(t.pct * 100)}%</td>
                   </tr>
                 ))}
@@ -115,10 +115,10 @@ export default function Print() {
           {m.cross.rows.length > 0 && (
             <Panel title="Cross-school · visitor's school × booth">
               <table className="w-full text-[9px]">
-                <thead><tr><th className="text-left font-normal text-[#4A5872]">School</th>{m.cross.cols.map((c) => <th key={c.id} className="px-0.5 text-center">{c.shortName}</th>)}</tr></thead>
+                <thead><tr><th className="text-left font-normal text-[#1F5A6B]">School</th>{m.cross.cols.map((c) => <th key={c.id} className="px-0.5 text-center">{c.shortName}</th>)}</tr></thead>
                 <tbody>
                   {m.cross.rows.map(([school, r]) => (
-                    <tr key={school} className="border-t border-[#17263F]/10"><td className="max-w-[28mm] truncate py-0.5">{school}</td>{m.cross.cols.map((c) => <td key={c.id} className="px-0.5 py-0.5 text-center">{r[c.id] || ''}</td>)}</tr>
+                    <tr key={school} className="border-t border-[#17414E]/10"><td className="max-w-[28mm] truncate py-0.5">{school}</td>{m.cross.cols.map((c) => <td key={c.id} className="px-0.5 py-0.5 text-center">{r[c.id] || ''}</td>)}</tr>
                   ))}
                 </tbody>
               </table>
@@ -132,7 +132,7 @@ export default function Print() {
           )}
         </div>
 
-        <footer className="mt-3 border-t border-[#17263F]/15 pt-1 text-[8px] text-[#4A5872]">
+        <footer className="mt-3 border-t border-[#17414E]/15 pt-1 text-[8px] text-[#1F5A6B]">
           Aggregates only — no personal data. Ethnic groups under 5 are folded into “Other” and the panel is omitted entirely below 20 consenting visitors.
         </footer>
       </div>
@@ -143,18 +143,18 @@ export default function Print() {
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="break-inside-avoid">
-      <h2 className="mb-1 text-[9px] font-semibold uppercase tracking-[0.15em] text-[#4A5872]">{title}</h2>
+      <h2 className="mb-1 text-[9px] font-semibold uppercase tracking-[0.15em] text-[#1F5A6B]">{title}</h2>
       {children}
     </section>
   )
 }
 
 function TwoCol({ rows, empty = 'Nothing yet' }: { rows: Array<[string, number]>; empty?: string }) {
-  if (!rows.length) return <p className="text-[#4A5872]">{empty}</p>
+  if (!rows.length) return <p className="text-[#1F5A6B]">{empty}</p>
   return (
     <table className="w-full">
       <tbody>
-        {rows.map(([k, n]) => <tr key={k} className="border-t border-[#17263F]/10"><td className="max-w-[60mm] truncate py-0.5">{k}</td><td className="py-0.5 text-right font-semibold">{fmt(n)}</td></tr>)}
+        {rows.map(([k, n]) => <tr key={k} className="border-t border-[#17414E]/10"><td className="max-w-[60mm] truncate py-0.5">{k}</td><td className="py-0.5 text-right font-semibold">{fmt(n)}</td></tr>)}
       </tbody>
     </table>
   )

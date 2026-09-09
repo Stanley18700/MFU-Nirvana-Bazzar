@@ -45,20 +45,20 @@ export default function Prize() {
 
   return (
     <main className="px-5 pt-6">
-      <div className="stamp-text text-navy-soft">Prize</div>
+      <div className="stamp-text text-ink-soft">Prize</div>
       <h1 className="text-2xl font-bold">{fmt(points)} points</h1>
 
       {anyUnlockedUnredeemed && (
-        <section className="relative mt-5 overflow-hidden rounded-3xl border-2 border-gold bg-white p-5 text-center shadow-xl shadow-gold/20">
-          <div className="stamp-text text-gold">Entry visa · show this at the prize desk</div>
+        <section className="relative mt-5 overflow-hidden rounded-3xl border-2 border-foil bg-white p-5 text-center shadow-xl shadow-foil/20">
+          <div className="stamp-text text-foil">Entry visa · show this at the prize desk</div>
           <div className="mt-3 flex justify-center">
-            {code ? <QR value={`${APP_ORIGIN}/r/${code.payload}`} size={200} /> : <div className="grid aspect-square w-[min(200px,60vw)] place-items-center text-sm text-navy-soft">Preparing your code…</div>}
+            {code ? <QR value={`${APP_ORIGIN}/r/${code.payload}`} size={200} /> : <div className="grid aspect-square w-[min(200px,60vw)] place-items-center text-sm text-ink-soft">Preparing your code…</div>}
           </div>
           {/* The desk can also type these two: the code alone cannot name a visitor (§4.4). */}
-          <div className="mt-4 font-mono text-sm tracking-widest text-gold">{profile.passportNo}</div>
+          <div className="mt-4 font-mono text-sm tracking-widest text-foil">{profile.passportNo}</div>
           <div className="fig mt-1 text-2xl tracking-[0.2em] xs:text-3xl xs:tracking-[0.3em]">{code ? code.code.slice(0, 4) + ' ' + code.code.slice(4) : '···· ····'}</div>
-          <div className="mt-2 text-xs text-navy-soft">Refreshes in {code?.secondsLeft ?? '–'} s — a screenshot will not work. If the camera fails, read out both lines.</div>
-          <svg className="pointer-events-none absolute -bottom-6 -right-6 h-32 w-32 text-gold/50" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="2">
+          <div className="mt-2 text-xs text-ink-soft">Refreshes in {code?.secondsLeft ?? '–'} s — a screenshot will not work. If the camera fails, read out both lines.</div>
+          <svg className="pointer-events-none absolute -bottom-6 -right-6 h-32 w-32 text-foil/50" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="50" cy="50" r="44" className="seal-draw" /><circle cx="50" cy="50" r="36" />
           </svg>
         </section>
@@ -71,21 +71,21 @@ export default function Prize() {
           const redeemed = !!u?.redeemedAt && !u?.voidedAt
           const lowStock = t.stockTotal > 0 && t.stockRemaining / t.stockTotal < 0.2
           return (
-            <li key={t.id} className={`card flex items-center gap-4 ${unlocked ? 'ring-2 ring-gold/70' : 'opacity-80'}`}>
-              <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-full ${redeemed ? 'bg-jade text-white' : unlocked ? 'bg-gold text-navy-deep' : 'bg-navy/10 text-navy-soft'}`}>
+            <li key={t.id} className={`card flex items-center gap-4 ${unlocked ? 'ring-2 ring-foil/70' : 'opacity-80'}`}>
+              <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-full ${redeemed ? 'bg-success text-white' : unlocked ? 'bg-foil text-ink' : 'bg-ink/10 text-ink-soft'}`}>
                 {redeemed ? '✓' : <span className="fig text-sm">{t.thresholdPoints}</span>}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="font-semibold">{t.name} <span className="text-xs font-normal text-navy-soft">· {t.thresholdPoints} pts</span></div>
-                <div className="text-sm text-navy-soft">{t.reward}</div>
-                {redeemed && <div className="text-xs text-jade">Collected · thank you</div>}
+                <div className="font-semibold">{t.name} <span className="text-xs font-normal text-ink-soft">· {t.thresholdPoints} pts</span></div>
+                <div className="text-sm text-ink-soft">{t.reward}</div>
+                {redeemed && <div className="text-xs text-success-text">Collected · thank you</div>}
                 {/* Live remaining stock, always visible on every tier (event planners' request).
                     Supersedes the 20%-threshold rule in spec §4.4. */}
                 {!redeemed && t.stockTotal > 0 && (t.stockRemaining <= 0
-                  ? <div className="text-xs text-vermilion">{t.outOfStockNoteEn || 'This prize has run out'}</div>
-                  : <div className={`text-xs ${lowStock ? 'text-amber' : 'text-navy-soft'}`}>{fmt(t.stockRemaining)} left</div>)}
-                {!unlocked && <div className="text-xs text-navy-soft">{t.thresholdPoints - points} more points</div>}
-                {t.grantsDrawEntry && <div className="text-xs text-gold">+ entry to the closing stage draw</div>}
+                  ? <div className="text-xs text-danger-text">{t.outOfStockNoteEn || 'This prize has run out'}</div>
+                  : <div className={`text-xs ${lowStock ? 'text-warn-text' : 'text-ink-soft'}`}>{fmt(t.stockRemaining)} left</div>)}
+                {!unlocked && <div className="text-xs text-ink-soft">{t.thresholdPoints - points} more points</div>}
+                {t.grantsDrawEntry && <div className="text-xs text-foil">+ entry to the closing stage draw</div>}
               </div>
             </li>
           )

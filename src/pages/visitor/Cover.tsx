@@ -25,33 +25,33 @@ export default function Cover() {
 
   return (
     <main className="px-5 pt-6">
-      <section className="relative overflow-hidden rounded-3xl bg-navy px-6 py-8 text-paper shadow-2xl shadow-navy/30">
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full border border-gold/20" />
-        <div className="absolute -right-4 -top-4 h-40 w-40 rounded-full border border-gold/10" />
-        <div className="stamp-text text-gold">Mae Fah Luang University</div>
+      <section className="relative overflow-hidden rounded-[36px] bg-chrome px-6 py-8 text-white shadow-float">
+        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full border border-foil/20" />
+        <div className="absolute -right-4 -top-4 h-40 w-40 rounded-full border border-foil/10" />
+        <div className="stamp-text text-foil">Mae Fah Luang University</div>
         <div className="mt-1 text-lg font-semibold tracking-wide">{eventMark(event)}</div>
         <div className="mt-8 flex items-center gap-5">
-          <Crest className="h-20 w-20 shrink-0 text-gold" />
+          <Crest className="h-20 w-20 shrink-0 text-foil" />
           <div className="min-w-0">
-            <div className="stamp-text text-paper/60">Passport</div>
+            <div className="stamp-text text-on-chrome-soft">Passport</div>
             <div className="truncate text-2xl font-bold">{profile.displayName}</div>
-            <div className="font-mono text-sm tracking-widest text-gold">{profile.passportNo}</div>
+            <div className="font-mono text-sm tracking-widest text-foil">{profile.passportNo}</div>
           </div>
         </div>
         <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
-            <div className="fig text-5xl text-gold">{fmt(points)}</div>
-            <div className="stamp-text text-paper/60">points · {profile.stampCount ?? 0} of {booths.length} stamps</div>
+            <div className="fig text-5xl text-foil">{fmt(points)}</div>
+            <div className="stamp-text text-on-chrome-soft">points · {profile.stampCount ?? 0} of {booths.length} stamps</div>
           </div>
           <div className="relative h-24 w-24 shrink-0 xs:h-32 xs:w-32">
             <svg viewBox="0 0 128 128" className="h-full w-full -rotate-90">
-              <circle cx="64" cy="64" r={r} fill="none" stroke="rgba(233,229,220,.15)" strokeWidth="8" />
-              <circle cx="64" cy="64" r={r} fill="none" stroke="#C8A24A" strokeWidth="8" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} style={{ transition: 'stroke-dashoffset 600ms ease-out' }} />
+              <circle cx="64" cy="64" r={r} fill="none" stroke="rgba(207,224,211,.15)" strokeWidth="8" />
+              <circle cx="64" cy="64" r={r} fill="none" stroke="#F5C63C" strokeWidth="8" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} style={{ transition: 'stroke-dashoffset 600ms ease-out' }} />
             </svg>
             <div className="absolute inset-0 grid place-items-center text-center">
               <div>
                 <div className="fig text-xl">{next ? next.thresholdPoints - points : '✓'}</div>
-                <div className="text-[11px] uppercase tracking-wider text-paper/60">{next ? 'to go' : 'top tier'}</div>
+                <div className="text-[11px] uppercase tracking-wider text-on-chrome-soft">{next ? 'to go' : 'top tier'}</div>
               </div>
             </div>
           </div>
@@ -60,35 +60,35 @@ export default function Cover() {
         <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2">
           {sorted.map((t) => (
             <div key={t.id} className="flex items-center gap-1.5">
-              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${reached.includes(t) ? 'bg-gold' : 'bg-paper/25'}`} />
-              <span className={`text-xs ${reached.includes(t) ? 'text-gold' : 'text-paper/50'}`}>{t.name}</span>
+              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${reached.includes(t) ? 'bg-foil' : 'bg-white/25'}`} />
+              <span className={`text-xs ${reached.includes(t) ? 'text-foil' : 'text-on-chrome-soft'}`}>{t.name}</span>
               {t.stockTotal > 0 && (
-                <span className={`text-[11px] ${t.stockRemaining <= 0 ? 'text-vermilion' : 'text-paper/45'}`}>
+                <span className={`text-[11px] ${t.stockRemaining <= 0 ? 'text-danger-text' : 'text-on-chrome-soft'}`}>
                   {t.stockRemaining <= 0 ? 'sold out' : `${fmt(t.stockRemaining)} left`}
                 </span>
               )}
             </div>
           ))}
         </div>
-        <p className="mt-3 text-sm text-paper/80">
+        <p className="mt-3 text-sm text-on-chrome-soft">
           {next ? <><b>{next.thresholdPoints - points} more points</b> to {next.name} — {next.reward.toLowerCase()}.</> : <>You have reached every tier. Show your Prize page at the desk.</>}
         </p>
       </section>
 
       <section className="mt-6 grid grid-cols-1 gap-3 xs:grid-cols-2">
-        <Link to="/scan" className="card flex flex-col gap-1 hover:bg-paper-2/80">
-          <span className="stamp-text text-navy-soft">Next</span>
+        <Link to="/scan" className="card flex flex-col gap-1 hover:bg-white">
+          <span className="stamp-text text-ink-soft">Next</span>
           <span className="font-semibold">Scan a booth</span>
-          <span className="text-xs text-navy-soft">Point your camera at the booth screen</span>
+          <span className="text-xs text-ink-soft">Point your camera at the booth screen</span>
         </Link>
-        <Link to="/passport/stamps" className="card flex flex-col gap-1 hover:bg-paper-2/80">
-          <span className="stamp-text text-navy-soft">Route</span>
+        <Link to="/passport/stamps" className="card flex flex-col gap-1 hover:bg-white">
+          <span className="stamp-text text-ink-soft">Route</span>
           <span className="font-semibold">See what's worth most</span>
-          <span className="text-xs text-navy-soft">Far-corner booths pay 20 points</span>
+          <span className="text-xs text-ink-soft">Far-corner booths pay 20 points</span>
         </Link>
       </section>
 
-      <p className="mt-6 text-center text-xs text-navy-soft">
+      <p className="mt-6 text-center text-xs text-ink-soft">
         <Link to="/account" className="link">Your account</Link> · email, password, sign out
       </p>
     </main>

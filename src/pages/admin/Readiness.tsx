@@ -43,10 +43,10 @@ export function Readiness() {
 
   const done = items.filter((i) => i.ok).length
   return (
-    <section className={`card mt-5 border-2 ${allHardOk ? 'border-jade/30' : 'border-amber/40'}`}>
+    <section className={`card mt-5 border-2 ${allHardOk ? 'border-success/30' : 'border-warn/40'}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="stamp-text text-navy-soft">Ready for the event? · {done} of {items.length}</h2>
-        <div className="flex items-center gap-3 text-xs text-navy-soft">
+        <h2 className="stamp-text text-ink-soft">Ready for the event? · {done} of {items.length}</h2>
+        <div className="flex items-center gap-3 text-xs text-ink-soft">
           {start && !started && <span>Starts {new Date(start).toLocaleString('en-GB', { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>}
           {allHardOk && <button className="btn-quiet btn-sm" onClick={() => { setHidden(true); try { localStorage.setItem('readiness-hidden', event.id) } catch { /* private mode */ } }}>Hide</button>}
         </div>
@@ -54,10 +54,10 @@ export function Readiness() {
       <ul className="mt-3 grid gap-1.5 text-sm md:grid-cols-2">
         {items.map((i) => (
           <li key={i.label} className="flex items-start gap-2">
-            <span className={`mt-0.5 inline-block h-4 w-4 shrink-0 rounded-full text-center text-[10px] leading-4 text-white ${i.ok ? 'bg-jade' : i.soft ? 'bg-navy/30' : 'bg-amber'}`} aria-hidden>{i.ok ? '✓' : ''}</span>
+            <span className={`mt-0.5 inline-block h-4 w-4 shrink-0 rounded-full text-center text-[10px] leading-4 text-white ${i.ok ? 'bg-success' : i.soft ? 'bg-ink/30' : 'bg-warn'}`} aria-hidden>{i.ok ? '✓' : ''}</span>
             <div className="min-w-0">
               <Link to={i.to} className={i.ok ? 'link decoration-transparent' : 'link'}>{i.label}</Link>
-              {i.detail && <div className="text-xs text-navy-soft">{i.detail}</div>}
+              {i.detail && <div className="text-xs text-ink-soft">{i.detail}</div>}
             </div>
           </li>
         ))}

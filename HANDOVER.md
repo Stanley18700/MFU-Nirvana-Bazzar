@@ -1,4 +1,4 @@
-# Handover — MFU Go Global Passport
+# Handover — MFU InterFest Passport
 
 **Status date:** 7 September 2026 · **Branch:** `proto1.0` · **Event:** 16–18 September 2026
 **Live:** https://mfu-passport.web.app — deployed and seeded 7 September 2026
@@ -153,6 +153,12 @@ Deviations from `spec/spec.md`, all deliberate for v0.1:
 - Invite acceptance promotes the account signed in on the device that opens the link. It is
   single-use and refuses any address but the invited one, so the organizer must sign in as that
   address (Google or a password) before pressing Accept.
+- The client's `FALLBACK_EVENT` in `src/lib/data.ts` has `startsAt: null` and `endsAt: null`, so on
+  every cold load the landing page shows the raw ISO days (`2026-09-16 · 2026-09-17 · …`) for the
+  moment before the Firestore listener delivers the real document, and shows them permanently if no
+  event is live. `eventDateLine` is behaving correctly — this is the fallback constant, not the
+  seed, which does write both timestamps (`functions/src/seed.ts`, the `startsAt`/`endsAt` lines).
+  Fix: give the fallback the same 09:00–16:00 bounds derived from `EVENT_DAYS`.
 - No Resize Images extension — badge uploads are used at their uploaded size (client caps 512 KB).
 - Booth ranks recompute every 1 min (Cloud Scheduler floor), not 30 s.
 - App Check not enforced. Turn on reCAPTCHA Enterprise App Check before the real event.

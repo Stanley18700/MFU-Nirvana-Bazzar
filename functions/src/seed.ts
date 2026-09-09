@@ -58,7 +58,7 @@ async function main() {
   console.log(`Seeding project ${projectId}${process.env.FIRESTORE_EMULATOR_HOST ? ' (emulator)' : ''}`)
 
   await db.doc(`events/${EVENT_ID}`).set({
-    nameTh: 'เทศกาลนานาชาติ MFU Go Global', nameEn: 'MFU Go Global International Festival',
+    nameTh: 'เทศกาลนานาชาติ MFU 2026', nameEn: 'MFU International Festival 2026',
     startsAt: Timestamp.fromDate(new Date('2026-09-16T09:00:00+07:00')),
     endsAt: Timestamp.fromDate(new Date('2026-09-18T16:00:00+07:00')),
     qrPeriodSeconds: 20, active: true, boothCount: BOOTHS.length, createdAt: FieldValue.serverTimestamp(),

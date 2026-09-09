@@ -18,7 +18,7 @@ export const DEFAULT_PASSPORT_PREFIX = 'MFU-GG'
 export type EventStatus = 'draft' | 'live' | 'archived'
 
 export const ACCENTS = [
-  '#E0533D', '#1B52A8', '#1E8A6E', '#C8A24A', '#7B4EA8', '#D4762A', '#2A7FB8', '#B23A63', '#4E8B32',
+  '#EF5F5F', '#0FAFD0', '#4C764F', '#F5C63C', '#FF919C', '#F0A445', '#45CFC0', '#E08761', '#2F5D3E',
 ] as const
 
 export interface EventDoc {
@@ -36,7 +36,7 @@ export interface EventDoc {
   /** Default points offered per zone when a booth is created. */
   zonePoints: Record<Zone, number>
   status: EventStatus
-  /** Arc text on the generated fallback stamp (spec 2.5) — e.g. 'MFU GO GLOBAL'. */
+  /** Arc text on the generated fallback stamp (spec 2.5) — e.g. 'MFU INTERFEST'. */
   stampMarkTop?: string
   /** Lower arc, e.g. '2026 · CHIANG RAI'. */
   stampMarkBottom?: string

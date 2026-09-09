@@ -3,7 +3,7 @@ import QRCode from 'qrcode'
 
 interface Props { value: string; size?: number; dark?: string; light?: string; className?: string }
 
-export function QR({ value, size = 320, dark = '#17263F', light = '#FFFFFF', className = '' }: Props) {
+export function QR({ value, size = 320, dark = '#17414E', light = '#FFFFFF', className = '' }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     if (!ref.current || !value) return

@@ -80,7 +80,7 @@ export type LiveEvent = WithId<EventDoc>
 
 const FALLBACK_EVENT: LiveEvent = {
   id: EVENT_ID,
-  nameEn: 'MFU Go Global International Festival',
+  nameEn: 'MFU International Festival 2026',
   nameTh: '',
   startsAt: null,
   endsAt: null,

@@ -46,10 +46,10 @@ export default function AdminLayout() {
 
   return (
     <div className="flex min-h-full flex-col md:flex-row">
-      <aside className="flex shrink-0 flex-col bg-navy text-paper md:w-60 md:min-h-screen">
+      <aside className="flex shrink-0 flex-col bg-chrome text-white md:w-60 md:min-h-screen">
         <div className="flex items-center justify-between gap-3 px-5 py-4">
           <div className="min-w-0">
-            <div className="stamp-text truncate text-gold">{event.nameEn}</div>
+            <div className="stamp-text truncate text-foil">{event.nameEn}</div>
             <div className="font-semibold">Passport admin</div>
           </div>
           <button className="btn-dark btn-sm shrink-0 md:hidden" onClick={leave}>Sign out</button>
@@ -58,18 +58,18 @@ export default function AdminLayout() {
           {GROUPS.map((g) => (
             // `contents` on a phone flattens the groups into one scrolling row; on a desktop each is a titled block.
             <div key={g.title} className="contents md:mb-3 md:block">
-              <div className="stamp-text hidden px-3 pb-1 pt-2 text-[10px] text-paper/40 md:block">{g.title}</div>
+              <div className="stamp-text hidden px-3 pb-1 pt-2 text-[10px] text-on-chrome-soft md:block">{g.title}</div>
               {g.items.map((n) => (
-                <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `whitespace-nowrap rounded-lg px-3 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60 md:block ${isActive ? 'bg-paper/15 font-semibold' : 'text-paper/75 hover:bg-paper/10 hover:text-paper'}`}>{n.label}</NavLink>
+                <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `whitespace-nowrap rounded-full px-3.5 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foil/60 md:block ${isActive ? 'bg-white/15 font-semibold' : 'text-on-chrome-soft hover:bg-white/10 hover:text-white'}`}>{n.label}</NavLink>
               ))}
             </div>
           ))}
           {LINKS.map((n) => (
-            <NavLink key={n.to} to={n.to} className="whitespace-nowrap rounded-lg px-3 py-2 text-sm text-paper/55 transition hover:bg-paper/10 hover:text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/60 md:hidden">{n.label}</NavLink>
+            <NavLink key={n.to} to={n.to} className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm text-on-chrome-soft transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foil/60 md:hidden">{n.label}</NavLink>
           ))}
         </nav>
-        <div className="mt-auto hidden flex-col gap-2 px-5 py-4 text-xs text-paper/60 md:flex">
-          {LINKS.map((n) => <NavLink key={n.to} to={n.to} className="link text-paper/70 hover:text-paper">{n.label}</NavLink>)}
+        <div className="mt-auto hidden flex-col gap-2 px-5 py-4 text-xs text-on-chrome-soft md:flex">
+          {LINKS.map((n) => <NavLink key={n.to} to={n.to} className="link text-on-chrome-soft hover:text-white">{n.label}</NavLink>)}
           <div className="mt-2">{profile?.displayName} · admin</div>
           <button className="btn-dark btn-sm self-start" onClick={leave}>Sign out</button>
         </div>

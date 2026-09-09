@@ -1,4 +1,4 @@
-# User acceptance test — MFU Go Global Passport
+# User acceptance test — MFU InterFest Passport
 
 A hand-run walk-through of the deployed app at **https://mfu-passport.web.app**, one row per
 page and per control that is not obvious. Each row is something a tester does on a real device,

@@ -19,13 +19,13 @@ export default function RedeemLanding() {
 
   // A visitor scanned their own code. Nothing to do here but say so.
   return (
-    <><div className="fixed inset-0 -z-10 bg-navy-deep" aria-hidden /><main className="mx-auto min-h-full max-w-md bg-navy-deep p-4 text-paper">
+    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="mx-auto min-h-full max-w-md bg-chrome p-4 text-white">
       <header className="flex items-center justify-between px-1 py-3">
-        <Link to="/passport" className="text-sm text-paper/70">← Passport</Link>
-        <div className="stamp-text text-gold">Redemption code</div>
+        <Link to="/passport" className="text-sm text-on-chrome-soft">← Passport</Link>
+        <div className="stamp-text text-foil">Redemption code</div>
         <span className="w-16" />
       </header>
-      <div className="rounded-3xl bg-paper p-6 text-navy">
+      <div className="rounded-3xl bg-white p-6 text-ink">
         <Notice>Show this code to the prize desk — they scan it from their own device. Open
           <Link to="/passport/prize" className="link"> your prize page</Link> to display it.</Notice>
       </div>

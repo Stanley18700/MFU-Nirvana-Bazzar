@@ -60,7 +60,7 @@ export type ActiveEvent = EventDoc & { id: string }
 
 const FALLBACK_EVENT: ActiveEvent = {
   id: EVENT_ID,
-  nameEn: 'MFU Go Global International Festival',
+  nameEn: 'MFU International Festival 2026',
   nameTh: '',
   startsAt: null,
   endsAt: null,

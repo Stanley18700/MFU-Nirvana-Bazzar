@@ -1,4 +1,4 @@
-# Setting up and deploying MFU Go Global Passport
+# Setting up and deploying MFU InterFest Passport
 
 This is the checklist from zero to a live demo at `https://mfu-passport.web.app`.
 Steps marked **(you)** happen in a browser on your own account; everything else is a command
@@ -55,7 +55,7 @@ handles; there is nothing to switch on.
 
 For each of the three, click the pencil and:
 
-1. Set the **sender name** to something recognisable (e.g. *MFU Go Global Passport*).
+1. Set the **sender name** to something recognisable (e.g. *MFU InterFest Passport*).
 2. Edit the subject and body — the defaults say "Firebase" and mention the project id.
 3. Click **Customise action URL** and set it to `https://mfu-passport.web.app/auth/action`.
 

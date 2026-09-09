@@ -6,7 +6,7 @@ import { useAuth } from '../../lib/auth'
 import { api } from '../../lib/api'
 import { authError } from '../../lib/authActions'
 import { Spinner } from '../../components/ui'
-import { AuthShell, DarkNotice, Field } from './parts'
+import { AuthShell, Notice, Field } from './parts'
 
 type Mode = 'verifyEmail' | 'resetPassword' | 'recoverEmail' | 'verifyAndChangeEmail'
 type Phase = 'working' | 'form' | 'done' | 'error'
@@ -99,9 +99,9 @@ export default function Action() {
     return (
       <AuthShell back="/signin" title="That link did not work" lead={err ?? undefined}>
         <div className="mt-6 flex flex-col gap-3">
-          <p className="text-sm text-paper/60">Links are single-use and expire after an hour. Ask for a fresh one.</p>
+          <p className="text-sm text-ink-soft">Links are single-use and expire after an hour. Ask for a fresh one.</p>
           <Link to="/forgot-password" className="btn-gold py-3.5">Send a new reset link</Link>
-          <Link to="/signin" className="btn-dark">Back to sign in</Link>
+          <Link to="/signin" className="btn-quiet">Back to sign in</Link>
         </div>
       </AuthShell>
     )
@@ -109,14 +109,14 @@ export default function Action() {
 
   if (mode === 'resetPassword' && phase === 'form') {
     return (
-      <AuthShell back={null} title="Choose a new password" lead={<>For <b className="text-paper">{email}</b>.</>}>
+      <AuthShell back={null} title="Choose a new password" lead={<>For <b className="text-ink">{email}</b>.</>}>
         <form onSubmit={submitPassword} className="mt-6 flex flex-col gap-4">
           <Field label="New password" type="password" required minLength={MIN_PASSWORD} autoComplete="new-password"
             placeholder={`At least ${MIN_PASSWORD} characters`} value={password} onChange={(e) => setPassword(e.target.value)} />
           <Field label="Confirm new password" type="password" required autoComplete="new-password"
             placeholder="Type it once more" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-          {err && <DarkNotice tone="red">{err}</DarkNotice>}
-          <button className="btn-gold py-3.5 text-lg" disabled={busy}>{busy ? 'Saving…' : 'Save the new password'}</button>
+          {err && <Notice tone="red">{err}</Notice>}
+          <button className="btn-primary py-3.5 text-lg" disabled={busy}>{busy ? 'Saving…' : 'Save the new password'}</button>
         </form>
       </AuthShell>
     )
@@ -132,20 +132,20 @@ export default function Action() {
       title: 'Email confirmed',
       // The link is often opened in the mail app's own browser, where nobody is signed in.
       lead: auth.currentUser
-        ? <><b className="text-paper">{email}</b> is yours. Your passport is open.</>
-        : <><b className="text-paper">{email}</b> is confirmed. Sign in here, or go back to the tab where you signed up — it has already moved on.</>,
+        ? <><b className="text-ink">{email}</b> is yours. Your passport is open.</>
+        : <><b className="text-ink">{email}</b> is confirmed. Sign in here, or go back to the tab where you signed up — it has already moved on.</>,
       cta: auth.currentUser
         ? <button className="btn-gold py-3.5" onClick={goOn}>Open my passport</button>
         : <Link to="/signin" state={{ email }} className="btn-gold py-3.5">Sign in</Link>,
     },
     verifyAndChangeEmail: {
       title: 'Email address changed',
-      lead: <>Your account now signs in as <b className="text-paper">{email}</b>. Firebase signs you out everywhere after the swap — sign back in with the new address.</>,
+      lead: <>Your account now signs in as <b className="text-ink">{email}</b>. Firebase signs you out everywhere after the swap — sign back in with the new address.</>,
       cta: <Link to="/signin" state={{ email }} className="btn-gold py-3.5">Sign in</Link>,
     },
     recoverEmail: {
       title: 'Address put back',
-      lead: <>Your account signs in as <b className="text-paper">{email}</b> again. If you did not ask for that change, reset your password now — someone else may know it.</>,
+      lead: <>Your account signs in as <b className="text-ink">{email}</b> again. If you did not ask for that change, reset your password now — someone else may know it.</>,
       cta: <Link to="/forgot-password" state={{ email }} className="btn-gold py-3.5">Reset my password</Link>,
     },
   }[mode as Mode]
@@ -154,7 +154,7 @@ export default function Action() {
     <AuthShell back={null} title={done.title} lead={done.lead}>
       <div className="mt-6 flex flex-col gap-3">
         {done.cta}
-        <Link to="/" className="btn-dark">Back to the start</Link>
+        <Link to="/" className="btn-quiet">Back to the start</Link>
       </div>
     </AuthShell>
   )

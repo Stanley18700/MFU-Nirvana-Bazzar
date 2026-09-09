@@ -180,13 +180,13 @@ export default function Booth() {
 
   if (err && !session) {
     return (
-      <main className="grid min-h-full place-items-center bg-navy-deep p-8 text-paper">
+      <main className="grid min-h-full place-items-center bg-chrome p-8 text-white">
         <div className="flex w-full max-w-md flex-col gap-4">
-          <div className="stamp-text text-gold">{t('nav.booth')}</div>
+          <div className="stamp-text text-on-chrome-soft">{t('nav.booth')}</div>
           <h1 className="text-2xl font-bold">{t('booth.failed')}</h1>
           <DarkNotice tone="red">{err}</DarkNotice>
-          <p className="text-sm text-paper/70">
-            Signed in as <b className="text-paper">{user?.email ?? 'this account'}</b>.
+          <p className="text-sm text-on-chrome-soft">
+            Signed in as <b className="text-white">{user?.email ?? 'this account'}</b>.
             {role === 'organizer' && !claimBooth && <> No booth is linked to it yet — ask the admin to assign one, then open this page again.</>}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -197,7 +197,7 @@ export default function Booth() {
       </main>
     )
   }
-  if (!session || !token) return <main className="min-h-full bg-navy-deep text-paper"><Spinner label={t('booth.starting')} /></main>
+  if (!session || !token) return <main className="min-h-full bg-chrome text-white"><Spinner label={t('booth.starting')} /></main>
 
   const b = live ?? session.booth
   const feedState = offline ? 'offline' as const : (stat.fromCache || ev.fromCache) ? 'stale' as const : 'live' as const
@@ -235,7 +235,7 @@ export default function Booth() {
 
   return (
     <>
-    <main className="booth-screen relative flex min-h-full flex-col bg-navy-deep text-paper print:hidden">
+    <main className="booth-screen relative flex min-h-full flex-col bg-chrome text-white print:hidden">
       <header className="px-[4vw] pt-[3vh]">
         {/*
          * Same shape as /booth/stats and /redeem: the bar is its own full-width row above the
@@ -254,9 +254,9 @@ export default function Booth() {
         />
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
           <div className="min-w-0">
-            <div className="stamp-text text-[0.55em]" style={{ color: b.accentColor }}>{t('booth.worth', { location: b.location, points: b.points })}</div>
-            <h1 className="mt-1 text-[1.6em] font-bold leading-tight">{pick(b.nameEn, b.nameTh)}</h1>
-            <div className="text-[0.6em] text-paper/60">{b.hostUnit}</div>
+            <div className="stamp-text flex items-center gap-[0.5em] text-[0.55em] text-on-chrome-soft"><span className="inline-block h-[0.7em] w-[0.7em] shrink-0 rounded-full" style={{ background: b.accentColor }} aria-hidden />{t('booth.worth', { location: b.location, points: b.points })}</div>
+            <h1 className="mt-1 text-[1.6em] font-extrabold leading-[1.08] text-white">{pick(b.nameEn, b.nameTh)}</h1>
+            <div className="text-[0.6em] text-on-chrome-soft">{b.hostUnit}</div>
           </div>
           <LiveDot state={feedState} dark>
             {offline ? t('status.offlineCodes') : fresh ? t('status.live') : t('status.reconnectingCodes')}
@@ -272,7 +272,7 @@ export default function Booth() {
       </div>
 
       <section ref={sectionRef} className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[3vh] px-4">
-        <div className="relative rounded-[2rem] bg-white p-5" style={{ boxShadow: `0 0 0 ${ACCENT}px ${b.accentColor}, 0 30px 80px rgba(0,0,0,.5)` }}>
+        <div className="relative rounded-[36px] bg-white p-5" style={{ boxShadow: `0 0 0 ${ACCENT}px ${b.accentColor}, 0 30px 80px rgba(0,0,0,.45)` }}>
           {/* Keyed on the counter so the swap animation replays on every rotation. */}
           <div key={token.counter} className="qr-swap">
             <QR value={token.payload} size={size} />
@@ -286,17 +286,17 @@ export default function Booth() {
               className="qr-countdown"
               x={RING / 2} y={RING / 2} width={box - RING} height={box - RING}
               rx={CORNER + inset - RING / 2} fill="none" strokeWidth={RING} strokeLinecap="butt"
-              stroke={urgent ? '#D4762A' : 'rgba(233,229,220,.8)'}
+              stroke={urgent ? '#DC8A2A' : 'rgba(207,224,211,.8)'}
               pathLength={1} strokeDasharray={1} strokeDashoffset={1 - left}
             />
           </svg>
         </div>
         <div ref={codeRef} className="text-center">
-          <div className="stamp-text text-[0.55em] text-paper/60">{t('booth.manualCode')}</div>
-          <div key={token.counter} className="code-swap fig text-[2em] tracking-[0.15em] sm:text-[2.4em] sm:tracking-[0.25em]" style={{ color: b.accentColor }}>
+          <div className="stamp-text text-[0.55em] text-on-chrome-soft">{t('booth.manualCode')}</div>
+          <div key={token.counter} className="code-swap fig text-[2em] tracking-[0.15em] text-white sm:text-[2.4em] sm:tracking-[0.25em]">
             {formatManualCode(token.token)}
           </div>
-          <div className="text-[0.5em] text-paper/50">
+          <div className="text-[0.5em] text-on-chrome-soft">
             {t('booth.rotatesIn')} <span className="tabular-nums">{Math.ceil(msLeft / 1000)}</span> {t('booth.seconds')}
           </div>
         </div>
@@ -315,7 +315,7 @@ export default function Booth() {
         ].map((f) => (
           <div key={f.label} className="glass flex flex-col items-center justify-center gap-0.5 px-2 py-[1.2vh] text-center">
             <div className="fig text-[1.8em] leading-none">{f.value}</div>
-            <div className="stamp-text text-[0.5em] text-paper/60">{f.label}</div>
+            <div className="stamp-text text-[0.5em] text-on-chrome-soft">{f.label}</div>
           </div>
         ))}
       </footer>

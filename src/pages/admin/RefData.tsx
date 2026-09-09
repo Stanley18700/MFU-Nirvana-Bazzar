@@ -74,7 +74,7 @@ export default function RefData() {
   return (
     <div className="page-in">
       <h1 className="text-2xl font-bold">Reference lists</h1>
-      <p className="mt-1 text-sm text-navy-soft">
+      <p className="mt-1 text-sm text-ink-soft">
         What the registration form suggests. Editable here so the lists can change during the
         event without a redeploy — they used to be settable only by re-running the seed script.
       </p>
@@ -82,7 +82,7 @@ export default function RefData() {
       <nav className="mt-4 flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => switchTab(t.id)} role="tab" aria-selected={tab === t.id}
-            className="tab bg-navy/5 px-4 py-2 text-sm">
+            className="tab bg-ink/5 px-4 py-2 text-sm">
             {t.label}
           </button>
         ))}
@@ -91,14 +91,14 @@ export default function RefData() {
       <Toast msg={msg} onClose={() => setMsg(null)} />
 
       <section className="card mt-4">
-        <p className="text-xs text-navy-soft">{meta.blurb}</p>
+        <p className="text-xs text-ink-soft">{meta.blurb}</p>
 
         {tab === 'ethnicGroups' ? (
           <div className="mt-4 flex flex-col gap-4">
             {Object.keys(ethnicDraft).sort().map((cc) => (
               <div key={cc}>
                 <div className="flex items-center justify-between gap-2">
-                  <label className="stamp-text text-navy-soft">{cc} · {countryName(cc)} · {ethnicDraft[cc].length}</label>
+                  <label className="stamp-text text-ink-soft">{cc} · {countryName(cc)} · {ethnicDraft[cc].length}</label>
                   <button className="btn-danger-soft btn-sm"
                     onClick={() => { const n = { ...ethnicDraft }; delete n[cc]; setDraftEthnic(n) }}>
                     Remove country
@@ -124,7 +124,7 @@ export default function RefData() {
             <label className="mt-3 block text-sm">One per line · {list.length} entries
               <Lines value={list} onChange={setDraftList} />
             </label>
-            <p className="mt-1 text-xs text-navy-soft">
+            <p className="mt-1 text-xs text-ink-soft">
               Saved sorted alphabetically, with duplicates and blank lines dropped.
               {tab === 'institutions' && ' Keep "Other" in the list — the form shows a free-text box when it is chosen.'}
             </p>

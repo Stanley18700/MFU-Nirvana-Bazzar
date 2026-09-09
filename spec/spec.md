@@ -1,4 +1,4 @@
-# MFU Go Global Passport — Product & Technical Specification
+# MFU InterFest Passport — Product & Technical Specification
 
 **Version:** 1.0 (draft)
 **Date:** 2 September 2026
@@ -9,7 +9,7 @@
 
 ## 1. Overview
 
-A mobile-first web app for the *MFU Go Global* International Festival. Visitors carry a
+A mobile-first web app for *MFU International Festival 2026*. Visitors carry a
 digital passport on their own phone, collect a stamp (badge) at each booth by scanning
 a QR code displayed at that booth, and redeem a prize once they reach a threshold.
 
@@ -97,7 +97,7 @@ The app *is* a passport. Navigation between the visitor screens is a page turn.
 Carried forward from `concept.html` and extended with booth accents.
 
 ```css
---navy:        #17263F;  /* passport cover, primary ink */
+--navy:        #17263F;  /* RETIRED 2026-09 — see design-system/tokens/theme-app.css; chrome is now green-900 #1E3F2A, ink #17414E */
 --navy-soft:   #4A5872;  /* secondary text */
 --paper:       #E9E5DC;  /* page ground */
 --paper-2:     #DFDACE;  /* card ground */

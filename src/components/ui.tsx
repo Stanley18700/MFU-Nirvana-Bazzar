@@ -8,16 +8,16 @@ export function Fig({ value, label, accent, sub }: { value: ReactNode; label: st
   return (
     <div className="card flex flex-col gap-1">
       <div className="fig text-4xl sm:text-5xl" style={{ color: accent }}>{value}</div>
-      <div className="stamp-text text-navy-soft">{label}</div>
-      {sub && <div className="text-xs text-navy-soft">{sub}</div>}
+      <div className="stamp-text text-ink-soft">{label}</div>
+      {sub && <div className="text-xs text-ink-soft">{sub}</div>}
     </div>
   )
 }
 
 export function Spinner({ label = 'Loading…' }: { label?: string }) {
   return (
-    <div className="flex items-center justify-center gap-3 p-8 text-navy-soft" role="status">
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-navy/20 border-t-stamp-blue" />
+    <div className="flex items-center justify-center gap-3 p-8 text-ink-soft" role="status">
+      <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink/20 border-t-action" />
       <span className="text-sm">{label}</span>
     </div>
   )
@@ -27,16 +27,16 @@ export type Tone = 'info' | 'amber' | 'red' | 'green'
 /** One result message, as every admin page keeps it in state. */
 export type Msg = { tone: 'green' | 'amber' | 'red'; text: string }
 
-/** Toast still needs the colours inline; Notice below is class-driven so `.on-navy` can restate it. */
+/** Toast still needs the colours inline; Notice below is class-driven so `.on-chrome` can restate it. */
 const TONE: Record<Tone, string> = {
-  info: 'bg-stamp-blue/10 text-seal',
-  amber: 'bg-amber/15 text-[#8a4a12]',
-  red: 'bg-vermilion/12 text-[#8f2a1c]',
-  green: 'bg-jade/12 text-[#125a47]',
+  info: 'bg-sky-200 text-ink',
+  amber: 'bg-warn-bg text-warn-text',
+  red: 'bg-danger-bg text-danger-text',
+  green: 'bg-success-bg text-success-text',
 }
 
 /**
- * A stable class per tone rather than inline utilities, so `.on-navy` in index.css can restate the
+ * A stable class per tone rather than inline utilities, so `.on-chrome` in index.css can restate the
  * four tones for a dark page without every caller having to switch to `DarkNotice`.
  */
 export function Notice({ tone = 'info', children }: { tone?: Tone; children: ReactNode }) {
@@ -61,7 +61,7 @@ export function Toast({ msg, onClose, ms = 5000 }: { msg: Msg | null; onClose: (
   return (
     <div className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex justify-center sm:inset-x-auto sm:right-6 sm:justify-end" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div role={msg.tone === 'red' ? 'alert' : 'status'} aria-live="polite"
-        className={`pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-xl px-4 py-3 text-sm shadow-lg ring-1 ring-black/10 ${TONE[msg.tone]} page-in`}>
+        className={`pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-[20px] px-4 py-3 text-sm shadow-raised ${TONE[msg.tone]} page-in`}>
         <span className="min-w-0 flex-1">{msg.text}</span>
         <button type="button" onClick={onClose} className="btn-quiet btn-sm btn-icon shrink-0" aria-label="Dismiss">×</button>
       </div>
@@ -95,9 +95,9 @@ export function Drawer({ title, onClose, children, width = 'max-w-md', actions }
     }
   }, [])
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-navy-deep/40" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex justify-end bg-ink/40" onClick={onClose}>
       <aside role="dialog" aria-modal="true" aria-labelledby={titleId}
-        className={`h-full w-full ${width} overflow-y-auto bg-paper p-5 shadow-2xl page-in`} onClick={(e) => e.stopPropagation()}>
+        className={`h-full w-full ${width} overflow-y-auto bg-white p-5 shadow-2xl page-in`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between gap-3">
           <button ref={closeRef} type="button" className="btn-quiet btn-sm" onClick={onClose}>Close ✕</button>
           {actions}
@@ -109,15 +109,15 @@ export function Drawer({ title, onClose, children, width = 'max-w-md', actions }
   )
 }
 
-/** Notice is tuned for the paper background; this one for the navy auth screens and the booth display. */
+/** Notice is tuned for light grounds; this one for the green chrome — auth screens, the booth display. */
 export function DarkNotice({ tone = 'info', children }: { tone?: 'info' | 'amber' | 'red' | 'green'; children: ReactNode }) {
   const cls = {
-    info: 'bg-paper/10 text-paper/90',
-    amber: 'bg-amber/20 text-amber',
-    red: 'bg-vermilion/20 text-[#ffc9bf]',
-    green: 'bg-jade/20 text-[#9fe3cd]',
+    info: 'bg-white/12 text-white',
+    amber: 'bg-[rgba(250,189,109,.24)] text-orange-300',
+    red: 'bg-[rgba(217,74,72,.26)] text-[#FFC9BF]',
+    green: 'bg-[rgba(76,118,79,.34)] text-[#BDE8C4]',
   }[tone]
-  return <div className={`rounded-xl px-4 py-3 text-sm ${cls}`} role="status">{children}</div>
+  return <div className={`rounded-[20px] px-4 py-3 text-sm ${cls}`} role="status">{children}</div>
 }
 
 /**
@@ -201,12 +201,11 @@ export function DataErrors({ dark, className = '' }: { dark?: boolean; className
 
 export function TabBar({ tabs }: { tabs: Array<{ to: string; label: string; icon: ReactNode; end?: boolean }> }) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t rule bg-paper/95 backdrop-blur" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} aria-label="Passport pages">
+    <nav className="fixed inset-x-0 bottom-0 z-20 border-t rule bg-white/94 backdrop-blur-[14px]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} aria-label="Passport pages">
       <div className="mx-auto grid max-w-md grid-cols-3">
         {tabs.map((t) => (
-          <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => `flex flex-col items-center gap-0.5 py-2.5 text-xs font-medium ${isActive ? 'text-stamp-blue' : 'text-navy-soft'}`}>
-            {t.icon}
-            {t.label}
+          <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => `flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold transition ${isActive ? 'text-ink' : 'text-ink-soft'}`}>
+            {({ isActive }: { isActive: boolean }) => <><span className={isActive ? 'text-sky-800' : 'text-ink-soft'}>{t.icon}</span>{t.label}</>}
           </NavLink>
         ))}
       </div>
@@ -290,10 +289,10 @@ export function LiveDot({ state, children, dark = false, size = 'md', className 
   size?: 'sm' | 'md'
   className?: string
 }) {
-  const color = state === 'offline' ? '#E0533D' : state === 'stale' ? '#D4762A' : '#1E8A6E'
+  const color = state === 'offline' ? '#D94A48' : state === 'stale' ? '#DC8A2A' : '#4C764F'
   const d = size === 'sm' ? 'h-2 w-2' : 'h-3 w-3'
   return (
-    <span className={`flex shrink-0 items-center gap-2 ${size === 'sm' ? 'text-xs' : 'text-sm'} ${dark ? 'text-paper/70' : 'text-navy-soft'} ${className}`}>
+    <span className={`flex shrink-0 items-center gap-2 ${size === 'sm' ? 'text-xs' : 'text-sm'} ${dark ? 'text-on-chrome-soft' : 'text-ink-soft'} ${className}`}>
       <span className={`inline-block shrink-0 rounded-full ${d}`} style={{ background: color }} aria-hidden />
       <span>{children}</span>
     </span>

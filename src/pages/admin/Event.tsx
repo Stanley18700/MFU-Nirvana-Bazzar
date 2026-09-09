@@ -154,7 +154,7 @@ export default function EventAdmin() {
     <div>
       <header>
         <h1 className="text-2xl font-bold">Event</h1>
-        <p className="text-sm text-navy-soft">
+        <p className="text-sm text-ink-soft">
           The app runs one event at a time. Its name, dates, days, QR period and default points live
           here; booths, prizes and people are set up on their own pages.
         </p>
@@ -163,7 +163,7 @@ export default function EventAdmin() {
       <Toast msg={msg} onClose={() => setMsg(null)} />
 
       <section className="card mt-5 grid gap-4 md:grid-cols-2">
-        <h2 className="stamp-text text-navy-soft md:col-span-2">
+        <h2 className="stamp-text text-ink-soft md:col-span-2">
           {form.id === liveId ? 'The current event' : form.id ? `Draft · ${form.id}` : 'New event (starts as a draft)'}
           {form.id !== liveId && live && (
             <button className="btn-quiet btn-sm ml-3 normal-case tracking-normal" onClick={() => { setForm(fromRow(live)); setMsg(null) }}>Back to the current event</button>
@@ -175,7 +175,7 @@ export default function EventAdmin() {
         <label>Ends<input className="field mt-1" type="datetime-local" value={form.endsAt} onChange={(e) => setDates(form.startsAt, e.target.value)} /></label>
 
         <fieldset className="md:col-span-2">
-          <legend className="stamp-text text-navy-soft">Days the event runs</legend>
+          <legend className="stamp-text text-ink-soft">Days the event runs</legend>
           <div className="mt-2 flex flex-wrap gap-3 text-sm">
             {(form.startsAt && form.endsAt ? daysBetween(new Date(form.startsAt).getTime(), new Date(form.endsAt).getTime()) : form.days).map((d, i) => (
               <label key={d} className="flex items-center gap-1">
@@ -188,26 +188,26 @@ export default function EventAdmin() {
         </fieldset>
 
         <label>QR rotation (seconds)
-          <input className={`field mt-1 ${periodOk ? '' : 'border-vermilion'}`} type="number" min={10} max={120} value={Number.isFinite(form.qrPeriodSeconds) ? form.qrPeriodSeconds : ''}
+          <input className={`field mt-1 ${periodOk ? '' : 'border-danger'}`} type="number" min={10} max={120} value={Number.isFinite(form.qrPeriodSeconds) ? form.qrPeriodSeconds : ''}
             onChange={(e) => setForm({ ...form, qrPeriodSeconds: e.target.value === '' ? NaN : Number(e.target.value) })} />
-          {!periodOk && <span className="text-xs text-vermilion">10 to 120 seconds</span>}
+          {!periodOk && <span className="text-xs text-danger-text">10 to 120 seconds</span>}
         </label>
         <label>Passport prefix
           <input className="field mt-1" value={form.passportPrefix} onChange={(e) => setForm({ ...form, passportPrefix: e.target.value.toUpperCase() })} />
-          <span className="text-xs text-navy-soft">Numbers read {form.passportPrefix || 'MFU-GG'}-0001</span>
+          <span className="text-xs text-ink-soft">Numbers read {form.passportPrefix || 'MFU-GG'}-0001</span>
         </label>
 
         <fieldset className="md:col-span-2">
-          <legend className="stamp-text text-navy-soft">Default points per zone</legend>
+          <legend className="stamp-text text-ink-soft">Default points per zone</legend>
           <div className="mt-2 grid gap-3 sm:grid-cols-3">
             {ZONES.map((z) => (
               <label key={z} className="text-sm">{ZONE_LABEL[z]}
-                <input className={`field mt-1 ${form.zonePoints[z] >= 1 && form.zonePoints[z] <= 100 ? '' : 'border-vermilion'}`} type="number" min={1} max={100} value={Number.isFinite(form.zonePoints[z]) ? form.zonePoints[z] : ''}
+                <input className={`field mt-1 ${form.zonePoints[z] >= 1 && form.zonePoints[z] <= 100 ? '' : 'border-danger'}`} type="number" min={1} max={100} value={Number.isFinite(form.zonePoints[z]) ? form.zonePoints[z] : ''}
                   onChange={(e) => setForm({ ...form, zonePoints: { ...form.zonePoints, [z]: e.target.value === '' ? NaN : Number(e.target.value) } })} />
               </label>
             ))}
           </div>
-          <p className="mt-2 text-xs text-navy-soft">
+          <p className="mt-2 text-xs text-ink-soft">
             Applies to booths created from now on. Existing booths keep their points, and points
             already awarded are frozen at scan time.
           </p>
@@ -217,7 +217,7 @@ export default function EventAdmin() {
           <button className="btn-primary" disabled={busy || !form.nameEn.trim() || !form.startsAt || !form.endsAt || !periodOk || !zonesOk || (!!form.id && !dirty)} onClick={save}>
             {busy ? 'Saving…' : form.id ? 'Save' : 'Create draft'}
           </button>
-          {dirty && form.id && <span className="self-center text-xs text-amber">Unsaved changes</span>}
+          {dirty && form.id && <span className="self-center text-xs text-warn-text">Unsaved changes</span>}
           {form.id && form.id !== liveId && (
             <button className="btn-gold" disabled={busy} onClick={() => goLive(form.id!)}>Go live</button>
           )}
@@ -226,10 +226,10 @@ export default function EventAdmin() {
 
       {/* Everything about a *second* event stays folded away: day to day there is only the one above. */}
       <details className="mt-8 rounded-2xl border rule p-4">
-        <summary className="cursor-pointer rounded-lg transition hover:text-navy">
-          <span className="stamp-text text-navy-soft">After the event · archive this one, prepare the next</span>
+        <summary className="cursor-pointer rounded-lg transition hover:text-ink">
+          <span className="stamp-text text-ink-soft">After the event · archive this one, prepare the next</span>
         </summary>
-        <p className="mt-3 text-sm text-navy-soft">
+        <p className="mt-3 text-sm text-ink-soft">
           Booths, prizes and accounts are shared, not copied per event. The way to move on is to
           archive the current event (its totals are frozen), which clears stamps and progress, then
           go live with the next one. A draft can be prepared here in advance, but only its own
@@ -238,17 +238,17 @@ export default function EventAdmin() {
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button className="btn-ghost" onClick={() => { setForm(blank()); setMsg(null); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>New draft event</button>
         </div>
-        <h2 className="stamp-text mt-5 text-navy-soft">All events</h2>
+        <h2 className="stamp-text mt-5 text-ink-soft">All events</h2>
         <ul className="mt-3 grid gap-3 md:grid-cols-2">
           {rows.map((r) => (
             <li key={r.id} className="card text-sm">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="truncate font-semibold">{r.nameEn}</div>
-                  <div className="text-xs text-navy-soft">{r.id} · {r.days.length} days · {fmt(r.boothCount)} booths</div>
+                  <div className="text-xs text-ink-soft">{r.id} · {r.days.length} days · {fmt(r.boothCount)} booths</div>
                 </div>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
-                  r.status === 'live' ? 'bg-jade/15 text-jade' : r.status === 'draft' ? 'bg-amber/15 text-amber' : 'bg-navy/10 text-navy-soft'
+                  r.status === 'live' ? 'bg-success/15 text-success-text' : r.status === 'draft' ? 'bg-warn/15 text-warn-text' : 'bg-ink/10 text-ink-soft'
                 }`}>{r.status}</span>
               </div>
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
@@ -334,9 +334,9 @@ function DangerZone({ live, onDone }: { live: EventRow; onDone: () => Promise<vo
   }
 
   return (
-    <section className="mt-8 rounded-2xl border-2 border-vermilion/40 p-4">
-      <h2 className="stamp-text text-vermilion">Danger zone</h2>
-      <p className="mt-2 text-sm text-navy-soft">
+    <section className="mt-8 rounded-2xl border-2 border-danger/40 p-4">
+      <h2 className="stamp-text text-danger-text">Danger zone</h2>
+      <p className="mt-2 text-sm text-ink-soft">
         Archive <b>{live.nameEn}</b> and start a new event. Its totals are frozen to a read-only
         archive first, then the stamps, prize unlocks, counters and visitor progress are cleared so
         the next event starts from zero. This cannot be undone.
@@ -371,7 +371,7 @@ function DangerZone({ live, onDone }: { live: EventRow; onDone: () => Promise<vo
           </div>
 
           {log.length > 0 && (
-            <ol className="mt-2 rounded-xl bg-navy/5 p-3 text-sm">
+            <ol className="mt-2 rounded-xl bg-ink/5 p-3 text-sm">
               {log.map((l, i) => <li key={i} className="tabular-nums">{l}</li>)}
             </ol>
           )}

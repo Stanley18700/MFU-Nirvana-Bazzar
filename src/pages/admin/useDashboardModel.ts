@@ -61,7 +61,7 @@ export function useDashboardModel(day: DaySel) {
 
   const stock = useMemo(() => tiers.filter((t) => t.active).map((t) => {
     const pct = t.stockTotal ? t.stockRemaining / t.stockTotal : 0
-    return { id: t.id, name: t.name, remaining: t.stockRemaining, total: t.stockTotal, pct, tone: t.stockRemaining <= 5 ? '#E0533D' : pct < 0.2 ? '#D4762A' : '#1E8A6E' }
+    return { id: t.id, name: t.name, remaining: t.stockRemaining, total: t.stockTotal, pct, tone: t.stockRemaining <= 5 ? '#D94A48' : pct < 0.2 ? '#DC8A2A' : '#4C764F' }
   }), [tiers])
 
   const cross = useMemo(() => crossSchoolTable(ev.totals.crossSchool, booths), [ev.totals.crossSchool, booths])

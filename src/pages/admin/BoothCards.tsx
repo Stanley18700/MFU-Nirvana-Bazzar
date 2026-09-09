@@ -11,7 +11,7 @@ export default function BoothCards() {
   return (
     <div className="min-h-full bg-white">
       <div className="mx-auto max-w-[190mm] p-6 print:p-0">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-navy/5 p-3 text-sm print:hidden">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-ink/5 p-3 text-sm print:hidden">
           <span>{booths.length} card{booths.length === 1 ? '' : 's'}, one per page. Print on A4, or choose “Save as PDF”.</span>
           <div className="flex gap-2">
             <button className="btn-primary" onClick={() => window.print()}>{Icon.print}Print all</button>
@@ -23,7 +23,7 @@ export default function BoothCards() {
             <BoothCard booth={b} origin={APP_ORIGIN} period={event.qrPeriodSeconds} />
           </div>
         ))}
-        {booths.length === 0 && <p className="text-sm text-navy-soft">No active booths.</p>}
+        {booths.length === 0 && <p className="text-sm text-ink-soft">No active booths.</p>}
       </div>
     </div>
   )

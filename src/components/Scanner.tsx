@@ -93,7 +93,7 @@ export function Scanner({ onResult, paused = false, className = '' }: Props) {
   }, [])
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl bg-navy-deep ${className}`}>
+    <div className={`relative overflow-hidden rounded-2xl bg-chrome ${className}`}>
       <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
       {state === 'live' && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
