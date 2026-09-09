@@ -48,6 +48,13 @@
    */
   --color-chrome: #17414E;          /* sidebar, kiosk, cover, auth */
   --color-chrome-soft: #1F5A6B;
+  /*
+   * The organizer's ground — sky-950, two steps lighter and bluer than chrome. The booth screens
+   * carry a booth's own accent as their heading, manual code and figures, and on chrome five of
+   * the nine accents had to be mixed halfway to white before they were legible, which left a pale
+   * wash where the booth's colour should be. On this, six of the nine are used as drawn.
+   */
+  --color-stage: #0D5A70;
   --color-on-chrome-soft: #CFE3EA;  /* secondary text on chrome — solid, 8.3:1. Never white/60. */
 
   /* Interactive */
@@ -397,7 +404,21 @@ details[open] > .pop-up { animation-name: pop-in-up; }
     overflow: clip;
     transition: block-size var(--dur-base) var(--ease-enter), content-visibility var(--dur-base) allow-discrete;
   }
-  details.reveal-host[open]::details-content { block-size: auto; }
+  /*
+   * `overflow: clip` is what makes the height animation a reveal instead of a jump, but it also
+   * clips anything a child wants to hang outside the box — the create-a-user form holds four of
+   * the new selects, and their lists would be cut off at the fold. Once the box has finished
+   * growing it is its natural height and there is nothing left to clip, so the clip is lifted
+   * then: duration 0s, delay one animation. Closing uses the rule above, which has no overflow
+   * entry, so the clip returns at once and the collapse still reads as a reveal in reverse.
+   */
+  details.reveal-host[open]::details-content {
+    block-size: auto;
+    overflow: visible;
+    transition: block-size var(--dur-base) var(--ease-enter),
+      content-visibility var(--dur-base) allow-discrete,
+      overflow 0s var(--dur-base) allow-discrete;
+  }
 }
 
 /* Rows inside a card's "More" popover. */
@@ -530,7 +551,7 @@ details[open] > .pop-up { animation-name: pop-in-up; }
   top: 0;
   z-index: 30;
   padding-block: 0.625rem;
-  background: var(--color-chrome);
+  background: var(--color-stage);
 }
 
 /*

@@ -40,7 +40,6 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
     document.addEventListener('fullscreenchange', on)
     return () => document.removeEventListener('fullscreenchange', on)
   }, [])
-  if (compact && fs) return null
 
   // An admin looking at someone else's booth keeps that booth in the links.
   const q = role === 'admin' && boothId ? `?boothId=${encodeURIComponent(boothId)}` : ''
@@ -72,6 +71,14 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
    * a disclosure naming the current page, so nothing is hidden and nothing wraps.
    */
   const { ref: navRef, fits } = useFitsOneLine<HTMLElement>(`${locale}:${items.length}`)
+
+  /*
+   * Below every hook, deliberately. This used to sit up with the fullscreen state, so pressing
+   * full screen on the kiosk unmounted the bar one hook early and React threw "Rendered fewer
+   * hooks than expected" straight into the error boundary — the whole booth screen replaced by
+   * "Something went wrong", on the one press meant to make it a hall display.
+   */
+  if (compact && fs) return null
   const current = items.find((n) => (n.end ? loc.pathname === n.to.split('?')[0] : loc.pathname.startsWith(n.to.split('?')[0])))
   const close = () => { if (menu.current) menu.current.open = false }
 

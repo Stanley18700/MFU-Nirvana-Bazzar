@@ -46,7 +46,7 @@ export function OrganizerPage({ boothId, booth, marks, children, compact = false
 }) {
   return (
     <>
-      <div className="fixed inset-0 -z-20 bg-chrome" aria-hidden />
+      <div className="fixed inset-0 -z-20 bg-stage" aria-hidden />
       <BoothWatermark booth={booth} marks={marks} />
       {/* `large`, like the kiosk: one bar size across every organizer screen rather than a big one
           on the booth display and a small one everywhere else. */}

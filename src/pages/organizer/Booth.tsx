@@ -239,12 +239,14 @@ export default function Booth() {
   const box = size + 2 * FRAME_PAD + 2 * inset
   const left = Math.max(0, Math.min(1, msLeft / (session.period * 1000)))
   const urgent = msLeft <= 3000
-  const accent = onChrome(b.accentColor)
+  // Display sizes: the booth name is 1.6em of a viewport-scaled base and the manual code 2em.
+  const accent = onChrome(b.accentColor, true)
+  const accentSmall = onChrome(b.accentColor)
 
   return (
     <>
     {/* The ground is a backdrop rather than a fill on `main`, or `main` paints over it. */}
-    <div className="fixed inset-0 -z-20 bg-chrome print:hidden" aria-hidden />
+    <div className="fixed inset-0 -z-20 bg-stage print:hidden" aria-hidden />
     {/*
       * The design system's booth screen stands the code on the paper-cut campus, so a hall full of
       * these reads as one set. Turned right down — the visa behind the QR is the figure here.
@@ -286,7 +288,7 @@ export default function Booth() {
             {/* Eyebrow, title and manual code in the booth's own colour, as the design system has
                 them — the swatch dot they used to need is redundant once the line itself is the
                 colour. `onChrome` is what makes that safe for the dark-green booths. */}
-            <div className="stamp-text text-[0.55em]" style={{ color: accent }}>{t('booth.worth', { location: b.location, points: b.points })}</div>
+            <div className="stamp-text text-[0.55em]" style={{ color: accentSmall }}>{t('booth.worth', { location: b.location, points: b.points })}</div>
             <h1 className="mt-1 text-[1.6em] font-extrabold leading-[1.08]" style={{ color: accent }}>{pick(b.nameEn, b.nameTh)}</h1>
             <div className="text-[0.6em] text-on-chrome-soft">{b.hostUnit}</div>
           </div>
@@ -313,8 +315,8 @@ export default function Booth() {
          * wider than the frame cannot widen the document on a phone.
          */}
         <div
-          className="pointer-events-none absolute left-1/2 top-1/2 w-[min(96vw,var(--visa-w))] -translate-x-1/2 -translate-y-1/2 opacity-[0.09] mix-blend-luminosity"
-          style={{ ['--visa-w' as string]: `${Math.round(size * 1.8)}px` }} aria-hidden
+          className="pointer-events-none absolute left-1/2 top-1/2 w-[min(96vw,var(--visa-w))] -translate-x-1/2 -translate-y-1/2 opacity-[0.06] mix-blend-luminosity"
+          style={{ ['--visa-w' as string]: `${Math.round(size * 2.4)}px` }} aria-hidden
         >
           <Stamp booth={b} collected size={720} className="!w-full" {...stampMarks(event)} />
         </div>

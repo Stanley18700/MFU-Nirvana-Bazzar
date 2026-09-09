@@ -79,7 +79,7 @@ export default function SurveyResults() {
       <DataErrors dark className="mt-3" />
 
       <section className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
-        <Fig value={fmt(rows.length)} label="Responses" accent={onChrome(booth.accentColor)}
+        <Fig value={fmt(rows.length)} label="Responses" accent={onChrome(booth.accentColor, true)}
           sub={rows.length ? `last at ${clock(ms(rows[0].submittedAt) ?? 0)}` : 'none yet'} />
         <Fig value={rate === null ? '–' : `${rate}%`} label="Of those stamped" sub={`${fmt(stamped)} collected the stamp`} />
         <Fig value={survey.data?.active ? 'Live' : 'Draft'} label="Status" sub={`${questions.length} question${questions.length === 1 ? '' : 's'}`} />
@@ -100,7 +100,7 @@ export default function SurveyResults() {
       )}
 
       {rows.length > 0 && questions.map((q, i) => (
-        <QuestionResult key={q.id} q={q} index={i} rows={rows} accent={onChrome(booth.accentColor)}
+        <QuestionResult key={q.id} q={q} index={i} rows={rows} accent={onChrome(booth.accentColor, true)}
           boothId={boothId} showAll={showAll} />
       ))}
 
