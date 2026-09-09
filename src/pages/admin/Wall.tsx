@@ -69,8 +69,8 @@ export default function Wall() {
           <div className="h-[50vh]">
             <ResponsiveContainer>
               <AreaChart data={timeline}>
-                <XAxis dataKey="t" tick={{ fill: 'rgba(207,224,211,.6)', fontSize: 14 }} axisLine={false} tickLine={false} minTickGap={40} />
-                <YAxis tick={{ fill: 'rgba(207,224,211,.6)', fontSize: 14 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <XAxis dataKey="t" tick={{ fill: 'rgba(207,227,234,.6)', fontSize: 14 }} axisLine={false} tickLine={false} minTickGap={40} />
+                <YAxis tick={{ fill: 'rgba(207,227,234,.6)', fontSize: 14 }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Area type="monotone" dataKey="stamps" stroke="#F5C63C" strokeWidth={3} fill="rgba(200,162,74,.25)" dot={false} isAnimationActive={false} />
               </AreaChart>
             </ResponsiveContainer>

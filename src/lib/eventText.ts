@@ -30,7 +30,9 @@ export function eventMark(ev: LiveEvent): string {
   if (ev.stampMarkTop) return ev.stampMarkBottom ? `${ev.stampMarkTop} · ${ev.stampMarkBottom}` : ev.stampMarkTop
   const a = d(ev.startsAt)
   const year = a ? new Intl.DateTimeFormat('en-GB', { year: 'numeric', timeZone: TZ }).format(a) : ''
-  return year ? `${ev.nameEn.toUpperCase()} · ${year}` : ev.nameEn.toUpperCase()
+  const name = ev.nameEn.toUpperCase()
+  // Most event names already carry the year. Appending it again read as "… 2026 · 2026".
+  return year && !name.includes(year) ? `${name} · ${year}` : name
 }
 
 /**

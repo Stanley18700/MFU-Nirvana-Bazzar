@@ -5,7 +5,7 @@ import { api, friendlyError } from '../../lib/api'
 import { authError, signInWithGoogle } from '../../lib/authActions'
 import { useEvent } from '../../lib/data'
 import { eventDateLine } from '../../lib/eventText'
-import { Crest, Notice, Spinner } from '../../components/ui'
+import { Crest, DarkNotice, Spinner } from '../../components/ui'
 import { GoogleButton } from '../auth/parts'
 
 type Info = Awaited<ReturnType<typeof api.inviteInfo>>
@@ -50,14 +50,14 @@ export default function Invite() {
       <div className="stamp-text text-foil">{event.nameEn} · {eventDateLine(event, false)}</div>
       <div className="my-8 flex justify-center"><Crest className="h-28 w-28 text-foil" /></div>
       {!info && !err && <Spinner label="Reading your invitation…" />}
-      {err && <div className="mb-4"><Notice tone="red">{err}</Notice></div>}
+      {err && <div className="mb-4"><DarkNotice tone="red">{err}</DarkNotice></div>}
       {info && info.status !== 'ok' && (
-        <Notice tone="amber">
+        <DarkNotice tone="amber">
           {info.status === 'accepted' && 'This invitation has already been used. If that was you, sign in on that device — or ask the admin to resend.'}
           {info.status === 'expired' && 'This invitation has expired. Ask the admin to resend it.'}
           {info.status === 'revoked' && 'This invitation was withdrawn.'}
           {info.status === 'invalid' && 'This link is not a valid invitation.'}
-        </Notice>
+        </DarkNotice>
       )}
       {/*
         * Every one of these is terminal, and this page is opened from an email — so there is no
@@ -92,16 +92,16 @@ export default function Invite() {
               </div>
             ) : wrongAccount ? (
               <div className="mt-6 flex flex-col gap-3">
-                <Notice tone="amber">
+                <DarkNotice tone="amber">
                   This device is signed in as <b>{signedInAs}</b>, but the invitation was sent to <b>{invited}</b>.
                   Sign out and sign in with the invited address.
-                </Notice>
+                </DarkNotice>
                 <SignOutButton />
               </div>
             ) : (
               <div className="mt-6 flex flex-col gap-3">
                 {role && role !== 'visitor' && (
-                  <Notice tone="amber">This account is already {role}. Accepting will switch it to this invitation.</Notice>
+                  <DarkNotice tone="amber">This account is already {role}. Accepting will switch it to this invitation.</DarkNotice>
                 )}
                 <p className="text-sm text-on-chrome-soft">Signed in as <b className="text-white">{signedInAs}</b>.</p>
                 <button className="btn-gold w-full py-3.5 text-lg" onClick={accept} disabled={busy}>

@@ -40,9 +40,15 @@
   --color-page-quiet: #EDFBFE;      /* console ground */
   --color-panel: #FFFFFF;
   --color-panel-warm: #F4E4C4;
-  --color-chrome: #1E3F2A;          /* sidebar, kiosk, cover, auth */
-  --color-chrome-soft: #2F5D3E;
-  --color-on-chrome-soft: #CFE0D3;  /* secondary text on chrome — solid, 8.5:1. Never white/60. */
+  /*
+   * Chrome is the deep teal the design system already calls ink — the colour sampled from the key
+   * visual's own body copy — not the dark green it started as. Green stays where it belongs: the
+   * paper mountains, the "connected" dot, success. Everything that reads on the old green reads on
+   * this within a tenth of a point (white is 11.0:1 here against 11.7:1 there).
+   */
+  --color-chrome: #17414E;          /* sidebar, kiosk, cover, auth */
+  --color-chrome-soft: #1F5A6B;
+  --color-on-chrome-soft: #CFE3EA;  /* secondary text on chrome — solid, 8.3:1. Never white/60. */
 
   /* Interactive */
   --color-action: #12708A;          /* the one sky step that carries white text (5.7:1) */
@@ -61,6 +67,16 @@
   --color-danger-text: #8F2A1C;
   --color-danger-bg: #FCE6E5;
   --color-offline: #D94A48;
+
+  /*
+   * The same three states, as text on the chrome ground. The `-text` values above are tuned for
+   * white and are unreadable on it — success is 2.2:1 there. `.on-chrome` already restates them
+   * for pages inside that system; these give the same values a name, for the surfaces that frame
+   * a light card and so cannot take `.on-chrome` wholesale.
+   */
+  --color-success-on-chrome: #BDE8C4;
+  --color-warn-on-chrome: #FFD9A3;
+  --color-danger-on-chrome: #FFC9BF;
 
   --font-sans: 'IBM Plex Sans Thai', 'IBM Plex Sans', system-ui, sans-serif;
   --font-display: 'Baloo 2', 'Mitr', 'IBM Plex Sans Thai', system-ui, sans-serif;
@@ -543,9 +559,9 @@ input, select, textarea, button { font: inherit; }
 /* Utilities the light components set inline. Two classes beat one, so these win. */
 .on-chrome .text-ink-soft { @apply text-on-chrome-soft; }
 .on-chrome .text-ink { @apply text-white; }
-.on-chrome .text-success-text { @apply text-[#BDE8C4]; }
-.on-chrome .text-danger-text { @apply text-[#FFC9BF]; }
-.on-chrome .text-warn-text { @apply text-orange-300; }
+.on-chrome .text-success-text { @apply text-success-on-chrome; }
+.on-chrome .text-danger-text { @apply text-danger-on-chrome; }
+.on-chrome .text-warn-text { @apply text-warn-on-chrome; }
 .on-chrome .bg-white\/50, .on-chrome .bg-white\/70 { @apply bg-white/[0.07]; }
 .on-chrome .bg-ink\/5, .on-chrome .bg-ink\/6 { @apply bg-white/[0.07]; }
 .on-chrome .border-ink\/10, .on-chrome .border-ink\/15, .on-chrome .border-ink\/20 { @apply border-white/20; }

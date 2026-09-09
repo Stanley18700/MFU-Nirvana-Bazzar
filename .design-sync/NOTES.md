@@ -106,3 +106,29 @@ Other things worth carrying upstream:
   `--ease-standard`'s slow head reads as lag.
 - Touch targets are raised to 44px under `@media (pointer: coarse)` only. The design system's 28px
   `.btn-sm` metrics are right beside 12px text on a laptop and wrong for the booth tablet.
+
+## 2026-09-09 — chrome is deep teal, not dark green
+
+**Second deliberate departure, at the user's direction.** `tokens/theme-app.css` sets
+`--app-chrome` and `--app-cover` to `green-900` (#1E3F2A). Dark green is no longer used as a ground
+anywhere in the app: chrome is `#17414E`, the deep teal the design system itself calls `--ink-900`
+and describes as "sampled from the key visual's body copy". `--app-chrome-soft` follows to
+`#1F5A6B` and `--app-ink-on-chrome-soft` to `#CFE3EA` so the soft white is teal-tinted rather than
+green-tinted.
+
+Nothing lost on contrast: every foreground that cleared the green clears the teal within a tenth of
+a point (white 11.0:1 against 11.7:1; foil 6.9 against 7.2; the soft white 8.3 against 8.5).
+
+Green survives where it is the subject rather than the ground: the paper mountains, the "connected"
+dot, the success state, and `--booth-3`/`--booth-9`.
+
+Three new tokens with no design-system counterpart: `--color-success-on-chrome` #BDE8C4,
+`--color-warn-on-chrome` #FFD9A3, `--color-danger-on-chrome` #FFC9BF. The system's `*-text` status
+values are tuned for white and unreadable on chrome — success is 2.2:1 there — and the `.on-chrome`
+block was already restating them inline. Naming them lets a page that frames a white card, and so
+cannot take `.on-chrome` wholesale, still reach the right value. The prize desk is that page.
+
+Also, per the design system's own kits, the admin rail and the passport cover now carry the
+paper-cut mountains behind them (`PaperHills` in `src/pages/auth/parts.tsx`, at 14% and 18%), and
+the rail leads with the university seal. The kits use `assets/logo-festival.png` and
+`assets/illus-campus-papercut.png` for this — both still missing.

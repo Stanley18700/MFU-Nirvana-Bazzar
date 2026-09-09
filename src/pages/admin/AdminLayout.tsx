@@ -4,6 +4,7 @@ import { useEvent } from '../../lib/data'
 import { AccountMenu } from '../../components/AccountMenu'
 import { DataErrors, Icon } from '../../components/ui'
 import { useSlidingPill } from '../../lib/useSlidingPill'
+import { PaperHills, UniversityMark } from '../auth/parts'
 
 type Item = { to: string; label: string; icon: ReactNode; end?: boolean; away?: boolean }
 
@@ -55,11 +56,16 @@ function SideNav({ collapsed, onToggle }: { collapsed: boolean; onToggle?: () =>
   const nav = useSlidingPill<HTMLElement>()
   return (
     <>
-      <div className={`flex items-center gap-2 py-4 ${collapsed ? 'justify-center px-2' : 'px-5'}`}>
+      <PaperHills className="pointer-events-none absolute -bottom-6 left-[-20%] -z-10 h-32 w-[140%]" opacity={0.14} />
+      <div className={`relative flex items-center gap-3 py-4 ${collapsed ? 'justify-center px-2' : 'px-5'}`}>
+        {/* The design system's rail leads with the festival logo. That artwork is one of the five
+            assets the design tool could not deliver, so the university seal — the one real mark we
+            do have — stands in beside the wordmark. */}
+        {!collapsed && <UniversityMark className="h-8 w-8" />}
         {!collapsed && (
           <div className="min-w-0 flex-1">
             <div className="stamp-text truncate text-foil">{event.nameEn}</div>
-            <div className="font-semibold">Passport admin</div>
+            <div className="truncate font-semibold">Passport admin</div>
           </div>
         )}
         {onToggle && (
@@ -152,7 +158,7 @@ export default function AdminLayout() {
         * kiosk measures its QR against. `self-start` is mandatory: a stretched flex item is already
         * the container's height, so it has no slack to stick with and silently will not move.
         */}
-      <aside className={`sticky top-0 hidden h-dvh shrink-0 flex-col self-start bg-chrome text-white transition-[width] duration-200 lg:flex ${collapsed ? 'w-[72px]' : 'w-60'}`}>
+      <aside className={`sticky top-0 hidden h-dvh shrink-0 flex-col self-start overflow-hidden bg-chrome text-white isolate transition-[width] duration-200 lg:flex ${collapsed ? 'w-[72px]' : 'w-60'}`}>
         <SideNav collapsed={collapsed} onToggle={toggleRail} />
       </aside>
 
@@ -166,7 +172,7 @@ export default function AdminLayout() {
         ref={dlg} id="admin-nav" className="nav-drawer" onClose={() => setOpen(false)}
         onClick={(e) => { if (e.target === dlg.current) setOpen(false) }}
       >
-        <div className="flex h-full flex-col bg-chrome text-white">
+        <div className="relative isolate flex h-full flex-col overflow-hidden bg-chrome text-white">
           <SideNav collapsed={false} />
         </div>
       </dialog>

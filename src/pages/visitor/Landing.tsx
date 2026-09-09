@@ -28,7 +28,7 @@ export default function Landing() {
   return (
     <><FestivalBackdrop /><main className="relative mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-between gap-6 px-6 pt-8 text-center text-ink sm:max-w-lg sm:justify-center sm:gap-14 sm:py-16" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
       <div className="haze page-in flex flex-col items-center px-3 py-2">
-        <ScrapLabel tone="forest" tilt={-2.5}>Mae Fah Luang University</ScrapLabel>
+        <ScrapLabel tone="ink" tilt={-2.5}>Mae Fah Luang University</ScrapLabel>
         {/* An event name is admin-typed and any length, so let it balance across lines. */}
         <h1 className="mt-4 text-balance text-3xl font-extrabold leading-[1.08] sm:text-4xl">{event.nameEn}</h1>
         <p className="mt-2 text-sm font-medium text-ink-soft sm:text-base">{eventDateLine(event)}</p>

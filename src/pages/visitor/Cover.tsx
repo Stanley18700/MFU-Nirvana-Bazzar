@@ -3,6 +3,7 @@ import { useAuth } from '../../lib/auth'
 import { useBooths, useEvent, useTiers } from '../../lib/data'
 import { eventMark } from '../../lib/eventText'
 import { Crest, Spinner, fmt } from '../../components/ui'
+import { PaperHills } from '../auth/parts'
 
 export function tierProgress<T extends { id: string; name: string; thresholdPoints: number }>(points: number, tiers: T[]) {
   const sorted = [...tiers].sort((a, b) => a.thresholdPoints - b.thresholdPoints)
@@ -25,7 +26,10 @@ export default function Cover() {
 
   return (
     <main className="px-5 pt-6">
-      <section className="relative overflow-hidden rounded-[36px] bg-chrome px-6 py-8 text-white shadow-float">
+      <section className="relative isolate overflow-hidden rounded-[36px] bg-chrome px-6 py-8 text-white shadow-float">
+        {/* The passport cover is a printed object: the mountains show through the board, the way
+            the design system's guest kit sets them behind it. */}
+        <PaperHills className="pointer-events-none absolute -bottom-4 left-[-15%] -z-10 h-40 w-[130%]" opacity={0.18} />
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full border border-foil/20" />
         <div className="absolute -right-4 -top-4 h-40 w-40 rounded-full border border-foil/10" />
         <div className="stamp-text text-foil">Mae Fah Luang University</div>
@@ -45,7 +49,7 @@ export default function Cover() {
           </div>
           <div className="relative h-24 w-24 shrink-0 xs:h-32 xs:w-32">
             <svg viewBox="0 0 128 128" className="h-full w-full -rotate-90">
-              <circle cx="64" cy="64" r={r} fill="none" stroke="rgba(207,224,211,.15)" strokeWidth="8" />
+              <circle cx="64" cy="64" r={r} fill="none" stroke="rgba(207,227,234,.15)" strokeWidth="8" />
               <circle cx="64" cy="64" r={r} fill="none" stroke="#F5C63C" strokeWidth="8" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct)} style={{ transition: 'stroke-dashoffset 600ms ease-out' }} />
             </svg>
             <div className="absolute inset-0 grid place-items-center text-center">

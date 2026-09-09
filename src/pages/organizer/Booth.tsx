@@ -289,7 +289,7 @@ export default function Booth() {
               className="qr-countdown"
               x={RING / 2} y={RING / 2} width={box - RING} height={box - RING}
               rx={CORNER + inset - RING / 2} fill="none" strokeWidth={RING} strokeLinecap="butt"
-              stroke={urgent ? '#DC8A2A' : 'rgba(207,224,211,.8)'}
+              stroke={urgent ? '#DC8A2A' : 'rgba(207,227,234,.8)'}
               pathLength={1} strokeDasharray={1} strokeDashoffset={1 - left}
             />
           </svg>
