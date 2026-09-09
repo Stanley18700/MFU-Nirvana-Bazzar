@@ -68,18 +68,6 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Festival feedback pulled from the organizers' Google Form (functions/src/feedback.ts).
-    // The form's link is for every visitor; the answers carry passport numbers, so admins only.
-    match /feedbackForms/{formId} {
-      allow read: if signedIn();
-      allow write: if false;
-    }
-
-    match /feedbackResponses/{id} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
     match /refData/{doc} {
       allow read: if true;
       allow write: if false;

@@ -17,5 +17,4 @@ export { createEvent, updateEvent, deleteEvent, goLive, archiveEvent, purgeEvent
 export {
   saveSurvey, setSurveyActive, deleteSurvey, surveyForBooth, submitSurveyResponse,
 } from './survey'
-export { syncFeedback, syncFeedbackNow } from './feedback'
 export { onScanCreate, onUserWrite, rankBooths, sweepActive, purgePersonalData } from './triggers'
