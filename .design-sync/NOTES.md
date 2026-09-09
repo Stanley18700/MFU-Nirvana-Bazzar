@@ -15,16 +15,26 @@ UI-kit screens and docs; the app itself consumes the values through `src/index.c
   `guidelines/*.html` (29 specimen cards), `thumbnail.html`, `_ds_bundle.js`, `_ds_manifest.json`,
   `templates/festival-deck/FestivalDeck.dc.html`, `ds-base.js`.
 - **Assets over ~190 KB come back truncated from the design tool** (256 KiB response cap), so these
-  must be downloaded from the project by hand and dropped into `design-system/assets/`:
-  `logo-festival.png`, `logo-festival-tagline.png`, `bg-sky-waves.png`, `key-visual-poster.png`.
-  `illus-campus-papercut.png` was supplied this way and is now present (2421 x 1131, 3.0 MB); the
-  runtime copy is `public/brand/illus-campus-papercut.webp` — cropped to its alpha box, 1600px
-  wide, 81 KB. Also skipped (small, base64 only in-context): `illus-rocket.png`,
+  must be downloaded from the project by hand and dropped into `design-system/assets/`. All five
+  have now been supplied that way and are present. Each has a runtime copy in `public/brand/`,
+  cropped to its alpha box, resized and encoded as WebP:
+
+  | Master (`design-system/assets/`) | Runtime (`public/brand/`) | Used by |
+  |---|---|---|
+  | `illus-campus-papercut.png` 2421x1131, 3.0 MB | `illus-campus-papercut.webp` 1600px, 81 KB | booth kiosk, signed-out horizon, passport cover |
+  | `bg-sky-waves.png` 2630x1480 | `bg-sky-waves.webp` 1800px, 8 KB | `FestivalBackdrop` ground |
+  | `logo-festival-tagline.png` 1630x828 | `logo-festival-tagline.webp` 760px, 64 KB | landing wordmark |
+  | `logo-festival.png` 1510x650 | `logo-festival.webp` 700px, 43 KB | not placed yet — the admin rail is the design system's home for it |
+  | `key-visual-poster.png` 1600x2000 | — | master artwork, reference only |
+
+  Still only in the project: `illus-rocket.png`, `shape-torn-terracotta.png` (small, but base64
+  in-context only). `PaperRocket` in `parts.tsx` is drawn SVG standing in for the first. Also skipped (small, base64 only in-context): `illus-rocket.png`,
   `shape-torn-terracotta.png`. Present: `logo-global-mfu.png`, `illus-globe-mappins.png`,
   `logo-adt-school.png` (extracted from `spec/concept.html`).
-- The booth kiosk now stands on the real campus paper-cut, faded into the chrome from 42% height so
-  its skyline does not cut a hard edge behind the QR. The cover and admin sidebar still use the
-  drawn `PaperHills`, and the festival logo is still missing.
+- The booth kiosk stands on the real campus paper-cut, faded into the chrome from 42% height so its
+  skyline does not cut a hard edge behind the QR. The signed-out screens carry the real sky wave
+  field and a band of campus ridge at the horizon; the landing leads with the festival wordmark.
+  The admin rail still uses the drawn `PaperHills`.
 
 ## Contrast findings (fixed in the app; worth fixing upstream too)
 

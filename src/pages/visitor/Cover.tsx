@@ -3,7 +3,6 @@ import { useAuth } from '../../lib/auth'
 import { useBooths, useEvent, useTiers } from '../../lib/data'
 import { eventMark } from '../../lib/eventText'
 import { Crest, Spinner, fmt } from '../../components/ui'
-import { PaperHills } from '../auth/parts'
 
 export function tierProgress<T extends { id: string; name: string; thresholdPoints: number }>(points: number, tiers: T[]) {
   const sorted = [...tiers].sort((a, b) => a.thresholdPoints - b.thresholdPoints)
@@ -29,7 +28,11 @@ export default function Cover() {
       <section className="relative isolate overflow-hidden rounded-[36px] bg-chrome px-6 py-8 text-white shadow-float">
         {/* The passport cover is a printed object: the mountains show through the board, the way
             the design system's guest kit sets them behind it. */}
-        <PaperHills className="pointer-events-none absolute -bottom-4 left-[-15%] -z-10 h-40 w-[130%]" opacity={0.18} />
+        <img
+          src="/brand/illus-campus-papercut.webp" alt="" aria-hidden
+          className="pointer-events-none absolute -bottom-4 left-0 -z-10 w-full opacity-[0.16]"
+          style={{ WebkitMaskImage: 'linear-gradient(to bottom, transparent, #000 45%)', maskImage: 'linear-gradient(to bottom, transparent, #000 45%)' }}
+        />
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full border border-foil/20" />
         <div className="absolute -right-4 -top-4 h-40 w-40 rounded-full border border-foil/10" />
         <div className="stamp-text text-foil">Mae Fah Luang University</div>

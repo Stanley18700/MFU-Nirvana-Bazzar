@@ -37,11 +37,9 @@ export function PaperHills({ className = '', opacity = 1 }: { className?: string
 export function FestivalBackdrop({ hills = true }: { hills?: boolean }) {
   return (
     <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-page" aria-hidden>
-      {/* Wave bands: two lighter sky sheets, the way the wave field lightens toward the horizon. */}
-      <svg className="absolute inset-x-0 top-0 h-full w-full" viewBox="0 0 1440 900" preserveAspectRatio="none" fill="#93E4F4">
-        <path d="M0 260C240 220 420 300 720 270 1020 240 1200 300 1440 250V420C1200 460 1020 400 720 430 420 460 240 400 0 440Z" />
-        <path d="M0 600C240 560 480 640 720 610 960 580 1200 640 1440 590V900H0Z" fill="#AEEAF7" opacity=".7" />
-      </svg>
+      {/* The design system's own sky wave field, in place of the two SVG sheets that stood in for
+          it. `object-cover` because it is a field, not a picture: it may be cropped anywhere. */}
+      <img src="/brand/bg-sky-waves.webp" alt="" className="absolute inset-0 h-full w-full object-cover" />
       <svg className="sun-drift absolute right-[5%] top-[3%] h-12 w-12 sm:right-[8%] sm:top-[7%] sm:h-24 sm:w-24" viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#fff" opacity=".9" /></svg>
       {/* Paper clouds: flat white bumps on a straight base, three sizes, never symmetrical. */}
       <svg className="cloud-a absolute left-[-4%] top-[14%] w-[52%] max-w-[380px]" viewBox="0 0 380 130" fill="#fff" opacity=".92">
@@ -56,7 +54,18 @@ export function FestivalBackdrop({ hills = true }: { hills?: boolean }) {
       <PaperRocket className={`drift absolute ${hills
         ? 'right-[-9%] top-[21%] w-[27vw] sm:right-[13%] sm:top-[21%] sm:w-[150px]'
         : 'right-[4%] bottom-[max(16vh,130px)] w-[min(24vw,130px)]'}`} />
-      {hills && <PaperHills className="absolute bottom-0 left-0 h-[min(13vh,110px)] w-full sm:h-[min(20vh,170px)]" />}
+      {/*
+        * The horizon is the design system's own paper-cut campus now, not the SVG mountains that
+        * stood in for it while the asset could not be pulled. Cropped to a band of ridge and
+        * canopy, at the height the mountains held: at its natural proportion it is two thirds of a
+        * laptop screen, and every line of small print on this page then sits on rooftops.
+        */}
+      {hills && (
+        <img
+          src="/brand/illus-campus-papercut.webp" alt=""
+          className="absolute bottom-0 left-0 h-[min(13vh,110px)] w-full object-cover object-[50%_0%] sm:h-[min(20vh,170px)]"
+        />
+      )}
     </div>
   )
 }
