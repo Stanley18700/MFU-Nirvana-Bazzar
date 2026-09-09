@@ -16,12 +16,15 @@ UI-kit screens and docs; the app itself consumes the values through `src/index.c
   `templates/festival-deck/FestivalDeck.dc.html`, `ds-base.js`.
 - **Assets over ~190 KB come back truncated from the design tool** (256 KiB response cap), so these
   must be downloaded from the project by hand and dropped into `design-system/assets/`:
-  `logo-festival.png`, `logo-festival-tagline.png`, `illus-campus-papercut.png`, `bg-sky-waves.png`,
-  `key-visual-poster.png`. Also skipped (small, base64 only in-context): `illus-rocket.png`,
+  `logo-festival.png`, `logo-festival-tagline.png`, `bg-sky-waves.png`, `key-visual-poster.png`.
+  `illus-campus-papercut.png` was supplied this way and is now present (2421 x 1131, 3.0 MB); the
+  runtime copy is `public/brand/illus-campus-papercut.webp` — cropped to its alpha box, 1600px
+  wide, 81 KB. Also skipped (small, base64 only in-context): `illus-rocket.png`,
   `shape-torn-terracotta.png`. Present: `logo-global-mfu.png`, `illus-globe-mappins.png`,
   `logo-adt-school.png` (extracted from `spec/concept.html`).
-- Because the campus paper-cut and the festival logo are missing, the kiosk, cover and admin
-  sidebar do not yet place them. Add `<img>`s once the files are in `public/`.
+- The booth kiosk now stands on the real campus paper-cut, faded into the chrome from 42% height so
+  its skyline does not cut a hard edge behind the QR. The cover and admin sidebar still use the
+  drawn `PaperHills`, and the festival logo is still missing.
 
 ## Contrast findings (fixed in the app; worth fixing upstream too)
 
@@ -131,4 +134,4 @@ cannot take `.on-chrome` wholesale, still reach the right value. The prize desk 
 Also, per the design system's own kits, the admin rail and the passport cover now carry the
 paper-cut mountains behind them (`PaperHills` in `src/pages/auth/parts.tsx`, at 14% and 18%), and
 the rail leads with the university seal. The kits use `assets/logo-festival.png` and
-`assets/illus-campus-papercut.png` for this — both still missing.
+`assets/illus-campus-papercut.png` for this; the campus is now in hand, the logo is not.

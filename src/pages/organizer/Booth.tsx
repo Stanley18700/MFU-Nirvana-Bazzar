@@ -10,7 +10,6 @@ import { BoothCard } from '../../components/BoothCard'
 import { OrganizerBar } from '../../components/OrganizerBar'
 import { onChrome } from '../../lib/onChrome'
 import { Stamp } from '../../components/Stamp'
-import { PaperHills } from '../auth/parts'
 import { DarkNotice, DataErrors, Icon, IconButton, LiveDot, Spinner, fmt } from '../../components/ui'
 import { APP_ORIGIN } from '../../lib/firebase'
 import { buildPayload, computeToken, counterFor, formatManualCode, msUntilRotation } from '../../../shared/token'
@@ -246,9 +245,24 @@ export default function Booth() {
     <>
     {/* The ground is a backdrop rather than a fill on `main`, or `main` paints over it. */}
     <div className="fixed inset-0 -z-20 bg-chrome print:hidden" aria-hidden />
-    {/* The design system's booth screen stands the code on the paper-cut campus, so a hall full of
-        these reads as one set. Turned right down — the visa behind the QR is the figure here. */}
-    <PaperHills className="pointer-events-none fixed inset-x-0 bottom-0 -z-10 h-[30vh] w-full print:hidden" opacity={0.12} />
+    {/*
+      * The design system's booth screen stands the code on the paper-cut campus, so a hall full of
+      * these reads as one set. Turned right down — the visa behind the QR is the figure here.
+      *
+      * Full width at every size. Held to a minimum width instead, it is a zoomed slice of campus
+      * on a phone — legible detail nobody asked for, sitting right behind the manual code.
+      */}
+    <img
+      src="/brand/illus-campus-papercut.webp" alt="" aria-hidden
+      className="pointer-events-none fixed bottom-0 left-1/2 -z-10 w-full max-w-none -translate-x-1/2 opacity-[0.15] print:hidden"
+      style={{
+        // Faded into the chrome rather than laid on top of it. Its skyline is a hard horizontal
+        // edge across the middle of the screen otherwise, and a straight edge behind the QR reads
+        // as a panel — the same fault the passport landing had with its cut-off clouds.
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent, #000 42%)',
+        maskImage: 'linear-gradient(to bottom, transparent, #000 42%)',
+      }}
+    />
     <main className="booth-screen relative flex min-h-full flex-col overflow-hidden text-white print:hidden">
       {/*
        * Outside the header, not inside it: the bar is the top row of the screen on every organizer
