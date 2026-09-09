@@ -1,34 +1,48 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../lib/auth'
+import { Link, Navigate, useLocation } from 'react-router-dom'
+import { useAuth, useSignOut } from '../../lib/auth'
 import { addPassword, authError, changeEmail, changePassword, hasGoogle, hasPassword, reauthenticate, sendVerification } from '../../lib/authActions'
 import { doc } from 'firebase/firestore'
 import { auth, db } from '../../lib/firebase'
 import { api, errorMessage } from '../../lib/api'
 import { ms, useDoc } from '../../lib/data'
-import { LangToggle, Notice, Spinner } from '../../components/ui'
+import { Notice, Spinner } from '../../components/ui'
 import { useLocale } from '../../lib/locale'
 
 const MIN_PASSWORD = 8
 
-/** Signed-in account settings: the address on the account, the password, and the way out. */
-export default function Account() {
-  const { ready, user, emailVerified, profile, role, signOut } = useAuth()
-  const nav = useNavigate()
+/**
+ * Signed-in account settings: the address on the account, the password, and the way out.
+ *
+ * Two grounds. On its own route it is a chrome page reached from the account menu, so it carries a
+ * back link. Inside the passport it is the Profile tab — the tab bar is the navigation, the page
+ * sits on the sky with the rest of the passport, and a back link would be a second way to leave.
+ */
+export default function Account({ variant = 'page' }: { variant?: 'page' | 'passport' }) {
+  const { ready, user, emailVerified, profile } = useAuth()
+  const loc = useLocation()
+  const signOut = useSignOut()
   const { t } = useLocale()
 
   if (!ready) return <Spinner />
   if (!user) return <Navigate to="/signin" state={{ from: '/account' }} replace />
 
-  const home = role === 'admin' ? '/admin' : role === 'organizer' ? '/booth' : '/passport'
+  const inPassport = variant === 'passport'
+  // `/` routes by role, so it is the role's own home without a second copy of that table here.
+  const back = (loc.state as { from?: string } | null)?.from ?? '/'
 
   return (
-    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="on-chrome mx-auto min-h-full max-w-md px-5 pb-16 pt-8 page-in">
-      <div className="flex items-center justify-between gap-3">
-        <Link to={home} className="text-sm text-ink-soft">← {t('account.back')}</Link>
-        <LangToggle dark />
-      </div>
-      <h1 className="mt-3 text-2xl font-bold">{t('account.title')}</h1>
+    <>
+      {!inPassport && <div className="fixed inset-0 -z-10 bg-chrome" aria-hidden />}
+      <main className={inPassport
+        ? 'mx-auto max-w-md px-5 pb-8 pt-6 text-ink page-in'
+        : 'on-chrome mx-auto min-h-full max-w-md px-5 pb-16 pt-8 page-in'}>
+      {!inPassport && (
+        <div className="flex items-center justify-between gap-3">
+          <Link to={back} className="btn-quiet btn-sm">← {t('account.back')}</Link>
+        </div>
+      )}
+      <h1 className={`text-2xl font-bold ${inPassport ? '' : 'mt-3'}`}>{t('account.title')}</h1>
       <p className="mt-1 text-sm text-ink-soft">
         {profile?.displayName ?? user.displayName ?? t('account.signedIn')}
         {profile?.passportNo && <> · <span className="font-mono tracking-widest">{profile.passportNo}</span></>}
@@ -60,10 +74,11 @@ export default function Account() {
       </Section>
 
       <Section title={t('acct.leaving.title')} note={t('acct.leaving.note')}>
-        <button className="btn-ghost w-full" onClick={async () => { await signOut(); nav('/', { replace: true }) }}>{t('acct.leaving.signOut')}</button>
+        <button className="btn-ghost w-full" onClick={() => void signOut()}>{t('acct.leaving.signOut')}</button>
         <EraseData />
       </Section>
-    </main></>
+    </main>
+    </>
   )
 }
 

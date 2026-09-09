@@ -24,6 +24,10 @@ export const en = {
   'nav.desk': 'Prize desk',
   'nav.admin': 'Admin',
   'nav.account': 'Account',
+  'nav.profile': 'Profile',
+  'nav.myPassport': 'My passport',
+  'nav.accountSettings': 'Account settings',
+  'nav.menu': 'Menu',
   'nav.signOut': 'Sign out',
 
   // Booth kiosk
@@ -122,6 +126,10 @@ export const th: Record<StringKey, string> = {
   'nav.desk': 'จุดแลกของรางวัล',
   'nav.admin': 'ผู้ดูแลระบบ',
   'nav.account': 'บัญชี',
+  'nav.profile': 'โปรไฟล์',
+  'nav.myPassport': 'พาสปอร์ตของฉัน',
+  'nav.accountSettings': 'ตั้งค่าบัญชี',
+  'nav.menu': 'เมนู',
   'nav.signOut': 'ออกจากระบบ',
 
   'booth.worth': '{location} · ตราประทับนี้มีค่า {points} คะแนน',

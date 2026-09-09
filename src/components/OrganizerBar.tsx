@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { useBooth } from '../lib/data'
-import { LangToggle } from './ui'
 import { useLocale } from '../lib/locale'
+import { AccountMenu } from './AccountMenu'
 import { useSlidingPill } from '../lib/useSlidingPill'
 
 /**
@@ -22,8 +22,7 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
   actions?: ReactNode
   className?: string
 }) {
-  const { role, signOut } = useAuth()
-  const nav = useNavigate()
+  const { role } = useAuth()
   const { data: booth } = useBooth(boothId)
   const { t } = useLocale()
   const pages = useSlidingPill()
@@ -44,13 +43,8 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
     { to: `/booth/survey${q}`, label: t('nav.survey') },
     ...(desk ? [{ to: '/redeem', label: t('nav.desk') }] : []),
     ...(role === 'admin' ? [{ to: '/admin', label: t('nav.admin') }] : []),
-    { to: '/account', label: t('nav.account') },
   ]
 
-  async function leave() {
-    await signOut()
-    nav('/', { replace: true })
-  }
 
   /**
    * Pages, then this page's actions, then the way out — the order AdminLayout uses, so an
@@ -58,16 +52,18 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
    * in its own tinted group: without it, six equal chips in a row gave no clue which were pages
    * and which were buttons, and the active page was indistinguishable from a hover.
    *
-   * Sign out is deliberately NOT one of them. It lives outside the `nav` landmark (it navigates
-   * nowhere — it ends the session) and is pushed to the far corner behind a divider, so on a
-   * shared tablet it is never mistaken for another tab and never sits a thumb-width from Stats.
+   * The account menu is deliberately NOT one of them. It lives outside the `nav` landmark (it
+   * navigates nowhere — it changes a setting or ends the session) and sits in the far corner
+   * behind a divider, so on a shared tablet it is never mistaken for another tab and Sign out is
+   * never a thumb-width from Stats.
    */
   /**
    * Two columns, and the outer row deliberately does NOT wrap: the left column holds everything
-   * that may reflow — the tabs and the page's own buttons — while Sign out is a
-   * `shrink-0` sibling. One wrapping row put Sign out below the tabs the moment the tabs needed a
-   * second line; this keeps it in the top corner at every width. `items-start` is what pins it to
-   * the top rather than centring it against a two-line nav.
+   * that may reflow — the tabs and the page's own buttons — while the account menu is a
+   * `shrink-0` sibling. One wrapping row put it below the tabs the moment the tabs needed a
+   * second line; this keeps it in the top corner at every width, which matters now that six booth
+   * pages wrap to two lines on a phone. `items-start` pins it to the top rather than centring it
+   * against a two-line nav.
    */
   return (
     <div className={`flex w-full items-start gap-3 ${className}`}>
@@ -83,11 +79,13 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
         </nav>
         {actions}
       </div>
-      {/* The rule keeps it separate even when the row has no slack left to push it with. */}
-      {/* Language sits with Sign out: both are settings for whoever is holding the tablet. */}
-      <div className={`flex shrink-0 items-center gap-2 border-l pl-3 ${dark ? 'border-white/15' : 'border-ink/10'}`}>
-        <LangToggle dark={dark} />
-        <button type="button" onClick={leave} className={`${dark ? 'btn-dark' : 'btn-quiet'} btn-sm`}>{t('nav.signOut')}</button>
+      {/*
+        * Identity, language and the way out, behind one control — the same menu the admin console
+        * carries. It sits outside the `nav` landmark and behind a rule because none of it
+        * navigates: it ends the session or changes a setting.
+        */}
+      <div className={`flex shrink-0 items-center border-l pl-3 ${dark ? 'border-white/15' : 'border-ink/10'}`}>
+        <AccountMenu dark={dark} />
       </div>
     </div>
   )

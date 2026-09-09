@@ -88,9 +88,6 @@ export default function Cover() {
         </Link>
       </section>
 
-      <p className="mt-6 text-center text-xs text-ink-soft">
-        <Link to="/account" className="link">Your account</Link> · email, password, sign out
-      </p>
     </main>
   )
 }

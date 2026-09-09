@@ -101,6 +101,9 @@ export default function App() {
           <Route index element={<Cover />} />
           <Route path="stamps" element={<Stamps />} />
           <Route path="prize" element={<Prize />} />
+          {/* The Profile tab. Same component as /account, inside the shell so the bar stays put —
+              a tab that navigates out of its own tab bar is the thing this replaces. */}
+          <Route path="account" element={<Account variant="passport" />} />
         </Route>
         <Route path="/scan" element={<Scan />} />
         {/* Offered after a stamp; the stamp and points are already saved by then. */}

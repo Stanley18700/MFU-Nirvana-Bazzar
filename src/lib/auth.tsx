@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getRedirectResult, onAuthStateChanged, signOut as fbSignOut, type User } from 'firebase/auth'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { auth, db } from './firebase'
@@ -112,4 +113,15 @@ export function useAuth(): AuthState {
   const v = useContext(Ctx)
   if (!v) throw new Error('useAuth outside AuthProvider')
   return v
+}
+
+/**
+ * Sign out and go to `/`, which routes by role — so for a signed-out person it is the landing page.
+ * Four callers wrote these two lines out identically; leaving them separate is how one of them ends
+ * up stranding someone on a page they can no longer read.
+ */
+export function useSignOut(): () => Promise<void> {
+  const { signOut } = useAuth()
+  const nav = useNavigate()
+  return useCallback(async () => { await signOut(); nav('/', { replace: true }) }, [signOut, nav])
 }

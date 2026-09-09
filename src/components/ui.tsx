@@ -224,6 +224,31 @@ export const Icon = {
   stamps: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>,
   prize: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 3l2.7 5.5 6 .9-4.4 4.2 1.1 6-5.4-2.9L6.6 19.6l1.1-6L3.3 9.4l6-.9z" /></svg>,
   scan: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 8V5a1 1 0 011-1h3M16 4h3a1 1 0 011 1v3M20 16v3a1 1 0 01-1 1h-3M8 20H5a1 1 0 01-1-1v-3" /><path d="M4 12h16" /></svg>,
+  /*
+   * The fifth tab-bar glyph: the visitor's own Profile. An open shoulder arc rather than a filled
+   * torso, so it sits with `prize`'s open star and `stamps`' unfilled squares rather than against
+   * them.
+   */
+  person: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="3.6" /><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0" /></svg>,
+
+  /*
+   * The admin console's rail. The design system says four glyphs are the whole inventory and a
+   * word does the rest — true for the visitor app, and it stays true there. A ten-item sidebar
+   * that collapses cannot show ten words in 72px, so these eleven exist for that one surface, in
+   * the same language: line only, no fills, 1.8 stroke, currentColor, 24px box. Recorded in
+   * .design-sync/NOTES.md so the design project is updated rather than quietly diverged from.
+   */
+  menu: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>,
+  dashboard: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 19V11M9.3 19V5M14.7 19v-6M20 19V8" /></svg>,
+  screen: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M9 20h6M12 16v4" /></svg>,
+  desk: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 9h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z" /><path d="M12 4v5M9 20h6" /></svg>,
+  draw: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 3v4M12 21v-4M3 12h4M21 12h-4" /><circle cx="12" cy="12" r="4" /></svg>,
+  event: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg>,
+  booths: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><path d="M4 9h16v10H4z" /><path d="M3 5h18l-1 4H4z" /></svg>,
+  prizes: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"><rect x="3.5" y="8" width="17" height="12" rx="1.5" /><path d="M12 8v12M3.5 12h17" /><path d="M12 8S9.5 3.5 7.5 5 9.5 8 12 8zM12 8s2.5-4.5 4.5-3S14.5 8 12 8z" /></svg>,
+  users: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="9" cy="8" r="3.2" /><path d="M3 19a6 6 0 0 1 12 0" /><path d="M16.5 6.4a3.2 3.2 0 0 1 0 6M18 19a6 6 0 0 0-1.6-4.1" /></svg>,
+  audit: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4M9 12h6M9 16h4" /></svg>,
+  lists: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 6h11M9 12h11M9 18h11" /><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01" /></svg>,
 
   /*
    * The four above are the visitor tab bar, so they are 22–26px. These two sit inside `btn-sm`
