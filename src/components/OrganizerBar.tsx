@@ -66,7 +66,7 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
    * against a two-line nav.
    */
   return (
-    <div className={`flex w-full items-start gap-3 ${className}`}>
+    <div className={`organizer-bar flex w-full items-start gap-3 ${className}`}>
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
         {/* No booth name here: every page that uses this bar already carries it as its heading. */}
         <nav aria-label={t('nav.pages')} className="flex min-w-0 flex-wrap items-center gap-2">

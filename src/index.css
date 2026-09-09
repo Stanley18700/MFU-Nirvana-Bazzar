@@ -373,6 +373,31 @@ input, select, textarea, button { font: inherit; }
 .tab[aria-selected="true"] { @apply bg-transparent font-semibold text-ink hover:bg-transparent hover:text-ink; }
 .tab-group:not([data-tab-ready]) .tab[aria-selected="true"] { @apply bg-white shadow-sm; }
 
+/*
+ * The organizer's bar holds still while the page moves under it.
+ *
+ * Its background is painted by a pseudo-element stretched well past the page's own gutter, so the
+ * strip spans the full width from inside a centred, padded column without every page having to
+ * know its own padding. The colour matches the page ground, so all it actually does is stop
+ * scrolled content showing through.
+ */
+.organizer-bar { position: sticky; top: 0; z-index: 30; }
+.organizer-bar::before {
+  content: '';
+  position: absolute;
+  inset: -0.75rem -100vw;
+  z-index: -1;
+  background: var(--color-chrome);
+}
+
+/*
+ * The admin rail. The pill runs the full width of the nav and travels vertically, so --tab-y is
+ * doing the work --tab-x does on a horizontal strip. It scrolls with the list because it is
+ * absolutely positioned inside the same scroller.
+ */
+.tab-rail-v { @apply relative; }
+.tab-rail-v::before { @apply bg-white/15; }
+
 /* The visitor's bottom bar. Same hook, different geometry: a 3px rule that tracks x only, because
  * a fixed four-column grid never wraps and a pill a quarter of the screen wide reads as a slab. */
 .tab-rail { @apply relative; }
@@ -383,6 +408,41 @@ input, select, textarea, button { font: inherit; }
   background: var(--color-action);
   transform: translate3d(var(--tab-x, 0), 0, 0);
 }
+
+/*
+ * The admin navigation drawer, phone and tablet. A real `<dialog>`, so the focus trap, Escape and
+ * the inert page behind are the browser's job rather than ours — `ui.tsx`'s Drawer traps nothing.
+ * It slides from the LEFT; that Drawer is right-hand, white, and carries its own title bar, which
+ * is why this is twenty lines here instead of four more props on it.
+ *
+ * `overlay` and `display` need `allow-discrete` or the element is gone before the slide can run.
+ */
+.nav-drawer {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  inline-size: 17rem;
+  max-inline-size: 85vw;
+  block-size: 100dvh;
+  max-block-size: 100dvh;
+  background: transparent;
+  translate: -100% 0;
+  transition:
+    translate var(--dur-base) var(--ease-enter),
+    overlay var(--dur-base) allow-discrete,
+    display var(--dur-base) allow-discrete;
+}
+.nav-drawer[open] { translate: 0 0; }
+@starting-style { .nav-drawer[open] { translate: -100% 0; } }
+.nav-drawer::backdrop {
+  background: rgb(23 65 78 / .45);
+  opacity: 1;
+  transition:
+    opacity var(--dur-base),
+    overlay var(--dur-base) allow-discrete,
+    display var(--dur-base) allow-discrete;
+}
+@starting-style { .nav-drawer[open]::backdrop { opacity: 0; } }
 
 /*
  * Thai typography, for the booth and school names the toggle now surfaces.

@@ -1,81 +1,177 @@
-import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../lib/auth'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useEvent } from '../../lib/data'
-import { errorMessage } from '../../lib/api'
-import { DataErrors, Notice } from '../../components/ui'
+import { AccountMenu } from '../../components/AccountMenu'
+import { DataErrors, Icon } from '../../components/ui'
+import { useSlidingPill } from '../../lib/useSlidingPill'
+
+type Item = { to: string; label: string; icon: ReactNode; end?: boolean; away?: boolean }
 
 /**
- * Three groups in the order an admin needs them: what you look at during the event, what you set
- * up before it, what you consult afterwards. Eight equal items gave no hint where to start.
+ * Four groups in the order an admin needs them: what you look at during the event, what you set up
+ * before it, what you consult afterwards — and, last, the two screens that legitimately leave the
+ * console. Ten equal items gave no hint where to start.
+ *
+ * "Screens" exists because the hall display and the prize desk are shared surfaces with their own
+ * chrome, not admin pages: the prize desk is a tablet an organizer may be holding, and forking it
+ * by role is the one thing that must not happen to it. The `↗` says the chrome is about to change
+ * rather than letting it surprise you.
  */
-const GROUPS: Array<{ title: string; items: Array<{ to: string; label: string; end?: boolean }> }> = [
+const GROUPS: Array<{ title: string; items: Item[] }> = [
   { title: 'Run', items: [
-    { to: '/admin', label: 'Dashboard', end: true },
-    { to: '/admin/wall', label: 'Hall screen' },
-    { to: '/redeem', label: 'Prize desk' },
-    { to: '/admin/draw', label: 'Stage draw' },
+    { to: '/admin', label: 'Dashboard', icon: Icon.dashboard, end: true },
+    { to: '/admin/draw', label: 'Stage draw', icon: Icon.draw },
   ] },
   { title: 'Set up', items: [
-    { to: '/admin/event', label: 'Event' },
-    { to: '/admin/booths', label: 'Booths' },
-    { to: '/admin/prizes', label: 'Prizes & stock' },
-    { to: '/admin/users', label: 'Users & invites' },
+    { to: '/admin/event', label: 'Event', icon: Icon.event },
+    { to: '/admin/booths', label: 'Booths', icon: Icon.booths },
+    { to: '/admin/prizes', label: 'Prizes & stock', icon: Icon.prizes },
+    { to: '/admin/users', label: 'Users & invites', icon: Icon.users },
   ] },
   { title: 'Records', items: [
-    { to: '/admin/audit', label: 'Audit log' },
-    { to: '/admin/refdata', label: 'Reference lists' },
+    { to: '/admin/audit', label: 'Audit log', icon: Icon.audit },
+    { to: '/admin/refdata', label: 'Reference lists', icon: Icon.lists },
+  ] },
+  { title: 'Screens', items: [
+    { to: '/admin/wall', label: 'Hall screen', icon: Icon.screen, away: true },
+    { to: '/redeem', label: 'Prize desk', icon: Icon.desk, away: true },
   ] },
 ]
 
-/** The admin's own screens. On a phone these join the scrolling nav; on a desktop they sit in the sidebar foot. */
-const LINKS = [
-  { to: '/passport', label: 'My passport (test as visitor)' },
-  { to: '/account', label: 'My account' },
-]
+const ALL = GROUPS.flatMap((g) => g.items)
+const RAIL_KEY = 'admin-rail-collapsed'
 
-export default function AdminLayout() {
-  const { profile, signOut } = useAuth()
+function readCollapsed(): boolean {
+  try { return localStorage.getItem(RAIL_KEY) === '1' } catch { return false }
+}
+
+/**
+ * The sidebar's contents, rendered by two hosts: the sticky desktop rail and the drawer below it.
+ * One copy is the point — the old file rendered the account links twice and Sign out twice, and
+ * they had already drifted apart.
+ */
+function SideNav({ collapsed, onToggle }: { collapsed: boolean; onToggle?: () => void }) {
   const event = useEvent()
-  const nav = useNavigate()
-  const [err, setErr] = useState<string | null>(null)
-
-  async function leave() {
-    try { await signOut(); nav('/', { replace: true }) } catch (e) { setErr(errorMessage(e)) }
-  }
-
+  const nav = useSlidingPill<HTMLElement>()
   return (
-    <div className="flex min-h-full flex-col md:flex-row">
-      <aside className="flex shrink-0 flex-col bg-chrome text-white md:w-60 md:min-h-screen">
-        <div className="flex items-center justify-between gap-3 px-5 py-4">
-          <div className="min-w-0">
+    <>
+      <div className={`flex items-center gap-2 py-4 ${collapsed ? 'justify-center px-2' : 'px-5'}`}>
+        {!collapsed && (
+          <div className="min-w-0 flex-1">
             <div className="stamp-text truncate text-foil">{event.nameEn}</div>
             <div className="font-semibold">Passport admin</div>
           </div>
-          <button className="btn-dark btn-sm shrink-0 md:hidden" onClick={leave}>Sign out</button>
-        </div>
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:gap-0 md:pb-0">
-          {GROUPS.map((g) => (
-            // `contents` on a phone flattens the groups into one scrolling row; on a desktop each is a titled block.
-            <div key={g.title} className="contents md:mb-3 md:block">
-              <div className="stamp-text hidden px-3 pb-1 pt-2 text-[10px] text-on-chrome-soft md:block">{g.title}</div>
-              {g.items.map((n) => (
-                <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => `whitespace-nowrap rounded-full px-3.5 py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foil/60 md:block ${isActive ? 'bg-white/15 font-semibold' : 'text-on-chrome-soft hover:bg-white/10 hover:text-white'}`}>{n.label}</NavLink>
-              ))}
-            </div>
-          ))}
-          {LINKS.map((n) => (
-            <NavLink key={n.to} to={n.to} className="whitespace-nowrap rounded-full px-3.5 py-2 text-sm text-on-chrome-soft transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foil/60 md:hidden">{n.label}</NavLink>
-          ))}
-        </nav>
-        <div className="mt-auto hidden flex-col gap-2 px-5 py-4 text-xs text-on-chrome-soft md:flex">
-          {LINKS.map((n) => <NavLink key={n.to} to={n.to} className="link text-on-chrome-soft hover:text-white">{n.label}</NavLink>)}
-          <div className="mt-2">{profile?.displayName} · admin</div>
-          <button className="btn-dark btn-sm self-start" onClick={leave}>Sign out</button>
-        </div>
+        )}
+        {onToggle && (
+          <button
+            type="button" onClick={onToggle} className="btn-dark btn-sm btn-icon-sm"
+            aria-label={collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'} aria-pressed={collapsed}
+          >
+            <span aria-hidden className={`inline-block transition-transform ${collapsed ? 'rotate-180' : ''}`}>‹</span>
+          </button>
+        )}
+      </div>
+
+      {/*
+        * `min-h-0 flex-1 overflow-y-auto` is the third containment tier: the links scroll on a
+        * short window while the account block below stays pinned to the foot of the rail.
+        */}
+      <nav ref={nav} className="tab-rail-v min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
+        {GROUPS.map((g) => (
+          <div key={g.title} className="mb-3">
+            {!collapsed && <div className="stamp-text px-3 pb-1 pt-2 text-[10px] text-on-chrome-soft">{g.title}</div>}
+            {collapsed && <div className="mx-auto my-2 h-px w-6 bg-white/15" />}
+            {g.items.map((n) => (
+              <NavLink
+                key={n.to} to={n.to} end={n.end} title={collapsed ? n.label : undefined}
+                className={({ isActive }) => `relative z-[1] flex items-center gap-3 whitespace-nowrap rounded-full py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foil/60 ${collapsed ? 'justify-center px-0' : 'px-3.5'} ${isActive ? 'font-semibold text-white' : 'text-on-chrome-soft hover:bg-white/10 hover:text-white'}`}
+              >
+                <span aria-hidden className="shrink-0">{n.icon}</span>
+                {!collapsed && <span className="min-w-0 flex-1 truncate">{n.label}</span>}
+                {!collapsed && n.away && <span aria-hidden className="shrink-0 text-xs text-on-chrome-soft">↗</span>}
+              </NavLink>
+            ))}
+          </div>
+        ))}
+      </nav>
+
+      <div className={`mt-auto border-t border-white/10 py-3 ${collapsed ? 'flex justify-center px-2' : 'px-4'}`}>
+        <AccountMenu dark up className={collapsed ? '' : 'w-full'} />
+      </div>
+    </>
+  )
+}
+
+export default function AdminLayout() {
+  const loc = useLocation()
+  const [open, setOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(readCollapsed)
+  const dlg = useRef<HTMLDialogElement>(null)
+
+  // Navigating is the same gesture as dismissing: the drawer must not survive the page under it.
+  useEffect(() => { setOpen(false) }, [loc.pathname])
+
+  /*
+   * StrictMode double-invokes this in development, and `showModal()` on an already-open dialog
+   * throws `InvalidStateError`. The guards are load-bearing, not padding.
+   */
+  useEffect(() => {
+    const d = dlg.current
+    if (!d) return
+    if (open && !d.open) d.showModal()
+    if (!open && d.open) d.close()
+  }, [open])
+
+  function toggleRail() {
+    setCollapsed((c) => {
+      try { localStorage.setItem(RAIL_KEY, c ? '0' : '1') } catch { /* private window */ }
+      return !c
+    })
+  }
+
+  const title = ALL.find((i) => (i.end ? loc.pathname === i.to : loc.pathname.startsWith(i.to)))?.label ?? 'Passport admin'
+
+  return (
+    <div className="flex min-h-full flex-col lg:flex-row">
+      {/* Phone and tablet: the rail is a drawer, so the bar is what is always on screen. */}
+      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 bg-chrome px-3 text-white lg:hidden">
+        <button
+          type="button" className="btn-dark btn-icon" aria-label="Menu"
+          aria-expanded={open} aria-controls="admin-nav" onClick={() => setOpen(true)}
+        >
+          {Icon.menu}
+        </button>
+        <div className="min-w-0 flex-1 truncate font-semibold">{title}</div>
+        <AccountMenu dark />
+      </header>
+
+      {/*
+        * Sticky, not a viewport-locked shell. Only this one element needs pinning, on one
+        * breakpoint, and locking the shell would kill `window.scrollTo` on the event page, break
+        * the body-scroll-lock the user drawer relies on, and change the containing block the booth
+        * kiosk measures its QR against. `self-start` is mandatory: a stretched flex item is already
+        * the container's height, so it has no slack to stick with and silently will not move.
+        */}
+      <aside className={`sticky top-0 hidden h-dvh shrink-0 flex-col self-start bg-chrome text-white transition-[width] duration-200 lg:flex ${collapsed ? 'w-[72px]' : 'w-60'}`}>
+        <SideNav collapsed={collapsed} onToggle={toggleRail} />
       </aside>
-      <main className="min-w-0 flex-1 px-4 py-6 md:px-8">
-        {err && <div className="mb-4"><Notice tone="red">{err}</Notice></div>}
+
+      {/*
+        * A real `<dialog>`: the focus trap, Escape, and `inert` on the page behind are the
+        * browser's job, and it does them properly. `ui.tsx`'s Drawer traps nothing.
+        * No display utility on the element itself — the UA sheet toggles `display` off `[open]`,
+        * so a `flex` class would leave this permanently on screen.
+        */}
+      <dialog
+        ref={dlg} id="admin-nav" className="nav-drawer" onClose={() => setOpen(false)}
+        onClick={(e) => { if (e.target === dlg.current) setOpen(false) }}
+      >
+        <div className="flex h-full flex-col bg-chrome text-white">
+          <SideNav collapsed={false} />
+        </div>
+      </dialog>
+
+      <main className="min-w-0 flex-1 px-4 pb-6 pt-[4.5rem] lg:px-8 lg:py-6">
         <DataErrors className="mb-4" />
         <Outlet />
       </main>
