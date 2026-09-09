@@ -82,3 +82,27 @@ their stored colour.
 - Rocket placement: it first sat beside the seal and crowded it. Now it flies in the empty band
   between the header and the seal, bleeding off the right edge on phones; on `sm` it moves clear of
   the sun (right 13%, top 21%).
+
+## 2026-09-09 — navigation, shells and the icon departure
+
+**One deliberate departure from the design system.** `readme.md` states that four line glyphs are
+the whole inventory and that a word does the rest. That still holds for the visitor app. The admin
+console's sidebar now collapses to a 72px icon rail, which cannot show ten words, so eleven more
+glyphs live in `Icon` (`src/components/ui.tsx`) plus `person` for the visitor's Profile tab:
+`person, menu, dashboard, screen, desk, draw, event, booths, prizes, users, audit, lists`. All are
+in the system's own language — line only, no fills, 1.8 stroke, `currentColor`, 24px box. **Push
+these to the Claude Design project** so the two stop diverging, or tell us to drop the collapse.
+
+Other things worth carrying upstream:
+
+- The design system's `TabBar` keeps the scan circle inside the bar's own box (`paddingTop: 56`).
+  The app had it as a separate `fixed` layer and it floated over page content; it matches the
+  component now. Worth stating explicitly in the component's prompt notes.
+- `.seg` and `.tab` are now pill carriers with a sliding `::before` driven by `useSlidingPill`
+  (`src/lib/useSlidingPill.ts`). The design system's segmented controls still swap backgrounds.
+- Motion durations are `@theme` tokens ported from `design-system/tokens/motion.css`, so
+  `prefers-reduced-motion` zeroes the scale in one block. `--ease-enter` is new and has no
+  counterpart in the design system: it is for movement that answers a click, where
+  `--ease-standard`'s slow head reads as lag.
+- Touch targets are raised to 44px under `@media (pointer: coarse)` only. The design system's 28px
+  `.btn-sm` metrics are right beside 12px text on a laptop and wrong for the booth tablet.
