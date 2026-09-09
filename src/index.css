@@ -78,8 +78,27 @@
   --radius-frame: 36px;
   --radius-scrap: 2px;
 
+  /*
+   * The design system's duration scale (design-system/tokens/motion.css), as tokens rather than
+   * literals, so `prefers-reduced-motion` is one override at the foot of this file instead of a
+   * rule-by-rule opt-out.
+   */
+  --dur-instant: 120ms;
+  --dur-fast: 180ms;
+  --dur-base: 260ms;
+  --dur-page: 320ms;
+  --dur-drop: 420ms;
+  --dur-slow: 900ms;
+
   --ease-standard: cubic-bezier(.2, .8, .3, 1);
   --ease-settle: cubic-bezier(.2, .9, .3, 1.2);
+  --ease-out: cubic-bezier(0, 0, .28, 1);
+  /*
+   * For movement that ANSWERS A CLICK — the pill chasing a tapped tab. It is 30% of the way in the
+   * first 60ms; `--ease-standard` is 5% by then, and on something the eye is already tracking to
+   * its destination that reads as lag rather than as smoothing.
+   */
+  --ease-enter: cubic-bezier(.16, 1, .3, 1);
 }
 
 :root {
@@ -124,19 +143,19 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.015em; line-he
   60% { transform: scale(0.97) rotate(var(--tilt, 6deg)); opacity: 1; }
   100% { transform: scale(1) rotate(var(--tilt, 6deg)); opacity: 1; }
 }
-.stamp-land { animation: stamp-land 420ms var(--ease-settle) both; }
+.stamp-land { animation: stamp-land var(--dur-drop) var(--ease-settle) both; }
 
 @keyframes page-in {
   from { transform: translateX(20px) scale(0.985); opacity: 0; }
   to { transform: none; opacity: 1; }
 }
-.page-in { animation: page-in 320ms cubic-bezier(0, 0, .28, 1) both; }
+.page-in { animation: page-in var(--dur-page) var(--ease-out) both; }
 
 @keyframes pulse-once { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
 .pulse-once { animation: pulse-once 500ms ease-in-out 1; }
 
 @keyframes seal-draw { from { stroke-dashoffset: 600; } to { stroke-dashoffset: 0; } }
-.seal-draw { stroke-dasharray: 600; animation: seal-draw 900ms ease-out both; }
+.seal-draw { stroke-dasharray: 600; animation: seal-draw var(--dur-slow) ease-out both; }
 
 /**
  * §5.2 — the booth code changes every period. Animate the swap so the screen reads as live
@@ -148,16 +167,16 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.015em; line-he
   from { opacity: 0.55; transform: scale(0.98); }
   to   { opacity: 1; transform: none; }
 }
-.qr-swap { animation: qr-swap 260ms cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+.qr-swap { animation: qr-swap var(--dur-base) cubic-bezier(0.2, 0.9, 0.3, 1) both; }
 
 @keyframes code-swap {
   from { opacity: 0; transform: translateY(-0.14em); }
   to   { opacity: 1; transform: none; }
 }
-.code-swap { animation: code-swap 260ms ease-out both; }
+.code-swap { animation: code-swap var(--dur-base) ease-out both; }
 
 /* The countdown border eases between the 100 ms ticks that drive it. */
-.qr-countdown { transition: stroke-dashoffset 110ms linear, stroke 260ms var(--ease-standard); }
+.qr-countdown { transition: stroke-dashoffset 110ms linear, stroke var(--dur-base) var(--ease-standard); }
 
 /*
  * Text protection over the illustrated sky: a soft-edged sheet of the sky itself at 72% over an 8px
@@ -188,9 +207,21 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.015em; line-he
 .drift { animation: drift 9s cubic-bezier(.45, 0, .55, 1) infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .stamp-land, .page-in, .pulse-once, .seal-draw,
-  .qr-swap, .code-swap { animation-duration: 1ms !important; }
+  /*
+   * Zero the scale in one place: every animation and every transition in this file reads from it.
+   * 1ms rather than 0 so `animationend` and `transitionend` still fire for anything sequencing on
+   * them. `--dur-instant` stays — a 120ms press is feedback, not motion to sit through.
+   */
+  :root {
+    --dur-fast: 1ms;
+    --dur-base: 1ms;
+    --dur-page: 1ms;
+    --dur-drop: 1ms;
+    --dur-slow: 1ms;
+  }
+  .pulse-once { animation-duration: 1ms !important; }
   .drift, .cloud-a, .cloud-b, .sun-drift { animation: none; }
+  /* Not on the scale: a 110ms linear tick is data, not decoration. */
   .qr-countdown { transition: none; }
 }
 
@@ -265,26 +296,93 @@ input, select, textarea, button { font: inherit; }
  * Metrics deliberately match `.btn-sm`, so a nav item and a button sit at the same height and
  * radius when they share a row — which is the whole point of grouping them.
  */
-.seg { @apply flex flex-wrap items-center gap-0.5 rounded-full p-0.5; }
+/*
+ * One pill per strip, drawn once and MOVED between items, instead of a background that appears on
+ * one item and vanishes from another. `useSlidingPill` writes the current item's box into
+ * --tab-x/y/w/h; everything here is the tween.
+ *
+ * --tab-y and --tab-h are not decoration. `.seg` wraps: six booth pages on a portrait phone put
+ * the last two items on a second line, and without them the pill would stay on the first.
+ *
+ * Physical `top`/`left`, not the logical properties: `offsetLeft` is physical, and mixing the two
+ * is silently correct in LTR and silently wrong in RTL. This app ships English and Thai, both LTR.
+ */
+.seg::before, .tab-group::before, .tab-rail::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--tab-w, 0);
+  height: var(--tab-h, 0);
+  border-radius: 9999px;
+  transform: translate3d(var(--tab-x, 0), var(--tab-y, 0), 0);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--dur-base) var(--ease-enter),
+    width var(--dur-base) var(--ease-enter),
+    height var(--dur-base) var(--ease-enter),
+    opacity var(--dur-fast) var(--ease-enter);
+}
+/*
+ * The gate. Until the hook has measured, the pill is invisible and the `:not([data-tab-ready])`
+ * rules below keep the old static background. Those fallbacks are load-bearing, not defensive
+ * padding: the current item's own fill is gone, so on `.seg-dark` an unmeasured strip would be
+ * dark teal text on green.
+ */
+.seg[data-tab-ready='true']::before,
+.tab-group[data-tab-ready='true']::before,
+.tab-rail[data-tab-ready='true']::before { opacity: 1; }
+
+/*
+ * Segmented page navigation — the organizer's booth/stats/survey/desk switcher.
+ *
+ * Distinct from `.tab` below, which picks a filter *inside* one page: this moves between pages,
+ * so it is driven by the `aria-current` a NavLink sets itself rather than by `aria-selected`.
+ * Metrics deliberately match `.btn-sm`, so a nav item and a button sit at the same height and
+ * radius when they share a row — which is the whole point of grouping them.
+ */
+.seg { @apply relative flex flex-wrap items-center gap-0.5 rounded-full p-0.5; }
 .seg-item {
-  @apply cursor-pointer select-none rounded-full px-3.5 py-1.5 text-xs font-medium transition
+  @apply relative z-[1] cursor-pointer select-none rounded-full px-3.5 py-1.5 text-xs font-medium transition
     focus-visible:outline-none focus-visible:ring-2;
 }
 .seg-light { @apply bg-ink/6; }
+.seg-light::before { @apply bg-white shadow-sm; }
 .seg-light .seg-item { @apply text-ink-soft hover:bg-white/70 hover:text-ink focus-visible:ring-sky-700/45; }
-.seg-light .seg-item[aria-current="page"],
-.seg-light .seg-item[aria-pressed="true"] { @apply bg-white text-ink shadow-sm hover:bg-white; }
 .seg-dark { @apply bg-white/8; }
+.seg-dark::before { @apply bg-white; }
 .seg-dark .seg-item { @apply text-on-chrome-soft hover:bg-white/14 hover:text-white focus-visible:ring-foil/60; }
-.seg-dark .seg-item[aria-current="page"],
-.seg-dark .seg-item[aria-pressed="true"] { @apply bg-white text-ink hover:bg-white hover:text-ink; }
+/* The current item is text colour only — the pill carries the fill. Resetting its hover stops the
+ * item painting its own background over the pill it is sitting on. */
+.seg .seg-item[aria-current="page"],
+.seg .seg-item[aria-pressed="true"] { @apply text-ink hover:bg-transparent hover:text-ink; }
+.seg-light:not([data-tab-ready]) .seg-item[aria-current="page"],
+.seg-light:not([data-tab-ready]) .seg-item[aria-pressed="true"] { @apply bg-white shadow-sm; }
+.seg-dark:not([data-tab-ready]) .seg-item[aria-current="page"],
+.seg-dark:not([data-tab-ready]) .seg-item[aria-pressed="true"] { @apply bg-white; }
 
-/* Segmented tabs: the day picker, the invitation filter, the reference-list tabs. */
+/* Segmented tabs: the day picker, the invitation filter, the reference-list tabs. `bg-ink/5` moves
+ * off the call sites and into the recipe, so `.tab` is self-contained and the pill has one owner. */
+.tab-group { @apply relative; }
+.tab-group::before { @apply bg-white shadow-sm; }
 .tab {
-  @apply cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium text-ink-soft transition
+  @apply relative z-[1] cursor-pointer rounded-full bg-ink/5 px-3.5 py-1.5 text-xs font-medium text-ink-soft transition
     hover:bg-ink/10 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700/45;
 }
-.tab[aria-selected="true"] { @apply bg-white font-semibold text-ink shadow-sm hover:bg-white hover:text-ink; }
+.tab[aria-selected="true"] { @apply bg-transparent font-semibold text-ink hover:bg-transparent hover:text-ink; }
+.tab-group:not([data-tab-ready]) .tab[aria-selected="true"] { @apply bg-white shadow-sm; }
+
+/* The visitor's bottom bar. Same hook, different geometry: a 3px rule that tracks x only, because
+ * a fixed four-column grid never wraps and a pill a quarter of the screen wide reads as a slab. */
+.tab-rail { @apply relative; }
+.tab-rail::before {
+  top: 0;
+  height: 3px;
+  border-radius: 0 0 9999px 9999px;
+  background: var(--color-action);
+  transform: translate3d(var(--tab-x, 0), 0, 0);
+}
 
 /*
  * Thai typography, for the booth and school names the toggle now surfaces.
@@ -346,8 +444,10 @@ input, select, textarea, button { font: inherit; }
 .on-chrome .btn-primary { @apply bg-reward text-ink hover:bg-orange-500 focus-visible:ring-foil/60 focus-visible:ring-offset-chrome; }
 .on-chrome .btn-danger-soft { @apply bg-[rgba(217,74,72,.26)] text-[#FFC9BF] hover:bg-[rgba(217,74,72,.36)]; }
 .on-chrome .btn-amber-soft { @apply bg-[rgba(250,189,109,.24)] text-orange-300 hover:bg-[rgba(250,189,109,.34)]; }
-.on-chrome .tab { @apply text-on-chrome-soft hover:bg-white/14 hover:text-white focus-visible:ring-foil/60; }
-.on-chrome .tab[aria-selected="true"] { @apply bg-white text-ink hover:bg-white hover:text-ink; }
+.on-chrome .tab { @apply bg-white/[0.07] text-on-chrome-soft hover:bg-white/14 hover:text-white focus-visible:ring-foil/60; }
+.on-chrome .tab[aria-selected="true"] { @apply bg-transparent text-ink hover:bg-transparent hover:text-ink; }
+.on-chrome .tab-group::before { @apply shadow-none; }
+.on-chrome .tab-group:not([data-tab-ready]) .tab[aria-selected="true"] { @apply bg-white; }
 .on-chrome .link { @apply text-white; }
 /* The Notice tones again, on chrome — the same values DarkNotice uses, so the two agree. */
 .on-chrome .notice-info { @apply bg-white/12 text-white; }

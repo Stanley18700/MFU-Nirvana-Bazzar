@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth'
 import { useBooth } from '../lib/data'
 import { LangToggle } from './ui'
 import { useLocale } from '../lib/locale'
+import { useSlidingPill } from '../lib/useSlidingPill'
 
 /**
  * The organizer's only navigation. Booth staff used to reach the prize desk by typing the URL and
@@ -25,6 +26,7 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
   const nav = useNavigate()
   const { data: booth } = useBooth(boothId)
   const { t } = useLocale()
+  const pages = useSlidingPill()
   const [fs, setFs] = useState(!!document.fullscreenElement)
   useEffect(() => {
     const on = () => setFs(!!document.fullscreenElement)
@@ -72,7 +74,7 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
         {/* No booth name here: every page that uses this bar already carries it as its heading. */}
         <nav aria-label={t('nav.pages')} className="flex min-w-0 flex-wrap items-center gap-2">
-          <div className={`seg ${dark ? 'seg-dark' : 'seg-light'}`}>
+          <div ref={pages} className={`seg ${dark ? 'seg-dark' : 'seg-light'}`}>
             {items.map((n) => (
               // NavLink sets aria-current="page" itself, which is what drives the active style.
               <NavLink key={n.to} to={n.to} end={n.end} className="seg-item">{n.label}</NavLink>

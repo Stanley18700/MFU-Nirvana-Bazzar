@@ -4,6 +4,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { useAuth } from '../../lib/auth'
 import { ms, useBooth, useBoothStat, useBooths, useEvent, useEventStats } from '../../lib/data'
 import { useLocale } from '../../lib/locale'
+import { useSlidingPill } from '../../lib/useSlidingPill'
 import { OrganizerBar } from '../../components/OrganizerBar'
 import { CsvButton, DataErrors, Fig, LiveDot, Notice, Spinner, fmt } from '../../components/ui'
 import { clock } from '../../lib/eventText'
@@ -17,6 +18,7 @@ export default function BoothStats() {
   const boothId = role === 'admin' ? params.get('boothId') : claimBooth
   const booths = useBooths(true)
   const { t, pick } = useLocale()
+  const dayTabs = useSlidingPill()
   const { data: booth, loading } = useBooth(boothId)
   const { data: stat, fromCache } = useBoothStat(boothId)
   const ev = useEventStats()
@@ -77,10 +79,10 @@ export default function BoothStats() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="stamp-text text-ink-soft">{t('stats.perHour', { day: dayIndex })}</h2>
           <div className="flex items-center gap-2">
-            <div className="flex gap-1" role="tablist" aria-label={t('stats.day')}>
+            <div ref={dayTabs} className="tab-group flex gap-1" role="tablist" aria-label={t('stats.day')}>
               {days.map((d, i) => (
                 <button key={d} role="tab" aria-selected={d === day} onClick={() => setPicked(d)}
-                  className="tab bg-ink/5">
+                  className="tab">
                   Day {i + 1}
                 </button>
               ))}

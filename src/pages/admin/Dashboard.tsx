@@ -5,11 +5,13 @@ import { CsvButton, Fig, Flag, fmt } from '../../components/ui'
 import { countryName } from '../../lib/countries'
 import { dayOf } from '../../../shared/model'
 import { useDashboardModel, type DaySel } from './useDashboardModel'
+import { useSlidingPill } from '../../lib/useSlidingPill'
 import { Readiness } from './Readiness'
 
 /** §6.1 — the live dashboard. Reads ~120 small documents, never a scan collection. */
 export default function Dashboard() {
   const today = dayOf(new Date())
+  const dayTabs = useSlidingPill()
   const [day, setDay] = useState<DaySel>('all')
   const m = useDashboardModel(day)
   const eventDays = m.event.days
@@ -24,9 +26,9 @@ export default function Dashboard() {
           <h1 className="text-2xl font-bold">Dashboard</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-lg bg-ink/5 p-1 text-sm" role="tablist" aria-label="Day selector">
+          <div ref={dayTabs} className="tab-group flex gap-1" role="tablist" aria-label="Day selector">
             {([...eventDays, 'all'] as DaySel[]).map((d, i) => (
-              <button key={d} role="tab" aria-selected={day === d} onClick={() => setDay(d)} className={`cursor-pointer rounded-md px-3 py-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action/45 ${day === d ? 'bg-white font-semibold shadow-sm' : 'text-ink-soft hover:bg-white/60 hover:text-ink'}`}>{d === 'all' ? 'All' : `Day ${i + 1}`}</button>
+              <button key={d} role="tab" aria-selected={day === d} onClick={() => setDay(d)} className="tab">{d === 'all' ? 'All' : `Day ${i + 1}`}</button>
             ))}
           </div>
           {/* Opens in a new tab so the live dashboard stays put; the print view has its own Save-as-PDF button. */}

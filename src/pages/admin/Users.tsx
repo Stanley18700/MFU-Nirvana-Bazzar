@@ -6,6 +6,7 @@ import { useBooths, useCollection, useRefList, useTiers } from '../../lib/data'
 import { CopyButton, Drawer, Notice, Toast, type Msg } from '../../components/ui'
 import { COUNTRIES, countryName } from '../../lib/countries'
 import { ts } from '../../lib/eventText'
+import { useSlidingPill } from '../../lib/useSlidingPill'
 import { ROLE_LABEL, VISITOR_TYPE_LABEL } from '../../lib/labels'
 import type { InviteDoc, Role, ScanDoc, TierUnlockDoc, UserDoc, VisitorType } from '../../../shared/model'
 
@@ -22,6 +23,7 @@ const SEARCH_ALL = 2000
 /** §6.2 users, §6.4 invitations, §10 erasure requests. */
 export default function Users() {
   const booths = useBooths(true)
+  const filter = useSlidingPill()
   const [roleFilter, setRoleFilter] = useState<Role | 'all'>('all')
   const [q, setQ] = useState('')
   const [pageSize, setPageSize] = useState(PAGE)
@@ -129,10 +131,10 @@ export default function Users() {
           <>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-soft">
               <span>Showing {shownInvites.length} of {invites.length} invitation{invites.length === 1 ? '' : 's'}{invites.length >= 100 ? ' (latest 100)' : ''}</span>
-              <div className="flex gap-1" role="tablist" aria-label="Invitation filter">
+              <div ref={filter} className="tab-group flex gap-1" role="tablist" aria-label="Invitation filter">
                 {(['pending', 'all'] as const).map((f) => (
                   <button key={f} role="tab" aria-selected={inviteFilter === f} onClick={() => setInviteFilter(f)}
-                    className="tab bg-ink/5">{f === 'pending' ? 'Pending' : 'All'}</button>
+                    className="tab">{f === 'pending' ? 'Pending' : 'All'}</button>
                 ))}
               </div>
             </div>

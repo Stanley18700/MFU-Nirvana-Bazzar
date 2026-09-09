@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 import { downloadCsv, type CsvRow } from '../lib/csv'
 import { useDataErrors } from '../lib/data'
 import { LOCALES, useLocale } from '../lib/locale'
+import { useSlidingPill } from '../lib/useSlidingPill'
 
 export function Fig({ value, label, accent, sub }: { value: ReactNode; label: string; accent?: string; sub?: ReactNode }) {
   return (
@@ -200,11 +201,16 @@ export function DataErrors({ dark, className = '' }: { dark?: boolean; className
 }
 
 export function TabBar({ tabs }: { tabs: Array<{ to: string; label: string; icon: ReactNode; end?: boolean }> }) {
+  const rail = useSlidingPill<HTMLDivElement>()
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 border-t rule bg-white/94 backdrop-blur-[14px]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} aria-label="Passport pages">
-      <div className="mx-auto grid max-w-md grid-cols-3">
+      {/*
+        * Columns come from the tab count, not a class: Tailwind scans source text for complete
+        * class names, so `grid-cols-${n}` would never be compiled.
+        */}
+      <div ref={rail} className="tab-rail mx-auto grid max-w-md" style={{ gridTemplateColumns: `repeat(${tabs.length},minmax(0,1fr))` }}>
         {tabs.map((t) => (
-          <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => `flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold transition ${isActive ? 'text-ink' : 'text-ink-soft'}`}>
+          <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => `flex min-w-0 flex-col items-center gap-0.5 px-1 py-2.5 text-center text-[11px] font-semibold transition ${isActive ? 'text-ink' : 'text-ink-soft'}`}>
             {({ isActive }: { isActive: boolean }) => <><span className={isActive ? 'text-sky-800' : 'text-ink-soft'}>{t.icon}</span>{t.label}</>}
           </NavLink>
         ))}
@@ -238,8 +244,9 @@ export const Icon = {
  */
 export function LangToggle({ dark = false, className = '' }: { dark?: boolean; className?: string }) {
   const { locale, setLocale } = useLocale()
+  const strip = useSlidingPill()
   return (
-    <div className={`seg ${dark ? 'seg-dark' : 'seg-light'} shrink-0 ${className}`} role="group" aria-label="Language">
+    <div ref={strip} className={`seg ${dark ? 'seg-dark' : 'seg-light'} shrink-0 ${className}`} role="group" aria-label="Language">
       {LOCALES.map((l) => (
         <button key={l} type="button" lang={l} onClick={() => setLocale(l)} aria-pressed={locale === l} className="seg-item">
           {l === 'th' ? 'ไทย' : 'EN'}

@@ -4,6 +4,7 @@ import { useEthnicGroups, useRefList } from '../../lib/data'
 import { Toast, type Msg } from '../../components/ui'
 import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import { countryName } from '../../lib/countries'
+import { useSlidingPill } from '../../lib/useSlidingPill'
 
 type Tab = 'institutions' | 'mfuSchools' | 'ethnicGroups'
 
@@ -29,6 +30,7 @@ function Lines({ value, onChange, rows = 14 }: { value: string[]; onChange: (v: 
 
 /** §4.1 / §13 — edit the registration form's suggestion lists without a redeploy or a reseed. */
 export default function RefData() {
+  const tabs = useSlidingPill()
   const [tab, setTab] = useState<Tab>('institutions')
   const [msg, setMsg] = useState<Msg | null>(null)
   const [busy, setBusy] = useState(false)
@@ -79,10 +81,11 @@ export default function RefData() {
         event without a redeploy — they used to be settable only by re-running the seed script.
       </p>
 
-      <nav className="mt-4 flex flex-wrap gap-2">
+      {/* This row wraps, which is what --tab-y in the hook is for. */}
+      <nav ref={tabs} className="tab-group mt-4 flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button key={t.id} onClick={() => switchTab(t.id)} role="tab" aria-selected={tab === t.id}
-            className="tab bg-ink/5 px-4 py-2 text-sm">
+            className="tab px-4 py-2 text-sm">
             {t.label}
           </button>
         ))}
