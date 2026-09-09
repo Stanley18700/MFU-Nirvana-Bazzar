@@ -118,7 +118,7 @@ export default function Users() {
             <option value="">— booth —</option>{booths.map((b) => <option key={b.id} value={b.id}>{b.nameEn}</option>)}
           </select>
         </div>
-        <details className="mt-2 text-sm"><summary className="cursor-pointer text-ink-soft">Bulk: paste <code>name, email, boothId</code> per line</summary>
+        <details className="reveal-host mt-2 text-sm"><summary className="cursor-pointer text-ink-soft">Bulk: paste <code>name, email, boothId</code> per line</summary>
           <textarea className="field mt-2 font-mono text-xs" rows={4} value={inv.bulk} onChange={(e) => setInv({ ...inv, bulk: e.target.value })} placeholder={'Somchai Thongdee, somchai@mfu.ac.th, booth-01\n…'} />
         </details>
         <button className="btn-primary mt-3" onClick={sendInvites} disabled={!inv.bulk.trim() && (!inv.name || !inv.email || (inv.role === 'organizer' && !inv.boothId))}>Send invitation{inv.bulk.trim() ? 's' : ''}</button>
@@ -311,7 +311,7 @@ function CreateUser({ booths, onCreated, onError }: { booths: BoothOpt[]; onCrea
   }
 
   return (
-    <details className="card mt-4">
+    <details className="reveal-host card card-static mt-4">
       <summary className="cursor-pointer"><span className="stamp-text text-ink-soft">Create a user at the desk</span></summary>
       <p className="mt-2 text-xs text-ink-soft">
         Staff normally arrive through an invitation above. Use this for a walk-up visitor who cannot sign up on their own phone, or a

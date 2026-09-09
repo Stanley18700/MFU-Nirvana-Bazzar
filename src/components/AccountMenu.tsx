@@ -49,7 +49,7 @@ export function AccountMenu({ dark = false, up = false, compact = false, classNa
         {!compact && <span className="hidden sm:inline">{t('nav.account')}</span>}
       </summary>
 
-      <div className={`absolute right-0 z-40 flex w-64 flex-col rounded-xl bg-white p-1.5 text-sm text-ink shadow-lg ring-1 ring-black/10 ${up ? 'bottom-full mb-1' : 'mt-1'}`}>
+      <div className={`pop pop-right absolute right-0 z-40 flex w-64 flex-col rounded-xl bg-white p-1.5 text-sm text-ink shadow-lg ring-1 ring-black/10 ${up ? 'bottom-full mb-1' : 'mt-1'}`}>
         <div className="px-3 py-2">
           <div className="truncate font-semibold">{name ?? t('account.signedIn')}</div>
           {email && <div className="truncate text-xs text-ink-soft">{email}</div>}

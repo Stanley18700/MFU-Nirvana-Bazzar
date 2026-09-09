@@ -59,7 +59,7 @@ export default function Audit() {
                 <td className="font-medium">{r.action}</td>
                 <td className="text-xs">{r.targetType} <span className="font-mono">{r.targetId}</span></td>
                 <td className="text-xs" title={r.actorUid}>{names.get(r.actorUid) ?? <span className="font-mono">{r.actorUid.slice(0, 8)}…</span>}</td>
-                <td><details className="text-xs"><summary className="btn-quiet btn-sm inline-flex list-none">diff</summary><pre className="max-w-md overflow-x-auto whitespace-pre-wrap">{JSON.stringify({ before: r.before, after: r.after }, null, 1)}</pre></details></td>
+                <td><details className="reveal-host text-xs"><summary className="btn-quiet btn-sm inline-flex list-none">diff</summary><pre className="max-w-md overflow-x-auto whitespace-pre-wrap">{JSON.stringify({ before: r.before, after: r.after }, null, 1)}</pre></details></td>
               </tr>
             ))}
             {filtered.length === 0 && <tr><td colSpan={5} className="py-4 text-center text-ink-soft">{rows.length ? 'Nothing matches' : 'Nothing yet'}</td></tr>}

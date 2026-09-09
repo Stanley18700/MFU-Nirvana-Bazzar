@@ -235,11 +235,34 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.015em; line-he
     --dur-drop: 1ms;
     --dur-slow: 1ms;
   }
-  .pulse-once { animation-duration: 1ms !important; }
+  .pulse-once, .scrim-in, .sheet-in, .drawer-in, .toast-in,
+  details[open] > .pop { animation-duration: 1ms !important; }
+  details.reveal-host::details-content { transition-duration: 1ms !important; }
+  /* The shadow still deepens, so hover is still answered — it is the 2px of travel that goes. */
+  a.card:hover, button.card:hover, .card-interactive:hover { transform: none; }
   .drift, .cloud-a, .cloud-b, .sun-drift { animation: none; }
   /* Not on the scale: a 110ms linear tick is data, not decoration. */
   .qr-countdown { transition: none; }
 }
+
+/*
+ * Overlays. Each of these used `.page-in`, the route transition, which slides in from the right —
+ * right for a page turn, wrong for a sheet that should rise and a drawer that should come from the
+ * edge it is docked to. The scrims had no fade at all.
+ */
+@keyframes scrim-in { from { opacity: 0; } to { opacity: 1; } }
+.scrim-in { animation: scrim-in var(--dur-fast) var(--ease-enter) both; }
+
+@keyframes sheet-up { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+.sheet-in { animation: sheet-up var(--dur-base) var(--ease-enter) both; }
+
+@keyframes drawer-in { from { transform: translateX(100%); } to { transform: none; } }
+.drawer-in { animation: drawer-in var(--dur-base) var(--ease-enter) both; }
+
+/* Slower in than out is the toast's own rule; it only ever enters here, and it enters from below
+ * because that is the edge it is pinned to. */
+@keyframes toast-up { from { transform: translateY(14px); opacity: 0; filter: blur(2px); } to { transform: none; opacity: 1; filter: none; } }
+.toast-in { animation: toast-up var(--dur-page) var(--ease-enter) both; }
 
 /* Booth screen must be legible at 3 m (§2.6) — on a kiosk. */
 .booth-screen { font-size: clamp(24px, 2.2vw, 36px); }
@@ -311,6 +334,47 @@ input, select, textarea, button { font: inherit; }
   .seg-item { @apply px-4 py-2.5; }
   .tab { @apply px-4 py-2.5; }
   .menu-item { @apply py-2.5; }
+}
+
+/*
+ * The panel of a `<details>` popover — the account menu, the organizer's page menu, the booths
+ * "More" menu. It grows from its trigger rather than appearing: origin at the top edge, nearest
+ * corner set by `.pop-right`.
+ *
+ * Open only. `<details>` gives no closing state to animate without JS, and an instant exit is the
+ * right shape regardless: arriving is worth watching, leaving is not.
+ *
+ * An animation rather than a transition with `@starting-style`. The children of a closed
+ * `<details>` are not `display: none` — the engine skips them with `content-visibility` — so there
+ * is no display change for `@starting-style` to key off, and it silently does nothing. An
+ * animation simply runs when the element starts being rendered, which is the moment we want.
+ */
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(.97) translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.pop { transform-origin: top left; }
+.pop-right { transform-origin: top right; }
+details[open] > .pop { animation: pop-in var(--dur-fast) var(--ease-enter) both; }
+
+/*
+ * An inline disclosure — the bulk-paste box, the archive section, an audit row's JSON, the
+ * create-a-user form. These grow the page rather than floating over it, so the shape is a height
+ * change, not a popover.
+ *
+ * `::details-content` is what makes a height animation possible at all on a `<details>`: the
+ * element's own children are not rendered while it is closed, so there is nothing to tween from,
+ * and an animation on a child would start after the jump has already happened. It is recent
+ * (Chromium 131); everywhere else the body appears the way it always did.
+ */
+@supports selector(::details-content) {
+  details.reveal-host { interpolate-size: allow-keywords; }
+  details.reveal-host::details-content {
+    block-size: 0;
+    overflow: clip;
+    transition: block-size var(--dur-base) var(--ease-enter), content-visibility var(--dur-base) allow-discrete;
+  }
+  details.reveal-host[open]::details-content { block-size: auto; }
 }
 
 /* Rows inside a card's "More" popover. */
@@ -508,7 +572,30 @@ input, select, textarea, button { font: inherit; }
     hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700/45;
 }
 /* White ground, 28px corner, teal shadow, no border — separation comes from the sky behind it. */
-.card { @apply rounded-[28px] bg-white p-5 shadow-card; }
+/*
+ * Hover is behind `(hover: hover)`: a touch device fires it on tap and the card would lift under
+ * the finger and stay lifted. `.card-static` opts a card out — a panel that is not a target for
+ * anything should not answer the pointer.
+ */
+.card {
+  @apply rounded-[28px] bg-white p-5 shadow-card;
+  transition: box-shadow var(--dur-fast) var(--ease-enter), transform var(--dur-fast) var(--ease-enter);
+}
+@media (hover: hover) and (pointer: fine) {
+  /*
+   * Written out rather than through `@apply`: Tailwind v4's translate utilities set the `translate`
+   * property, not `transform`, so the transition above would have had nothing to tween and the
+   * lift would have snapped.
+   */
+  a.card:hover, button.card:hover, .card-interactive:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-raised);
+  }
+}
+a.card:active, button.card:active, .card-interactive:active {
+  transform: none;
+  box-shadow: var(--shadow-card);
+}
 
 /*
  * Glass panel, for figures sitting on the green kiosk. `backdrop-blur` has little to chew on over

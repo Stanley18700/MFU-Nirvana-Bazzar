@@ -95,7 +95,7 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
                 <span className="truncate">{current?.label ?? t('nav.pages')}</span>
                 <span aria-hidden className="text-[0.7em]">▾</span>
               </summary>
-              <div className="absolute left-0 z-40 mt-1 flex w-56 flex-col rounded-xl bg-white p-1.5 text-sm text-ink shadow-lg ring-1 ring-black/10">
+              <div className="pop absolute left-0 z-40 mt-1 flex w-56 flex-col rounded-xl bg-white p-1.5 text-sm text-ink shadow-lg ring-1 ring-black/10">
                 {items.map((n) => (
                   <NavLink
                     key={n.to} to={n.to} end={n.end} onClick={close}

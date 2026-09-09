@@ -145,7 +145,7 @@ export default function Booths() {
                   {/* Artwork and the two dangerous actions live under one menu, so nine underlined words no longer compete. */}
                   <details className="relative">
                     <summary className="btn-quiet btn-sm list-none" aria-label={`More actions for ${b.nameEn}`}>More ▾</summary>
-                    <div className="absolute left-0 z-10 mt-1 flex w-52 flex-col rounded-xl bg-white p-1.5 text-sm shadow-lg ring-1 ring-black/10">
+                    <div className="pop absolute left-0 z-10 mt-1 flex w-52 flex-col rounded-xl bg-white p-1.5 text-sm shadow-lg ring-1 ring-black/10">
                       <label className="menu-item">{b.badgeUrl ? 'Replace badge…' : 'Upload badge…'}
                         <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; closeMenu(e); if (f) void upload(b, 'badge', f) }} /></label>
                       {b.badgeUrl && <button className="menu-item" disabled={busy} onClick={(e) => { closeMenu(e); void removeImage(b, 'badge') }}>Remove badge</button>}

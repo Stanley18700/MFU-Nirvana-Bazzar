@@ -225,7 +225,7 @@ export default function EventAdmin() {
       </section>
 
       {/* Everything about a *second* event stays folded away: day to day there is only the one above. */}
-      <details className="mt-8 rounded-2xl border rule p-4">
+      <details className="reveal-host mt-8 rounded-2xl border rule p-4">
         <summary className="cursor-pointer rounded-lg transition hover:text-ink">
           <span className="stamp-text text-ink-soft">After the event · archive this one, prepare the next</span>
         </summary>

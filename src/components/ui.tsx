@@ -62,7 +62,7 @@ export function Toast({ msg, onClose, ms = 5000 }: { msg: Msg | null; onClose: (
   return (
     <div className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex justify-center sm:inset-x-auto sm:right-6 sm:justify-end" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div role={msg.tone === 'red' ? 'alert' : 'status'} aria-live="polite"
-        className={`pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-[20px] px-4 py-3 text-sm shadow-raised ${TONE[msg.tone]} page-in`}>
+        className={`pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-[20px] px-4 py-3 text-sm shadow-raised ${TONE[msg.tone]} toast-in`}>
         <span className="min-w-0 flex-1">{msg.text}</span>
         <button type="button" onClick={onClose} className="btn-quiet btn-sm btn-icon shrink-0" aria-label="Dismiss">×</button>
       </div>
@@ -96,9 +96,9 @@ export function Drawer({ title, onClose, children, width = 'max-w-md', actions }
     }
   }, [])
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-ink/40" onClick={onClose}>
+    <div className="scrim-in fixed inset-0 z-40 flex justify-end bg-ink/40" onClick={onClose}>
       <aside role="dialog" aria-modal="true" aria-labelledby={titleId}
-        className={`h-full w-full ${width} overflow-y-auto bg-white p-5 shadow-2xl page-in`} onClick={(e) => e.stopPropagation()}>
+        className={`h-full w-full ${width} overflow-y-auto bg-white p-5 shadow-2xl drawer-in`} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between gap-3">
           <button ref={closeRef} type="button" className="btn-quiet btn-sm" onClick={onClose}>Close ✕</button>
           {actions}

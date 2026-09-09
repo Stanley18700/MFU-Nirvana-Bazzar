@@ -90,8 +90,8 @@ export default function Stamps() {
       </section>
 
       {open && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-ink/60 p-4 sm:items-center" onClick={() => setOpen(null)}>
-          <div className="card w-full max-w-md bg-white page-in" onClick={(e) => e.stopPropagation()}>
+        <div className="scrim-in fixed inset-0 z-40 flex items-end justify-center bg-ink/60 p-4 sm:items-center" onClick={() => setOpen(null)}>
+          <div className="card card-static sheet-in w-full max-w-md bg-white" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-4">
               <Stamp booth={open} collected={profile.stampedBoothIds?.includes(open.id) ?? false} size={124} points={open.points} {...marks} />
               <div className="min-w-0 flex-1">
