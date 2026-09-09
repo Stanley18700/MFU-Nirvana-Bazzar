@@ -30,7 +30,8 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
   const { data: booth } = useBooth(boothId)
   const { t, locale } = useLocale()
   const loc = useLocation()
-  const pages = useSlidingPill()
+  // Named, so the pill carries its position across the remount every navigation causes here.
+  const pages = useSlidingPill('organizer')
   const menu = useRef<HTMLDetailsElement>(null)
   useDismissable(menu)
   const [fs, setFs] = useState(!!document.fullscreenElement)

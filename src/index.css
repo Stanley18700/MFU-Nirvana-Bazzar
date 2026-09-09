@@ -439,6 +439,11 @@ details[open] > .pop { animation: pop-in var(--dur-fast) var(--ease-enter) backw
  * padding: the current item's own fill is gone, so on `.seg-dark` an unmeasured strip would be
  * dark teal text on green.
  */
+.seg[data-tab-jump]::before,
+.tab-group[data-tab-jump]::before,
+.tab-rail[data-tab-jump]::before,
+.tab-rail-v[data-tab-jump]::before { transition: none; }
+
 .seg[data-tab-ready='true']::before,
 .tab-group[data-tab-ready='true']::before,
 .tab-rail[data-tab-ready='true']::before,
