@@ -157,11 +157,11 @@ export default function Redeem() {
       <div className="mt-1 grid grid-cols-2 gap-2 xs:grid-cols-3">
         {tiers.map((t) => {
           const pct = t.stockTotal ? t.stockRemaining / t.stockTotal : 0
-          // On-chrome values, not the `-text` ones: this strip sits on the dark ground, and the
-          // page frames a white visitor card below it so it cannot take `.on-chrome` wholesale.
-          const tone = t.stockRemaining <= 5 ? 'text-danger-on-chrome' : pct < 0.2 ? 'text-warn-on-chrome' : 'text-success-on-chrome'
+          // The `-text` values, not the on-chrome ones: this strip sits on the sky now, where the
+          // pale on-chrome green measured 1.6:1. Those three were written for a dark ground.
+          const tone = t.stockRemaining <= 5 ? 'text-danger-text' : pct < 0.2 ? 'text-warn-text' : 'text-success-text'
           return (
-            <div key={t.id} className="rounded-xl bg-white/5 p-3">
+            <div key={t.id} className="glass p-3">
               <div className="stamp-text text-ink-soft">{t.name}</div>
               <div className={`fig text-xl xs:text-2xl ${tone}`}>{fmt(t.stockRemaining)}<span className="text-sm text-ink-soft"> / {fmt(t.stockTotal)}</span></div>
             </div>
