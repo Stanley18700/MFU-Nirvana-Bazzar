@@ -282,6 +282,21 @@ input, select, textarea, button { font: inherit; }
 .tip-dark > .tip-label { @apply bg-white text-ink; }
 .tip-light > .tip-label { @apply bg-ink text-white; }
 
+/*
+ * Touch. `.btn-sm`, `.seg-item`, `.tab` and the icon buttons are 28–32px, which is right beside
+ * 12px text on a laptop and too small for a finger — and the booth tablet and the prize desk are
+ * both touch-only. Raised here rather than in each recipe so a mouse-driven console keeps its
+ * density and only the coarse pointer pays for the room.
+ */
+@media (pointer: coarse) {
+  .btn-sm { @apply px-4 py-2.5; }
+  .btn-icon-sm { @apply h-11 w-11; }
+  .btn-icon { @apply h-11 w-11; }
+  .seg-item { @apply px-4 py-2.5; }
+  .tab { @apply px-4 py-2.5; }
+  .menu-item { @apply py-2.5; }
+}
+
 /* Rows inside a card's "More" popover. */
 .menu-item {
   @apply flex w-full cursor-pointer items-center rounded-lg px-3 py-1.5 text-left text-sm text-ink transition

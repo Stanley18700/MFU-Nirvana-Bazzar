@@ -59,6 +59,18 @@ export default function Invite() {
           {info.status === 'invalid' && 'This link is not a valid invitation.'}
         </Notice>
       )}
+      {/*
+        * Every one of these is terminal, and this page is opened from an email — so there is no
+        * history to go back through and no shell to escape into. An invitation that has already
+        * been used is the common case and it says "sign in on that device", so signing in is the
+        * first way out.
+        */}
+      {((info && info.status !== 'ok') || err) && (
+        <div className="mt-5 flex flex-col gap-2">
+          <Link to="/signin" className="btn-primary">Sign in</Link>
+          <Link to="/" className="btn-dark">Back to the start</Link>
+        </div>
+      )}
       {info && info.status === 'ok' && (
         <div className="page-in">
           <h1 className="text-2xl font-bold">Hello {info.displayName}</h1>

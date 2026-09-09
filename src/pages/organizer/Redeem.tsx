@@ -4,12 +4,11 @@ import { Scanner } from '../../components/Scanner'
 import { api, friendlyError, type LookupResult, type RedemptionCred } from '../../lib/api'
 import { useBooth, useBooths, useEvent, useTiersState } from '../../lib/data'
 import { OrganizerBar } from '../../components/OrganizerBar'
-import { DarkNotice, DataErrors, LiveDot, Notice, Spinner, fmt } from '../../components/ui'
+import { DarkNotice, DataErrors, fmt, LiveDot, type Msg, Notice, Spinner } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
 import { clock } from '../../lib/eventText'
 
 type Okay = Extract<LookupResult, { status: 'ok' }>
-type Msg = { tone: 'green' | 'amber' | 'red'; text: string }
 type Done = { tier: string; reward: string; name: string; passportNo?: string; at: number }
 
 const PAYLOAD_RE = /(?:^|\/r\/)[A-Za-z0-9]+\.\d+\.[A-Z2-7]{8}/i
@@ -229,7 +228,7 @@ export default function Redeem() {
         {busy && <Spinner label="Looking up…" />}
         <form onSubmit={submitManual} className="mt-4 rounded-2xl bg-white/5 p-4">
           <div className="stamp-text text-on-chrome-soft">Or type what the visitor reads out</div>
-          <div className="mt-2 grid gap-2 xs:grid-cols-[1fr_1fr_auto]">
+          <div className="mt-2 grid gap-2 [&>*]:min-w-0 sm:grid-cols-[1fr_1fr_auto]">
             <label className="block text-xs text-on-chrome-soft">Passport number
               <input className="field mt-1 bg-white/90 font-mono uppercase" value={passport} onChange={(e) => setPassport(e.target.value.toUpperCase())}
                 placeholder={`${prefix}-0042`} autoCapitalize="characters" autoComplete="off" inputMode="text" />

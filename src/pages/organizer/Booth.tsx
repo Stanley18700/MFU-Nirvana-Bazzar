@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { useAuth } from '../../lib/auth'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { useAuth, useSignOut } from '../../lib/auth'
 import { api, friendlyError } from '../../lib/api'
 import { useBooth, useBoothStat, useBooths, useEventStats } from '../../lib/data'
 import { useLocale } from '../../lib/locale'
@@ -31,7 +31,8 @@ const REFRESH_MIN_GAP = 60_000
 
 /** §5.1 — the booth screen. Runs all day with nothing to press; keeps rotating offline. */
 export default function Booth() {
-  const { role, boothId: claimBooth, user, signOut } = useAuth()
+  const { role, boothId: claimBooth, user } = useAuth()
+  const signOutAndGo = useSignOut()
   const [params] = useSearchParams()
   const boothId = role === 'admin' ? params.get('boothId') ?? undefined : claimBooth ?? undefined
   const [session, setSession] = useState<Session | null>(() => readCache(boothId))
@@ -42,7 +43,6 @@ export default function Booth() {
   const wakeLock = useRef<WakeLockSentinel | null>(null)
   const { t, pick } = useLocale()
   const lastFetch = useRef(0)
-  const nav = useNavigate()
   const loc = useLocation()
   // ScanLanding sends an organizer here when they scan a booth code with their own phone.
   const notice = (loc.state as { notice?: string } | null)?.notice ?? null
@@ -191,7 +191,10 @@ export default function Booth() {
           </p>
           <div className="flex flex-wrap gap-2">
             <button className="btn-gold" onClick={() => { setErr(null); void load(true) }}>{t('booth.retry')}</button>
-            <button className="btn-dark" onClick={async () => { await signOut(); nav('/', { replace: true }) }}>{t('nav.signOut')}</button>
+            {/* An admin lands here whenever they open /booth without a ?boothId; without this the
+                only way back to the console is signing out of it. */}
+            {role === 'admin' && <Link to="/admin" className="btn-dark">{t('nav.admin')}</Link>}
+            <button className="btn-dark" onClick={() => void signOutAndGo()}>{t('nav.signOut')}</button>
           </div>
         </div>
       </main>

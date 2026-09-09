@@ -13,6 +13,9 @@ interface Props {
   /** Issuing line and the "issued in / on" value, from the live event. Defaults keep the seeded look. */
   markTop?: string
   markBottom?: string
+  /** "From – until" on the visa, and the dates its machine-readable zone carries. From the live event. */
+  validFor?: string
+  mrzDates?: string
 }
 
 const RATIO = 105 / 74
@@ -22,9 +25,9 @@ const VB_H = 296
 const az = (s: string | undefined) => String(s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '<')
 const pad = (s: string, n: number) => (az(s) + '<'.repeat(n)).slice(0, n)
 
-function mrzLines(shortName: string, validFor: string, serial: string, points: number | undefined) {
+function mrzLines(shortName: string, validFor: string, serial: string, points: number | undefined, dates: string) {
   const l1 = pad('V<THA' + pad(shortName, 4) + '<<' + az(validFor), 44)
-  const l2 = pad(pad(serial, 9) + '2THA2609160M260918' + pad('P' + (points ?? 0), 5), 44)
+  const l2 = pad(pad(serial, 9) + '2THA' + dates + pad('P' + (points ?? 0), 5), 44)
   return [l1, l2]
 }
 
@@ -38,7 +41,7 @@ function mrzLines(shortName: string, validFor: string, serial: string, points: n
  * Two levels of detail, chosen by width: under 150px the field block drops away and the booth
  * code carries the label, the way a real visa reads at a glance.
  */
-export function Stamp({ booth, collected, size = 148, tilt = 0, animate = false, points, className = '', markTop = 'MFU INTERFEST', markBottom = '2026 · CHIANG RAI' }: Props) {
+export function Stamp({ booth, collected, size = 148, tilt = 0, animate = false, points, className = '', markTop = 'MFU INTERFEST', markBottom = '2026 · CHIANG RAI', validFor = '16–18 SEP 2026', mrzDates = '2609160M260918' }: Props) {
   const uid = useId().replace(/:/g, '')
   const dense = size >= 150
   const accent = booth.accentColor
@@ -48,7 +51,7 @@ export function Stamp({ booth, collected, size = 148, tilt = 0, animate = false,
   const ink = collected ? '#17414E' : 'rgba(23,65,78,.34)'
   const inkSoft = collected ? '#1F5A6B' : 'rgba(23,65,78,.30)'
   const line = collected ? accent : 'rgba(23,65,78,.30)'
-  const mrz = mrzLines(shortName, booth.nameEn || markTop, num, points)
+  const mrz = mrzLines(shortName, booth.nameEn || markTop, num, points, mrzDates)
   // maxWidth keeps a fixed px label inside its grid cell on a 320px phone (§12.11); aspect-ratio keeps the height honest when it shrinks.
   const style = { width: size, maxWidth: '100%', aspectRatio: `${RATIO}`, ['--tilt' as string]: `${tilt}deg`, transform: animate ? undefined : `rotate(${tilt}deg)` }
   const label = { fontWeight: 600, letterSpacing: 1.1, fill: inkSoft }
@@ -99,7 +102,7 @@ export function Stamp({ booth, collected, size = 148, tilt = 0, animate = false,
             <text x="28" y="94" style={label} fontSize="8">VALID FOR / VALABLE POUR</text>
             <text x="28" y="112" style={value} fontSize="15">{(booth.nameEn || markTop).slice(0, 17)}</text>
             <text x="28" y="138" style={label} fontSize="8">FROM – UNTIL / DU – AU</text>
-            <text x="28" y="155" style={mono} fontSize="12.5">16–18 SEP 2026</text>
+            <text x="28" y="155" style={mono} fontSize="12.5">{validFor}</text>
             <text x="28" y="181" style={label} fontSize="8">ISSUED IN / ON</text>
             <text x="28" y="197" style={{ ...mono, fill: inkSoft }} fontSize="10.5">{markBottom}</text>
             <text x="186" y="94" style={label} fontSize="8">TYPE</text>

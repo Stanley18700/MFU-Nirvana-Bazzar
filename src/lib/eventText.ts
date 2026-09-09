@@ -33,13 +33,30 @@ export function eventMark(ev: LiveEvent): string {
   return year ? `${ev.nameEn.toUpperCase()} · ${year}` : ev.nameEn.toUpperCase()
 }
 
-/** Arc text for the generated fallback stamp (spec 2.5). */
-export function stampMarks(ev: LiveEvent): { markTop: string; markBottom: string } {
-  const a = d(ev.startsAt)
+/**
+ * The text printed on the booth visa (spec 2.5): the issuing line, the place and year, the
+ * "from – until" range, and the six-digit dates its machine-readable zone carries.
+ *
+ * All of it comes from the live event. The visa used to state 16–18 SEP 2026 in the markup, so
+ * changing the event's dates in the console left every stamp claiming the old ones.
+ */
+export function stampMarks(ev: LiveEvent): { markTop: string; markBottom: string; validFor: string; mrzDates: string } {
+  const a = d(ev.startsAt), b = d(ev.endsAt)
   const year = a ? new Intl.DateTimeFormat('en-GB', { year: 'numeric', timeZone: TZ }).format(a) : ''
+  const day = (x: Date) => new Intl.DateTimeFormat('en-GB', { day: '2-digit', timeZone: TZ }).format(x)
+  const mon = (x: Date) => new Intl.DateTimeFormat('en-GB', { month: 'short', timeZone: TZ }).format(x).toUpperCase()
+  // YYMMDD, the format a machine-readable zone uses.
+  const six = (x: Date) => new Intl.DateTimeFormat('en-GB', { year: '2-digit', month: '2-digit', day: '2-digit', timeZone: TZ })
+    .formatToParts(x).filter((p) => p.type !== 'literal').reduce((o, p) => ({ ...o, [p.type]: p.value }), {} as Record<string, string>)
+  const s6 = (x: Date) => { const p = six(x); return `${p.year}${p.month}${p.day}` }
+  const validFor = a && b
+    ? (mon(a) === mon(b) && year ? `${day(a)}–${day(b)} ${mon(b)} ${year}` : `${day(a)} ${mon(a)} – ${day(b)} ${mon(b)} ${year}`)
+    : ''
   return {
     markTop: ev.stampMarkTop || ev.nameEn.toUpperCase().slice(0, 22),
     markBottom: ev.stampMarkBottom || year,
+    validFor,
+    mrzDates: a && b ? `${s6(a)}0M${s6(b)}` : '',
   }
 }
 

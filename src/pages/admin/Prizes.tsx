@@ -102,7 +102,7 @@ export default function Prizes() {
             const problem = rowProblems[i]
             const id = `tier-${r.id ?? i}`
             return (
-              <div key={r.id ?? i} className="grid gap-2 rounded-xl bg-white/50 p-3 md:grid-cols-6">
+              <div key={r.id ?? i} className="grid gap-2 rounded-xl bg-white/50 p-3 sm:grid-cols-2 lg:grid-cols-6">
                 <div><L htmlFor={`${id}-name`}>Tier name</L><input id={`${id}-name`} className="field" value={r.name} onChange={(e) => set(i, { name: e.target.value })} placeholder="Explorer" /></div>
                 <div><L htmlFor={`${id}-pts`}>Unlocks at (points)</L><input id={`${id}-pts`} className={`field ${warn || problem ? 'border-warn' : ''}`} type="number" min={1} value={Number.isFinite(r.thresholdPoints) ? r.thresholdPoints : ''} onChange={(e) => set(i, { thresholdPoints: e.target.value === '' ? NaN : Number(e.target.value) })} /></div>
                 <div className="md:col-span-2"><L htmlFor={`${id}-reward`}>Reward</L><input id={`${id}-reward`} className="field" value={r.reward} onChange={(e) => set(i, { reward: e.target.value })} placeholder="Tote bag" /></div>

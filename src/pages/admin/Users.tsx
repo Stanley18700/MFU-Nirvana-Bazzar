@@ -110,7 +110,7 @@ export default function Users() {
       <section className="card mt-4">
         <h2 className="stamp-text text-ink-soft">Invite booth organizers</h2>
         <p className="mt-1 text-xs text-ink-soft">The link signs them in on the booth device with their own account and opens their screen. Single-use, expires in 14 days or at the end of the event.</p>
-        <div className="mt-3 grid gap-2 md:grid-cols-4">
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <input className="field" placeholder="Name" aria-label="Name" value={inv.name} onChange={(e) => setInv({ ...inv, name: e.target.value })} />
           <input className="field" placeholder="Email" aria-label="Email" type="email" value={inv.email} onChange={(e) => setInv({ ...inv, email: e.target.value })} />
           <select className="field" aria-label="Role" value={inv.role} onChange={(e) => setInv({ ...inv, role: e.target.value as Role })}><option value="organizer">{ROLE_LABEL.organizer}</option><option value="admin">{ROLE_LABEL.admin}</option></select>
@@ -138,7 +138,10 @@ export default function Users() {
                 ))}
               </div>
             </div>
-            <table className="mt-2 w-full text-sm">
+            {/* Six columns including an address and a timestamp: it needs the same wrapper its
+                two sibling tables already have. */}
+            <div className="mt-2 overflow-x-auto">
+            <table className="w-full min-w-[36rem] text-sm">
               <thead><tr className="text-left text-xs text-ink-soft"><th className="py-1">Name</th><th>Email</th><th>Booth</th><th>Status</th><th>Sent</th><th></th></tr></thead>
               <tbody>
                 {shownInvites.map((i) => (
@@ -157,6 +160,7 @@ export default function Users() {
                 {shownInvites.length === 0 && <tr><td colSpan={6} className="py-3 text-center text-xs text-ink-soft">No pending invitations.</td></tr>}
               </tbody>
             </table>
+            </div>
           </>
         )}
       </section>
@@ -202,9 +206,11 @@ export default function Users() {
 function LinkRow({ email, link }: { email: string; link: string }) {
   const ref = useRef<HTMLInputElement>(null)
   return (
-    <li className="flex items-center gap-2">
-      <span className="w-48 truncate">{email}</span>
-      <input ref={ref} readOnly className="field flex-1 font-mono text-[11px]" value={link} onFocus={(e) => e.currentTarget.select()} aria-label={`Invitation link for ${email}`} />
+    // `min-w-0` on the input: a flex item will not shrink below its intrinsic width without it,
+    // and this row is the path an admin uses whenever email delivery is not configured.
+    <li className="flex flex-wrap items-center gap-2">
+      <span className="w-full truncate sm:w-48">{email}</span>
+      <input ref={ref} readOnly className="field min-w-0 flex-1 font-mono text-[11px]" value={link} onFocus={(e) => e.currentTarget.select()} aria-label={`Invitation link for ${email}`} />
       <CopyButton text={link} inputRef={ref} />
     </li>
   )
@@ -311,7 +317,7 @@ function CreateUser({ booths, onCreated, onError }: { booths: BoothOpt[]; onCrea
         Staff normally arrive through an invitation above. Use this for a walk-up visitor who cannot sign up on their own phone, or a
         staff account with a set password. An email contact counts as confirmed — you are vouching for it.
       </p>
-      <form onSubmit={submit} className="mt-3 grid gap-2 md:grid-cols-4">
+      <form onSubmit={submit} className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <input className="field" placeholder="Name" aria-label="Name" required maxLength={80} value={f.displayName} onChange={(e) => set('displayName', e.target.value)} />
         <input className="field" placeholder="Email (or phone for a visitor)" aria-label="Contact" required value={f.contact} onChange={(e) => set('contact', e.target.value)} />
         <select className="field" aria-label="Role" value={f.role} onChange={(e) => set('role', e.target.value as Role)}>

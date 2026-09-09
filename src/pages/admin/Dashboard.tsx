@@ -38,27 +38,29 @@ export default function Dashboard() {
 
       <Readiness />
 
-      <section className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <section className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Fig value={fmt(m.scoped.visitors)} label="Visitors registered" />
         <Fig value={fmt(m.scoped.stamps)} label="Stamps collected" accent="#1A8AA6" />
         <Fig value={fmt(ev.totals.redeemed)} label="Prizes redeemed" accent="#9A5A0F" />
         <Fig value={fmt(ev.activeLast15m)} label="Active last 15 min" accent="#4C764F" />
       </section>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
         <section className="card">
           <div className="flex items-center justify-between"><h2 className="stamp-text text-ink-soft">Booth leaderboard</h2><CsvButton name="leaderboard" rows={csv.leaderboard} /></div>
           <ol className="mt-3 flex flex-col gap-2">
             {board.map((b, i) => (
-              <li key={b.id} className="flex items-center gap-3 text-sm">
-                <span className="w-5 text-right text-ink-soft">{i + 1}</span>
+              // The fixed columns only fit from `sm` up. Below that the name takes the row and the
+              // bar, the count and the note sit under it, rather than 396px of tracks fighting over 303.
+              <li key={b.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm sm:flex-nowrap">
+                <span className="w-5 shrink-0 text-right text-ink-soft">{i + 1}</span>
                 <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: b.accentColor }} />
-                <span className="w-40 truncate font-medium">{b.nameEn}</span>
-                <div className="relative h-5 flex-1 overflow-hidden rounded bg-ink/5">
+                <span className="min-w-0 flex-1 truncate font-medium sm:w-40 sm:flex-none">{b.nameEn}</span>
+                <div className="relative order-1 h-5 w-full min-w-0 flex-1 overflow-hidden rounded bg-ink/5 sm:order-none sm:w-auto">
                   <div className="h-full rounded" style={{ width: `${(b.stamps / max) * 100}%`, background: i === 0 && b.stamps > 0 ? '#F5C63C' : lowest.has(b.id) ? '#DC8A2A' : b.accentColor, opacity: 0.85 }} />
                 </div>
-                <span className="fig w-12 text-right text-base">{fmt(b.stamps)}</span>
-                <span className="w-24 text-right text-xs">{i === 0 && b.stamps > 0 ? <span className="text-foil">★ top booth</span> : lowest.has(b.id) ? <span className="text-warn-text">needs traffic</span> : null}</span>
+                <span className="fig order-1 w-12 shrink-0 text-right text-base sm:order-none">{fmt(b.stamps)}</span>
+                <span className="order-1 shrink-0 text-right text-xs sm:order-none sm:w-24">{i === 0 && b.stamps > 0 ? <span className="text-foil">★ top booth</span> : lowest.has(b.id) ? <span className="text-warn-text">needs traffic</span> : null}</span>
               </li>
             ))}
           </ol>

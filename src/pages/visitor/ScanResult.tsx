@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
+import { stampMarks } from '../../lib/eventText'
 import { doc } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { useAuth } from '../../lib/auth'
-import { useBooths, useDoc } from '../../lib/data'
+import { useBooths, useDoc, useEvent } from '../../lib/data'
 import type { SurveyDoc } from '../../../shared/model'
 import { Stamp } from '../../components/Stamp'
 import { Notice } from '../../components/ui'
@@ -10,12 +11,13 @@ import type { ScanResult } from '../../../shared/model'
 
 export function ScanResultView({ result, onRetry }: { result: ScanResult; onRetry: () => void }) {
   const booths = useBooths()
+  const marks = stampMarks(useEvent())
   const booth = 'boothId' in result ? booths.find((b) => b.id === result.boothId) : undefined
 
   if (result.status === 'success') {
     return (
       <div className="flex flex-col items-center gap-4 p-6 text-center page-in">
-        {booth && <Stamp booth={booth} collected animate tilt={(Math.random() * 8 - 4) | 0 || 5} size={300} />}
+        {booth && <Stamp booth={booth} collected animate tilt={(Math.random() * 8 - 4) | 0 || 5} size={300} {...marks} />}
         <div>
           <div className="stamp-text text-ink-soft">Stamp collected</div>
           <div className="fig mt-1 text-4xl text-ink">+{result.pointsAwarded} points</div>
@@ -34,7 +36,7 @@ export function ScanResultView({ result, onRetry }: { result: ScanResult; onRetr
   if (result.status === 'already') {
     return (
       <div className="flex flex-col items-center gap-4 p-6 text-center page-in">
-        {booth && <Stamp booth={booth} collected size={240} className="pulse-once" />}
+        {booth && <Stamp booth={booth} collected size={240} className="pulse-once" {...marks} />}
         <div className="font-semibold">Already stamped here</div>
         <div className="text-sm text-ink-soft">{booth?.nameEn} is in your passport. Try a booth you have not visited.</div>
         <div className="flex w-full gap-2">
