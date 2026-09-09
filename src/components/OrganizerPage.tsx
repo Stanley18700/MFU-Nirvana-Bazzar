@@ -15,7 +15,7 @@ type BoothLike = Pick<BoothDoc, 'shortName' | 'accentColor' | 'badgeThumbUrl' | 
 export function BoothWatermark({ booth, marks }: { booth: BoothLike | null | undefined; marks?: { markTop: string; markBottom: string } }) {
   if (!booth) return null
   return (
-    <div className="pointer-events-none fixed bottom-[-6vmin] right-[-10vmin] -z-10 opacity-[0.07] mix-blend-luminosity" aria-hidden>
+    <div className="pointer-events-none fixed bottom-[-6vmin] right-[-10vmin] -z-10 opacity-[0.12] mix-blend-luminosity" aria-hidden>
       <div className="w-[min(78vmin,720px)] -rotate-[8deg]">
         <Stamp booth={booth} collected size={720} className="!w-full" {...marks} />
       </div>

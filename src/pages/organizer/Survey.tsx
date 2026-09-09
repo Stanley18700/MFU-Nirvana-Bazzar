@@ -194,7 +194,7 @@ export default function Survey() {
       </section>
 
       {problems.length > 0 && (
-        <div className="mt-4">
+        <div className="glass mt-4 p-3">
           <Notice tone="amber">
             <span className="font-semibold">Not publishable yet</span>
             <ul className="mt-1 ml-4 list-disc">{problems.map((p) => <li key={p}>{p}</li>)}</ul>
@@ -202,7 +202,9 @@ export default function Survey() {
         </div>
       )}
 
-      <div className="mt-5 flex flex-wrap items-center gap-2">
+      {/* On glass: this row is at the foot of the page, which is where the campus is brightest, and
+          two of its five controls are quiet ones that vanish over a lawn. */}
+      <div className="glass mt-5 flex flex-wrap items-center gap-2 p-3">
         <button className="btn-primary" onClick={() => save()} disabled={!!busy || !dirty}>
           {busy === 'save' ? 'Saving…' : 'Save'}
         </button>

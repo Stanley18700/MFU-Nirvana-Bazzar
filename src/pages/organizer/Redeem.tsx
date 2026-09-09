@@ -226,7 +226,7 @@ export default function Redeem() {
             stretched to 1600px is neither easier to aim at nor pleasant to stand in front of. */}
         <Scanner onResult={(t) => void onCred({ payload: t })} paused={busy || !!lookup || !!done} className="mx-auto mt-4 aspect-[4/3] w-full max-w-2xl" />
         {busy && <Spinner label="Looking up…" />}
-        <form onSubmit={submitManual} className="mt-4 rounded-2xl bg-white/5 p-4">
+        <form onSubmit={submitManual} className="glass mt-4 p-4">
           <div className="stamp-text text-on-chrome-soft">Or type what the visitor reads out</div>
           <div className="mt-2 grid gap-2 [&>*]:min-w-0 sm:grid-cols-[1fr_1fr_auto]">
             <label className="block text-xs text-on-chrome-soft">Passport number

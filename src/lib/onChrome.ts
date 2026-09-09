@@ -1,5 +1,11 @@
-/** The organizer's ground. Every caller of this helper paints a booth accent onto it. */
-const STAGE = '#0D5A70'
+/**
+ * The organizer's ground, as it actually renders: not the flat `--color-stage` but the glass pane
+ * that every one of these accents is painted on, sampled at its lightest corner. The pane carries
+ * a white gradient at its top edge and sits over the campus illustration, so it reads a little
+ * lighter than the token — enough that accents lifted against the token alone measured 2.7:1 on
+ * screen where the arithmetic promised 3.2.
+ */
+const STAGE = '#226677'
 const cache = new Map<string, string>()
 
 const chan = (c: number) => { const s = c / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4 }

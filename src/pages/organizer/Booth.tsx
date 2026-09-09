@@ -247,24 +247,6 @@ export default function Booth() {
     <>
     {/* The ground is a backdrop rather than a fill on `main`, or `main` paints over it. */}
     <div className="fixed inset-0 -z-20 bg-stage print:hidden" aria-hidden />
-    {/*
-      * The design system's booth screen stands the code on the paper-cut campus, so a hall full of
-      * these reads as one set. Turned right down — the visa behind the QR is the figure here.
-      *
-      * Full width at every size. Held to a minimum width instead, it is a zoomed slice of campus
-      * on a phone — legible detail nobody asked for, sitting right behind the manual code.
-      */}
-    <img
-      src="/brand/illus-campus-papercut.webp" alt="" aria-hidden
-      className="pointer-events-none fixed bottom-0 left-1/2 -z-10 w-full max-w-none -translate-x-1/2 opacity-[0.15] print:hidden"
-      style={{
-        // Faded into the chrome rather than laid on top of it. Its skyline is a hard horizontal
-        // edge across the middle of the screen otherwise, and a straight edge behind the QR reads
-        // as a panel — the same fault the passport landing had with its cut-off clouds.
-        WebkitMaskImage: 'linear-gradient(to bottom, transparent, #000 42%)',
-        maskImage: 'linear-gradient(to bottom, transparent, #000 42%)',
-      }}
-    />
     <main className="booth-screen relative flex min-h-full flex-col overflow-hidden text-white print:hidden">
       {/*
        * Outside the header, not inside it: the bar is the top row of the screen on every organizer
@@ -283,7 +265,7 @@ export default function Booth() {
         )}
       />
       <header className="px-[4vw] pt-[2vh]">
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+        <div className="glass flex flex-wrap items-start justify-between gap-x-4 gap-y-1 px-[1.2em] py-[0.7em]">
           <div className="min-w-0">
             {/* Eyebrow, title and manual code in the booth's own colour, as the design system has
                 them — the swatch dot they used to need is redundant once the line itself is the
@@ -315,8 +297,8 @@ export default function Booth() {
          * wider than the frame cannot widen the document on a phone.
          */}
         <div
-          className="pointer-events-none absolute left-1/2 top-1/2 w-[min(96vw,var(--visa-w))] -translate-x-1/2 -translate-y-1/2 opacity-[0.06] mix-blend-luminosity"
-          style={{ ['--visa-w' as string]: `${Math.round(size * 2.4)}px` }} aria-hidden
+          className="pointer-events-none absolute left-1/2 top-1/2 w-[min(112vw,var(--visa-w))] -translate-x-1/2 -translate-y-1/2 opacity-[0.12] mix-blend-luminosity"
+          style={{ ['--visa-w' as string]: `${Math.round(size * 3)}px` }} aria-hidden
         >
           <Stamp booth={b} collected size={720} className="!w-full" {...stampMarks(event)} />
         </div>
@@ -340,7 +322,10 @@ export default function Booth() {
           </svg>
         </div>
         </div>
-        <div ref={codeRef} className="text-center">
+        {/* On glass, not on the illustration: the code lands over the campus canopy, and a 2em
+            accent-coloured word on tree tops is the one thing on this screen that must never be
+            hard to read from across a hall. */}
+        <div ref={codeRef} className="glass px-[2em] py-[0.6em] text-center">
           <div className="stamp-text text-[0.55em] text-on-chrome-soft">{t('booth.manualCode')}</div>
           <div key={token.counter} className="code-swap fig text-[2em] tracking-[0.15em] sm:text-[2.4em] sm:tracking-[0.25em]" style={{ color: accent }}>
             {formatManualCode(token.token)}
