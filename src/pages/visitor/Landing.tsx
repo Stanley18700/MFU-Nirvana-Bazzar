@@ -27,7 +27,9 @@ export default function Landing() {
    */
   return (
     <><FestivalBackdrop /><main className="relative mx-auto flex min-h-full w-full max-w-md flex-col items-center justify-between gap-6 overflow-x-clip px-6 pt-8 text-center text-ink sm:max-w-lg sm:justify-center sm:gap-14 sm:py-16" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}>
-      <div className="haze page-in flex flex-col items-center px-3 py-2">
+      {/* No haze behind this block: the wordmark is its own cut-paper shape on a plain sky, and a
+          frosted panel behind it read as a card the artwork was sitting in. */}
+      <div className="page-in flex flex-col items-center px-3 py-2">
         <ScrapLabel tone="ink" tilt={-2.5}>Mae Fah Luang University</ScrapLabel>
         {/*
          * The festival's own wordmark, which the typed heading stood in for while the asset could
@@ -41,7 +43,9 @@ export default function Landing() {
 
       <div className="page-in flex flex-col items-center gap-5" style={{ animationDelay: '60ms' }}>
         <UniversityMark className="h-28 w-28 xs:h-36 xs:w-36" />
-        <div className="haze flex flex-col items-center gap-3 px-3 py-2">
+        {/* A tinted panel rather than `.haze`: over the campus its backdrop blur draws a hard
+            rectangle that the recipe's radial mask fades the colour out of but not the blur. */}
+        <div className="flex flex-col items-center gap-3 rounded-[28px] bg-sky-100/75 px-5 py-3">
           <ScrapLabel tone="orange" tilt={1.75}>Digital passport</ScrapLabel>
           <p className="max-w-xs text-pretty text-ink sm:max-w-sm">
             Collect a stamp at every booth with your own phone, earn points, and trade them for a prize.
@@ -51,7 +55,6 @@ export default function Landing() {
 
       {/* Capped rather than full-width: a 32rem button reads as a banner, not a button. */}
       <div className="page-in flex w-full max-w-sm flex-col gap-3" style={{ animationDelay: '120ms' }}>
-        <p className="mb-1 text-xs text-ink-soft">Sign in with Google or an email · works in your browser · under a minute</p>
         <Link to="/signup" className="btn-primary py-3.5 text-lg shadow-raised">Start your passport</Link>
         <Link to="/signin" className="btn-quiet py-3.5 text-base font-semibold text-ink shadow-raised">I already have a passport</Link>
       </div>

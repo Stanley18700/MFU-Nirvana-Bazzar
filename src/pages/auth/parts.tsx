@@ -63,7 +63,7 @@ export function FestivalBackdrop({ hills = true }: { hills?: boolean }) {
       {hills && (
         <img
           src="/brand/illus-campus-papercut.webp" alt=""
-          className="absolute bottom-0 left-0 h-[min(13vh,110px)] w-full object-cover object-[50%_0%] sm:h-[min(20vh,170px)]"
+          className="absolute bottom-0 left-0 h-[min(24vh,190px)] w-full object-cover object-[50%_6%] sm:h-[min(34vh,300px)]"
         />
       )}
     </div>
