@@ -87,7 +87,7 @@ They have no email and no password, so:
   admin exists.
 
 So give the admin a real credential first. This runs through the Admin SDK, so it needs
-application-default credentials (§7), not `firebase login`, and works no matter which client
+application-default credentials (§4), not `firebase login`, and works no matter which client
 build is currently deployed:
 
 ```bash
@@ -205,23 +205,28 @@ changed on the live site when you see it; rerunning the whole deploy is safe.
 ## 4. Seed the event (12 booths, prize tiers, reference lists)
 
 ```bash
-gcloud auth application-default login     # once; or set GOOGLE_APPLICATION_CREDENTIALS to a service-account key
-npm run seed
+gcloud auth application-default login --account=6731503088@lamduan.mfu.ac.th --project=mfu-passport   # once
+npm run seed                                 # or set GOOGLE_APPLICATION_CREDENTIALS to a service-account key instead
 ```
 
 The seed writes through the Admin SDK, so it uses **application-default credentials, not your
 `firebase login`**. Those are two separate identities: if ADC belongs to a different Google
 account you get `7 PERMISSION_DENIED — Missing or insufficient permissions`, even though
-`firebase deploy` works perfectly. Check with `gcloud auth list` before blaming the code, and
-re-authenticate for the right account:
+`firebase deploy` works perfectly. ADC does **not** appear in `gcloud auth list`; see whose it is with
 
 ```bash
-gcloud auth application-default login --account=<you>@mfu.ac.th
+curl -s "https://oauth2.googleapis.com/tokeninfo?access_token=$(gcloud auth application-default print-access-token)"
 ```
 
-Note this overwrites the machine's ADC for every tool that uses it, so if the existing
-credentials matter, copy `%APPDATA%\gcloud\application_default_credentials.json` aside first
-and put it back afterwards.
+and re-run the login above if `email` is not `6731503088@lamduan.mfu.ac.th` — the project's ADC
+account (Editor on `mfu-passport`, HANDOVER.md §5). `--project` matters: it is the ADC *quota
+project*, and without it gcloud writes whatever project the active `gcloud config` points at,
+after which Firestore rejects the seed complaining about that unrelated project.
+
+The login overwrites the machine's ADC for every tool that uses it — the Firebase CLI included,
+which falls back to ADC when there is no `firebase login`. If the existing credentials matter,
+copy the file aside first and put it back afterwards: `%APPDATA%\gcloud\application_default_credentials.json`
+on Windows, `~/.config/gcloud/application_default_credentials.json` on Linux/macOS.
 
 > **The seed puts 190 points on the floor, not the 170 the spec claims.** Its zone split is
 > 3 entrance / 4 middle / 5 far (3x10 + 4x15 + 5x20 = 190); `spec/spec.md` §6.6 describes

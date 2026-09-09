@@ -131,6 +131,10 @@ collection/document): `stats/event/shards/{0..9}`, `stats/booths/items/{boothId}
 
 - **Firebase project `mfu-passport`** — owned by Stanley's Google account. He must add the next
   developer as **Editor** (Project settings → Users and permissions) or hand over the account.
+- **ADC (Admin SDK) identity** — `6731503088@lamduan.mfu.ac.th`, Editor on `mfu-passport`. `npm run
+  seed`, `npm run rescue:admin` and the Firebase CLI (when nobody ran `firebase login`) all act as
+  whatever `gcloud auth application-default login` last wrote on that machine. Nothing to copy: on a
+  new machine run the SETUP.md §4 login command as that account (it also sets the quota project).
 - **Web app config** — in `.env.local` on the dev machine (gitignored, and deliberately *not*
   in the committed `.env.local.example`). Re-read it any time from the console: **Project
   settings → General → Your apps → Web app → SDK setup and configuration**.

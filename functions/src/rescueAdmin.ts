@@ -18,7 +18,7 @@
  * would send them straight to /verify-email.
  *
  * Runs through the Admin SDK, so it needs application-default credentials rather than
- * `firebase login` (SETUP.md §7) and works no matter which client build is deployed.
+ * `firebase login` (SETUP.md §4) and works no matter which client build is deployed.
  */
 import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
