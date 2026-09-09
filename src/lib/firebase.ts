@@ -18,7 +18,14 @@ export const firebaseConfig = {
   appId: env.VITE_FIREBASE_APP_ID as string,
 }
 
-export const USE_EMULATOR = env.VITE_USE_EMULATOR === 'true' || (!env.VITE_FIREBASE_API_KEY && env.DEV)
+/*
+ * Emulators are a development-mode thing, and `env.DEV` gates the whole expression rather than one
+ * half of it. `VITE_USE_EMULATOR=true` used to win in any mode, including a production build — and
+ * that flag lives in `.env.local`, which is exactly where it is set while working locally. A deploy
+ * from a machine mid-session therefore shipped a bundle that dialled 127.0.0.1 for auth, Firestore,
+ * functions and storage, and the live site simply never connected.
+ */
+export const USE_EMULATOR = env.DEV && (env.VITE_USE_EMULATOR === 'true' || !env.VITE_FIREBASE_API_KEY)
 export const REGION = 'asia-southeast1'
 export const APP_ORIGIN = (env.VITE_APP_ORIGIN as string | undefined) || window.location.origin
 
