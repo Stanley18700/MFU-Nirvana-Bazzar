@@ -1,0 +1,25 @@
+/* ── Space ────────────────────────────────────────────────────────────────
+   A 4px base. Section rhythm is deliberately generous: the brand is a poster
+   with air around the collage, not a dense dashboard. */
+:root{
+  --space-0:0;
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-5:20px;
+  --space-6:24px;
+  --space-8:32px;
+  --space-10:40px;
+  --space-12:48px;
+  --space-16:64px;
+  --space-20:80px;
+  --space-24:96px;
+
+  --gutter-mobile:20px;
+  --gutter-desktop:clamp(28px,6vw,104px); /* @kind spacing */
+  --measure-prose:64ch; /* @kind other */
+  --measure-headline:18ch; /* @kind other */
+  --container-max:1200px;
+  --container-phone:448px;
+}

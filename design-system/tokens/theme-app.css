@@ -1,0 +1,53 @@
+/* ── Application surfaces ─────────────────────────────────────────────────
+   One theme, festival-wide. The visitor app, the booth kiosk and the admin
+   console all sit on the same sky-and-paper-cut palette as the posters — there
+   is no separate product theme. */
+:root{
+  /* Grounds */
+  --app-page:var(--sky-500);          /* visitor phone ground — full sky */
+  --app-page-quiet:var(--sky-100);    /* console ground — sky at 6%, so panels read */
+  --app-panel:var(--pure-white);      /* every card, panel and table */
+  --app-panel-warm:var(--scrap-cream);/* secondary panel, print and paper contexts */
+  --app-well:rgba(23,65,78,.06);      /* segmented controls, bar tracks, inset rows */
+  --app-chrome:var(--green-900);      /* console sidebar, kiosk ground, footers */
+  --app-chrome-soft:var(--green-700);
+  --app-cover:var(--green-900);       /* the passport cover panel */
+  --app-foil:var(--gold-400);         /* embossed marks, tier pips, prize state */
+
+  /* Ink on those grounds */
+  --app-ink:var(--ink-900);
+  --app-ink-soft:var(--ink-600);      /* readable on white AND on full sky */
+  --app-ink-on-chrome:#FFFFFF;
+  --app-ink-on-chrome-soft:#CFE0D3;   /* solid, 9:1 on --app-chrome — no alpha text */
+
+  /* Lines */
+  --app-rule:rgba(23,65,78,.14);
+  --app-rule-strong:rgba(23,65,78,.28);
+  --app-rule-on-chrome:rgba(255,255,255,.14);
+
+  /* Interactive */
+  --app-action:var(--sky-900);        /* text-safe: white type and icons sit on this */
+  --app-action-hover:var(--sky-950);
+  --app-action-quiet:var(--app-well);
+  --app-reward:var(--orange-400);     /* prize, redeem, unlock */
+  --app-reward-ink:var(--ink-900);
+  --app-live:var(--green-500);        /* "connected" dot */
+  --app-stale:var(--orange-600);      /* "reconnecting" dot */
+  --app-warn-text:var(--status-warning-text);
+  --app-offline:var(--scrap-red-deep);  /* dot fill, not a ground */
+
+  /* Booth accents — nine paper-scrap colours, assigned round-robin at booth
+     creation and stored on the booth record, so a booth's colour is stable all
+     event. FILL ONLY: the identity dot, the stamp ink, the kiosk frame ring, a
+     leaderboard bar. Never the chrome, and never type — seven of the nine fall
+     below 4.5:1 on white, so a booth's label is always --app-ink. */
+  --booth-1:#EF5F5F;  /* coral */
+  --booth-2:#0FAFD0;  /* cerulean */
+  --booth-3:#4C764F;  /* lush green */
+  --booth-4:#F5C63C;  /* gold */
+  --booth-5:#FF919C;  /* pink */
+  --booth-6:#F0A445;  /* orange */
+  --booth-7:#45CFC0;  /* turquoise */
+  --booth-8:#E08761;  /* terracotta */
+  --booth-9:#2F5D3E;  /* forest */
+}

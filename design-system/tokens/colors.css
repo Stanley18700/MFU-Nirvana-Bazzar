@@ -1,0 +1,101 @@
+/* ── Colour ───────────────────────────────────────────────────────────────
+   The four named brand colours come from the festival concept deck, slide 9
+   (MOOD & TONE). Everything under "paper scraps" is sampled from the official
+   key visual and torn-paper logo lockup. */
+:root{
+  /* Brand four — ฟ้าคราม / เขียวธรรมชาติ / ส้มสดใส / ขาวบริสุทธิ์ */
+  --sky:#7EDFF2;
+  --lush-green:#4C764F;
+  --bright-orange:#FABD6D;
+  --pure-white:#FFFFFF;
+
+  /* Sky scale — the default ground for everything. 100–600 are fills (page
+     grounds, bars, dots, chart strokes); 900/950 are the only steps that carry
+     white text, so they are what --brand-primary and --text-link alias. */
+  --sky-100:#EDFBFE;
+  --sky-200:#D6F4FB;
+  --sky-300:#AEEAF7;
+  --sky-400:#93E4F4;
+  --sky-500:#7EDFF2;
+  --sky-600:#4FCBE6;
+  --sky-700:#23A9C9;
+  --sky-800:#1A8AA6;
+  --sky-900:#12708A;      /* text-safe ground: 5.8:1 with white */
+  --sky-950:#0D5A70;      /* its hover: 7.7:1 with white */
+
+  /* Green scale — mountains, sustainability, Zero Waste */
+  --green-300:#8FC08C;
+  --green-400:#6E9E6B;
+  --green-500:#4C764F;
+  --green-600:#3C6140;
+  --green-700:#2F5D3E;
+  --green-900:#1E3F2A;
+
+  /* Orange / gold scale — energy, friendship, warmth */
+  --orange-300:#FFD9A3;
+  --orange-400:#FABD6D;
+  --orange-500:#F0A445;
+  --orange-600:#DC8A2A;
+  --gold-400:#F5C63C;
+
+  /* Paper scraps — the torn-paper letter palette. Rotate these; never tint chrome with them. */
+  --scrap-coral:#EF5F5F;
+  --scrap-red:#FF5252;
+  --scrap-red-deep:#D94A48;
+  --red-ground:#C13A38;   /* text-safe ground: 5.4:1 with white */
+  --scrap-terracotta:#E08761;
+  --scrap-pink:#FF919C;
+  --scrap-sage:#74AEA6;
+  --scrap-turquoise:#45CFC0;
+  --scrap-cerulean:#0FAFD0;
+  --scrap-gold:#F5C63C;
+  --scrap-kraft:#E3C7A6;
+  --scrap-cream:#F4E4C4;
+  --scrap-taupe:#998570;
+  --scrap-forest:#2F5D3E;
+
+  /* Ink — a deep teal, sampled from the key visual's body copy. Never pure black. */
+  --ink-900:#17414E;
+  --ink-700:#2F7688;
+  --ink-600:#1F5A6B;      /* sky-safe muted text: 7.7:1 on white, 5.0:1 on sky-500 */
+  --ink-500:#5E93A1;      /* non-text only: rules, chart tracks, disabled fills — 3.4:1 on white */
+  --ink-300:#A8C8D1;
+  --ink-100:#DCEBEF;
+
+  /* ── Semantic aliases: use these in components ───────────────────────── */
+  --text-heading:var(--ink-900);
+  --text-body:var(--ink-700);
+  --text-muted:var(--ink-600);
+  --text-on-brand:var(--pure-white);
+  --text-on-sky:var(--ink-900);
+  --text-link:var(--sky-900);
+  --text-link-hover:var(--ink-900);
+
+  --surface-page:var(--sky-500);
+  --surface-page-soft:var(--sky-200);
+  --surface-card:var(--pure-white);
+  --surface-card-warm:var(--scrap-cream);
+  --surface-raised:var(--pure-white);
+  --surface-inverse:var(--green-900);
+
+  --brand-primary:var(--sky-900);
+  --brand-primary-hover:var(--sky-950);
+  --brand-secondary:var(--green-500);
+  --brand-secondary-hover:var(--green-600);
+  --brand-accent:var(--orange-400);
+  --brand-accent-hover:var(--orange-500);
+
+  --border-hairline:rgba(23,65,78,.14);
+  --border-strong:rgba(23,65,78,.28);
+  --border-on-dark:rgba(255,255,255,.24);
+
+  --status-success:var(--green-500);
+  --status-success-bg:#E4F2E5;
+  --status-warning:var(--orange-600);          /* fills, bars, dots — not text */
+  --status-warning-text:#9A5A0F;               /* the same state, as inline copy: 4.9:1 on white */
+  --status-warning-bg:#FDEFD9;
+  --status-danger:var(--red-ground);
+  --status-danger-bg:#FCE6E5;
+  --status-info:var(--sky-800);
+  --status-info-bg:var(--sky-200);
+}

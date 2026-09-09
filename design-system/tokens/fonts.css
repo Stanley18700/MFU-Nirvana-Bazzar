@@ -1,0 +1,10 @@
+/* Fonts. No vendor binaries were supplied with the brief, so both families are
+   loaded from Google Fonts. See readme.md "Typography — substitution flag". */
+@import url("https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Mitr:wght@400;500;600&display=swap");
+
+:root{
+  --font-display:"Baloo 2","Mitr","IBM Plex Sans Thai",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans Thai","IBM Plex Sans",system-ui,sans-serif;
+  --font-thai-display:"Mitr","IBM Plex Sans Thai",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace; /* machine-readable zones, booth serials, kiosk codes */
+}

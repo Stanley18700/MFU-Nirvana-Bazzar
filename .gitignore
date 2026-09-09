@@ -6,7 +6,15 @@ Thumbs.db
 
 # tooling output
 .playwright-mcp/
+# Screenshots and scratch captures. The brand assets below are runtime content, not output:
+# public/brand/* is loaded by UniversityMark and the admin sidebar, and design-system/assets/*
+# is the mirror of the Claude Design project.
 *.png
+!public/brand/*.png
+!design-system/assets/*.png
+
+# Emulator data exports (`--export-on-exit`), written next to the project.
+firebase-export-*/
 
 # node (for when the app build lands here)
 node_modules/
@@ -27,3 +35,15 @@ firestore-debug.log
 ui-debug.log
 *.tgz
 *.tsbuildinfo
+
+# Claude Code: per-machine overrides, installed skills, Impeccable critique snapshots.
+# .claude/settings.json IS tracked — it is the project's shared hook and permission config.
+.claude/settings.local.json
+.claude/skills/
+.impeccable/
+
+# Installed agent skills (`npx skills add Jakubantalik/transitions.dev`) — machine-local, not part of the repo.
+# The installer writes to .agents/ and symlinks into .claude/skills/.
+.agents/
+.claude/skills/transitions-dev
+.claude/skills/transitions-polish

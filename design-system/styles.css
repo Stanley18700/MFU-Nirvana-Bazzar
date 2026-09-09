@@ -1,0 +1,10 @@
+/* MFU International Festival 2026 — design system entry point.
+   Consumers link this one file. Imports only; no rules here. */
+@import url("tokens/fonts.css");
+@import url("tokens/colors.css");
+@import url("tokens/typography.css");
+@import url("tokens/spacing.css");
+@import url("tokens/shape.css");
+@import url("tokens/motion.css");
+@import url("tokens/theme-app.css");
+@import url("tokens/base.css");

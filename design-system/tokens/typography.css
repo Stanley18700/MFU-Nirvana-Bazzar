@@ -1,0 +1,33 @@
+/* ── Type ─────────────────────────────────────────────────────────────────
+   Display type is the rounded festival voice (poster headlines, big numbers).
+   Body type is the bilingual workhorse — it carries Thai and Latin in one design. */
+:root{
+  --text-display-1:clamp(44px,6vw,84px);
+  --text-display-2:clamp(34px,4.4vw,60px);
+  --text-title-1:clamp(26px,3vw,40px);
+  --text-title-2:clamp(21px,2.2vw,28px);
+  --text-title-3:19px;
+  --text-body-lg:18px;
+  --text-body:16px;
+  --text-body-sm:14px;
+  --text-caption:13px;
+  --text-micro:11px;
+
+  --leading-display:1.04; /* @kind other */
+  --leading-title:1.18; /* @kind other */
+  --leading-body:1.55; /* @kind other */
+  --leading-relaxed:1.7; /* @kind other */
+
+  --tracking-display:-.02em; /* @kind other */
+  --tracking-tight:-.015em; /* @kind other */
+  --tracking-normal:0; /* @kind other */
+  --tracking-eyebrow:.14em; /* @kind other */
+  --tracking-stamp:.2em; /* @kind other */
+
+  --weight-light:300;
+  --weight-regular:400;
+  --weight-medium:500;
+  --weight-semibold:600;
+  --weight-bold:700;
+  --weight-black:800;
+}

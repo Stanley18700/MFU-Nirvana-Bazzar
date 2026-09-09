@@ -1,0 +1,28 @@
+/* ── Motion ───────────────────────────────────────────────────────────────
+   Paper moves: things drop, settle, and drift. Nothing slides in from off-screen
+   at speed, and nothing bounces more than once. */
+:root{
+  --dur-instant:120ms; /* @kind other */
+  --dur-fast:180ms; /* @kind other */
+  --dur-base:260ms; /* @kind other */
+  --dur-page:320ms; /* @kind other */
+  --dur-drop:420ms; /* @kind other */
+  --dur-slow:900ms; /* @kind other */
+
+  --ease-standard:cubic-bezier(.2,.8,.3,1); /* @kind other */
+  --ease-out:cubic-bezier(0,0,.28,1); /* @kind other */
+  --ease-settle:cubic-bezier(.2,.9,.3,1.2); /* @kind other */
+  --ease-drift:cubic-bezier(.45,0,.55,1); /* @kind other */
+
+  --hover-lift:translateY(-2px); /* @kind other */
+  --press-scale:.98; /* @kind other */
+}
+
+@keyframes mfu-drop-settle{0%{transform:scale(1.5) rotate(var(--tilt,-8deg));opacity:0}60%{transform:scale(.97) rotate(var(--tilt,-8deg));opacity:1}100%{transform:scale(1) rotate(var(--tilt,-8deg));opacity:1}}
+@keyframes mfu-page-in{from{transform:translateX(20px) scale(.985);opacity:0}to{transform:none;opacity:1}}
+@keyframes mfu-drift{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes mfu-seal-draw{from{stroke-dashoffset:600}to{stroke-dashoffset:0}}
+
+@media (prefers-reduced-motion:reduce){
+  :root{--dur-fast:1ms; /* @kind other */ --dur-base:1ms; /* @kind other */ --dur-page:1ms; /* @kind other */ --dur-drop:1ms; /* @kind other */ --dur-slow:1ms /* @kind other */}
+}

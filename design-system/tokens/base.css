@@ -1,0 +1,7 @@
+/* Minimal element defaults. Link colours are defined here so links added later
+   never fall back to browser blue. */
+body{font-family:var(--font-body);font-size:var(--text-body);line-height:var(--leading-body);color:var(--text-body);-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:var(--font-display);color:var(--text-heading);letter-spacing:var(--tracking-tight);line-height:var(--leading-title);font-weight:var(--weight-bold)}
+a{color:var(--text-link);text-decoration-thickness:1px;text-underline-offset:2px}
+a:hover{color:var(--text-link-hover)}
+::selection{background:var(--sky-300);color:var(--ink-900)}
