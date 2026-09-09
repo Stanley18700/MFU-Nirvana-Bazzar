@@ -1,10 +1,12 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
-import { NavLink } from 'react-router-dom'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { useBooth } from '../lib/data'
 import { useLocale } from '../lib/locale'
 import { AccountMenu } from './AccountMenu'
 import { useSlidingPill } from '../lib/useSlidingPill'
+import { useFitsOneLine } from '../lib/useFitsOneLine'
+import { useDismissable } from '../lib/useDismissable'
 
 /**
  * The organizer's only navigation. Booth staff used to reach the prize desk by typing the URL and
@@ -26,8 +28,11 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
 }) {
   const { role } = useAuth()
   const { data: booth } = useBooth(boothId)
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
+  const loc = useLocation()
   const pages = useSlidingPill()
+  const menu = useRef<HTMLDetailsElement>(null)
+  useDismissable(menu)
   const [fs, setFs] = useState(!!document.fullscreenElement)
   useEffect(() => {
     const on = () => setFs(!!document.fullscreenElement)
@@ -60,24 +65,48 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
    * never a thumb-width from Stats.
    */
   /**
-   * Two columns, and the outer row deliberately does NOT wrap: the left column holds everything
-   * that may reflow — the tabs and the page's own buttons — while the account menu is a
-   * `shrink-0` sibling. One wrapping row put it below the tabs the moment the tabs needed a
-   * second line; this keeps it in the top corner at every width, which matters now that six booth
-   * pages wrap to two lines on a phone. `items-start` pins it to the top rather than centring it
-   * against a two-line nav.
+   * One row at every width. The strip used to wrap when the pages outgrew the space, which left a
+   * single chip stranded on a second line beside a lane of empty bar — and on a shared tablet the
+   * page you are on is the one thing the bar has to say clearly. When it stops fitting it becomes
+   * a disclosure naming the current page, so nothing is hidden and nothing wraps.
    */
+  const { ref: navRef, fits } = useFitsOneLine<HTMLElement>(`${locale}:${items.length}`)
+  const current = items.find((n) => (n.end ? loc.pathname === n.to.split('?')[0] : loc.pathname.startsWith(n.to.split('?')[0])))
+  const close = () => { if (menu.current) menu.current.open = false }
+
   return (
-    <div style={style} className={`organizer-bar flex w-full items-start gap-3 ${className}`}>
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
+    <div style={style} className={`organizer-bar flex w-full items-center gap-3 ${className}`}>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         {/* No booth name here: every page that uses this bar already carries it as its heading. */}
-        <nav aria-label={t('nav.pages')} className="flex min-w-0 flex-wrap items-center gap-2">
-          <div ref={pages} className={`seg ${dark ? 'seg-dark' : 'seg-light'}`}>
-            {items.map((n) => (
-              // NavLink sets aria-current="page" itself, which is what drives the active style.
-              <NavLink key={n.to} to={n.to} end={n.end} className="seg-item">{n.label}</NavLink>
-            ))}
-          </div>
+        <nav ref={navRef} aria-label={t('nav.pages')} className="flex min-w-0 flex-1 items-center">
+          {fits ? (
+            <div ref={pages} className={`seg ${dark ? 'seg-dark' : 'seg-light'}`}>
+              {items.map((n) => (
+                // NavLink sets aria-current="page" itself, which is what drives the active style.
+                <NavLink key={n.to} to={n.to} end={n.end} className="seg-item whitespace-nowrap">{n.label}</NavLink>
+              ))}
+            </div>
+          ) : (
+            <details ref={menu} className="relative">
+              <summary
+                className={`btn-sm flex cursor-pointer list-none items-center gap-1.5 rounded-full ${dark ? 'btn-dark' : 'btn-quiet'}`}
+                aria-label={t('nav.pages')}
+              >
+                <span className="truncate">{current?.label ?? t('nav.pages')}</span>
+                <span aria-hidden className="text-[0.7em]">▾</span>
+              </summary>
+              <div className="absolute left-0 z-40 mt-1 flex w-56 flex-col rounded-xl bg-white p-1.5 text-sm text-ink shadow-lg ring-1 ring-black/10">
+                {items.map((n) => (
+                  <NavLink
+                    key={n.to} to={n.to} end={n.end} onClick={close}
+                    className={({ isActive }) => `menu-item ${isActive ? 'font-semibold' : ''}`}
+                  >
+                    {n.label}
+                  </NavLink>
+                ))}
+              </div>
+            </details>
+          )}
         </nav>
         {actions}
       </div>

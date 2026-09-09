@@ -332,8 +332,8 @@ input, select, textarea, button { font: inherit; }
  * one item and vanishes from another. `useSlidingPill` writes the current item's box into
  * --tab-x/y/w/h; everything here is the tween.
  *
- * --tab-y and --tab-h are not decoration. `.seg` wraps: six booth pages on a portrait phone put
- * the last two items on a second line, and without them the pill would stay on the first.
+ * --tab-y and --tab-h are not decoration. `.tab-group` wraps — the reference lists' filters do it
+ * at any width — and without them the pill would stay on the first line.
  *
  * Physical `top`/`left`, not the logical properties: `offsetLeft` is physical, and mixing the two
  * is silently correct in LTR and silently wrong in RTL. This app ships English and Thai, both LTR.
@@ -374,7 +374,7 @@ input, select, textarea, button { font: inherit; }
  * Metrics deliberately match `.btn-sm`, so a nav item and a button sit at the same height and
  * radius when they share a row — which is the whole point of grouping them.
  */
-.seg { @apply relative flex flex-wrap items-center gap-0.5 rounded-full p-0.5; }
+.seg { @apply relative flex flex-nowrap items-center gap-0.5 rounded-full p-0.5; }
 .seg-item {
   @apply relative z-[1] cursor-pointer select-none rounded-full px-3.5 py-1.5 text-xs font-medium transition
     focus-visible:outline-none focus-visible:ring-2;
