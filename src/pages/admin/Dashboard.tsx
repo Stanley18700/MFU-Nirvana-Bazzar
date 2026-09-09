@@ -52,15 +52,15 @@ export default function Dashboard() {
             {board.map((b, i) => (
               // The fixed columns only fit from `sm` up. Below that the name takes the row and the
               // bar, the count and the note sit under it, rather than 396px of tracks fighting over 303.
-              <li key={b.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm sm:flex-nowrap">
+              <li key={b.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm lg:flex-nowrap">
                 <span className="w-5 shrink-0 text-right text-ink-soft">{i + 1}</span>
                 <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: b.accentColor }} />
-                <span className="min-w-0 flex-1 truncate font-medium sm:w-40 sm:flex-none">{b.nameEn}</span>
-                <div className="relative order-1 h-5 w-full min-w-0 flex-1 overflow-hidden rounded bg-ink/5 sm:order-none sm:w-auto">
+                <span className="min-w-0 flex-1 truncate font-medium lg:w-40 lg:flex-none">{b.nameEn}</span>
+                <div className="relative order-1 h-5 w-full min-w-0 flex-1 overflow-hidden rounded bg-ink/5 lg:order-none lg:w-auto">
                   <div className="h-full rounded" style={{ width: `${(b.stamps / max) * 100}%`, background: i === 0 && b.stamps > 0 ? '#F5C63C' : lowest.has(b.id) ? '#DC8A2A' : b.accentColor, opacity: 0.85 }} />
                 </div>
-                <span className="fig order-1 w-12 shrink-0 text-right text-base sm:order-none">{fmt(b.stamps)}</span>
-                <span className="order-1 shrink-0 text-right text-xs sm:order-none sm:w-24">{i === 0 && b.stamps > 0 ? <span className="text-foil">★ top booth</span> : lowest.has(b.id) ? <span className="text-warn-text">needs traffic</span> : null}</span>
+                <span className="fig order-1 w-12 shrink-0 text-right text-base lg:order-none">{fmt(b.stamps)}</span>
+                <span className="order-1 shrink-0 text-right text-xs lg:order-none lg:w-24">{i === 0 && b.stamps > 0 ? <span className="text-foil">★ top booth</span> : lowest.has(b.id) ? <span className="text-warn-text">needs traffic</span> : null}</span>
               </li>
             ))}
           </ol>

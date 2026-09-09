@@ -397,12 +397,22 @@ input, select, textarea, button { font: inherit; }
  * know its own padding. The colour matches the page ground, so all it actually does is stop
  * scrolled content showing through.
  */
-.organizer-bar { position: sticky; top: 0; z-index: 30; }
-.organizer-bar::before {
-  content: '';
-  position: absolute;
-  inset: -0.75rem -100vw;
-  z-index: -1;
+.organizer-bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  /*
+   * Negative margins out to the page's own gutter, and padding back in. A pseudo-element stretched
+   * `-100vw` was the first attempt and it grew the document by a viewport width at every size — an
+   * absolutely positioned box outside its parent still counts toward scrollWidth. Margins do not:
+   * the bar lands exactly on the parent's padding edge and nothing overflows.
+   *
+   * `--bar-gutter` is the page's horizontal padding. The kiosk sets its own, because it is
+   * full-bleed with a viewport-relative gutter rather than a centred column.
+   */
+  margin-inline: calc(-1 * var(--bar-gutter, 1.25rem));
+  padding-inline: var(--bar-gutter, 1.25rem);
+  padding-block: 0.625rem;
   background: var(--color-chrome);
 }
 

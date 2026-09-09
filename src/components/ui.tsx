@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react'
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { downloadCsv, type CsvRow } from '../lib/csv'
 import { useDataErrors } from '../lib/data'
 import { LOCALES, useLocale } from '../lib/locale'
@@ -200,10 +200,26 @@ export function DataErrors({ dark, className = '' }: { dark?: boolean; className
   )
 }
 
-export function TabBar({ tabs }: { tabs: Array<{ to: string; label: string; icon: ReactNode; end?: boolean }> }) {
+/**
+ * The passport's bottom bar, and the scan circle raised above it.
+ *
+ * The circle belongs to the bar rather than to the page: as its own `fixed` layer it floated over
+ * whatever content happened to sit at that height. Here it is inside the bar's box, so the band it
+ * occupies is part of the bar's height and a page that clears the bar clears the circle too.
+ */
+export function TabBar({ tabs, scanTo }: { tabs: Array<{ to: string; label: string; icon: ReactNode; end?: boolean }>; scanTo?: string }) {
   const rail = useSlidingPill<HTMLDivElement>()
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t rule bg-white/94 backdrop-blur-[14px]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} aria-label="Passport pages">
+    <div className={`fixed inset-x-0 bottom-0 z-20 ${scanTo ? 'pt-8' : ''}`}>
+    {scanTo && (
+      <Link
+        to={scanTo} aria-label="Scan a booth"
+        className="absolute left-1/2 top-0 z-10 flex h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full border-4 border-white bg-action text-white shadow-float transition hover:bg-action-hover active:scale-95"
+      >
+        {Icon.scan}
+      </Link>
+    )}
+    <nav className="border-t rule bg-white/94 backdrop-blur-[14px]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} aria-label="Passport pages">
       {/*
         * Columns come from the tab count, not a class: Tailwind scans source text for complete
         * class names, so `grid-cols-${n}` would never be compiled.
@@ -216,6 +232,7 @@ export function TabBar({ tabs }: { tabs: Array<{ to: string; label: string; icon
         ))}
       </div>
     </nav>
+    </div>
   )
 }
 

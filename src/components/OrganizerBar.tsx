@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { useBooth } from '../lib/data'
@@ -14,13 +14,15 @@ import { useSlidingPill } from '../lib/useSlidingPill'
  * `compact` is the kiosk variant: one row of small links inside the booth header, hidden while the
  * screen is in full screen so nothing competes with the QR.
  */
-export function OrganizerBar({ boothId, dark = false, compact = false, actions, className = '' }: {
+export function OrganizerBar({ boothId, dark = false, compact = false, actions, className = '', style }: {
   boothId: string | null | undefined
   dark?: boolean
   compact?: boolean
   /** Page-specific buttons — they render between the nav and Sign out so one row, one rhythm. */
   actions?: ReactNode
   className?: string
+  /** Carries `--bar-gutter` where the page's horizontal padding is not the shared column gutter. */
+  style?: CSSProperties
 }) {
   const { role } = useAuth()
   const { data: booth } = useBooth(boothId)
@@ -66,7 +68,7 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
    * against a two-line nav.
    */
   return (
-    <div className={`organizer-bar flex w-full items-start gap-3 ${className}`}>
+    <div style={style} className={`organizer-bar flex w-full items-start gap-3 ${className}`}>
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
         {/* No booth name here: every page that uses this bar already carries it as its heading. */}
         <nav aria-label={t('nav.pages')} className="flex min-w-0 flex-wrap items-center gap-2">

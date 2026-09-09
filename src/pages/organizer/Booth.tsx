@@ -247,7 +247,7 @@ export default function Booth() {
          * they stay readable on a phone and modest on a TV.
          */}
         <OrganizerBar
-          boothId={session.boothId} dark compact className="mb-3"
+          boothId={session.boothId} dark compact className="mb-3" style={{ ['--bar-gutter' as string]: '4vw' }}
           actions={!fs && (
             <div className="flex items-center gap-1.5">
               <IconButton icon={Icon.fullscreen} label={t('booth.fullScreen')} onClick={goFull} dark />

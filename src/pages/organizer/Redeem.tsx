@@ -119,7 +119,7 @@ export default function Redeem() {
   function reset() { setLookup(null); setCred(null); setMsg(null); setDone(null); setArmed(null); setStale(false); setPassport(''); setCode('') }
 
   const shell = (children: React.ReactNode) => (
-    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="mx-auto min-h-full max-w-lg bg-chrome px-4 pb-8 text-white">
+    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="mx-auto min-h-full max-w-lg bg-chrome px-5 pb-8 text-white">
       <header className="py-4">
         {/* The bar above the title, as on /booth and /booth/stats. */}
         <OrganizerBar boothId={role === 'admin' ? null : claimBooth} dark compact className="mb-3" />
