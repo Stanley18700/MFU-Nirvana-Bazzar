@@ -8,9 +8,9 @@ import { useLocale } from '../../lib/locale'
 import { QR } from '../../components/QR'
 import { BoothCard } from '../../components/BoothCard'
 import { OrganizerBar } from '../../components/OrganizerBar'
-import { onChrome } from '../../lib/onChrome'
-import { Stamp } from '../../components/Stamp'
-import { DarkNotice, DataErrors, Icon, IconButton, LiveDot, Spinner, fmt } from '../../components/ui'
+import { BoothWatermark, StageGround } from '../../components/OrganizerPage'
+import { onStage } from '../../lib/onStage'
+import { DarkNotice, DataErrors, Icon, IconButton, LiveDot, Notice, Spinner, fmt } from '../../components/ui'
 import { APP_ORIGIN } from '../../lib/firebase'
 import { buildPayload, computeToken, counterFor, formatManualCode, msUntilRotation } from '../../../shared/token'
 import { dayOf, type BoothDoc } from '../../../shared/model'
@@ -240,14 +240,17 @@ export default function Booth() {
   const left = Math.max(0, Math.min(1, msLeft / (session.period * 1000)))
   const urgent = msLeft <= 3000
   // Display sizes: the booth name is 1.6em of a viewport-scaled base and the manual code 2em.
-  const accent = onChrome(b.accentColor, true)
-  const accentSmall = onChrome(b.accentColor)
+  const accent = onStage(b.accentColor, true)
+  const accentSmall = onStage(b.accentColor)
 
   return (
     <>
     {/* The ground is a backdrop rather than a fill on `main`, or `main` paints over it. */}
-    <div className="fixed inset-0 -z-20 bg-stage print:hidden" aria-hidden />
-    <main className="booth-screen relative flex min-h-full flex-col overflow-hidden text-white print:hidden">
+    <StageGround />
+    {/* The booth's visa in the corner it used to hold, darkening the field rather than lightening
+        it — on a sky ground a luminosity blend disappears. */}
+    <BoothWatermark booth={b} marks={stampMarks(event)} />
+    <main className="booth-screen relative flex min-h-full flex-col overflow-hidden text-ink print:hidden">
       {/*
        * Outside the header, not inside it: the bar is the top row of the screen on every organizer
        * page, so it must not inherit this one's padding — that is what put the kiosk's tabs at a
@@ -256,11 +259,11 @@ export default function Booth() {
        * beside a 42px title on a hall screen.
        */}
       <OrganizerBar
-        boothId={session.boothId} dark compact large
+        boothId={session.boothId} compact large
         actions={!fs && (
           <div className="flex items-center gap-1.5">
-            <IconButton icon={Icon.fullscreen} label={t('booth.fullScreen')} onClick={goFull} dark />
-            <IconButton icon={Icon.print} label={t('booth.printCard')} onClick={() => window.print()} dark />
+            <IconButton icon={Icon.fullscreen} label={t('booth.fullScreen')} onClick={goFull} />
+            <IconButton icon={Icon.print} label={t('booth.printCard')} onClick={() => window.print()} />
           </div>
         )}
       />
@@ -272,36 +275,23 @@ export default function Booth() {
                 colour. `onChrome` is what makes that safe for the dark-green booths. */}
             <div className="stamp-text text-[0.55em]" style={{ color: accentSmall }}>{t('booth.worth', { location: b.location, points: b.points })}</div>
             <h1 className="mt-1 text-[1.6em] font-extrabold leading-[1.08]" style={{ color: accent }}>{pick(b.nameEn, b.nameTh)}</h1>
-            <div className="text-[0.6em] text-on-chrome-soft">{b.hostUnit}</div>
+            <div className="text-[0.6em] text-ink-soft">{b.hostUnit}</div>
           </div>
-          <LiveDot state={feedState} dark>
+          <LiveDot state={feedState}>
             {offline ? t('status.offlineCodes') : fresh ? t('status.live') : t('status.reconnectingCodes')}
           </LiveDot>
         </div>
       </header>
       <div className="mx-[4vw] mt-2 flex flex-col gap-2 text-sm">
-        <DataErrors dark />
-        {notice && <DarkNotice>{notice}</DarkNotice>}
-        {fsHint && <DarkNotice tone="amber">{fsHint}</DarkNotice>}
-        {live && !live.active && <DarkNotice tone="red">{t('booth.switchedOff')}</DarkNotice>}
-        {live?.active && offToday && <DarkNotice tone="amber">{t('booth.notToday')}</DarkNotice>}
+        <DataErrors />
+        {notice && <Notice>{notice}</Notice>}
+        {fsHint && <Notice tone="amber">{fsHint}</Notice>}
+        {live && !live.active && <Notice tone="red">{t('booth.switchedOff')}</Notice>}
+        {live?.active && offToday && <Notice tone="amber">{t('booth.notToday')}</Notice>}
       </div>
 
       <section ref={sectionRef} className="relative flex min-h-0 flex-1 flex-col items-center justify-center gap-[3vh] px-4">
         <div className="relative">
-        {/*
-         * The booth's visa, centred on the code rather than parked in a corner: it is the thing
-         * the QR is about to put in someone's passport. Centred on the frame and not on the
-         * section, so it does not slide down over the manual code; absolutely positioned, so it
-         * stays out of the measurement that sizes the QR; and clamped to the viewport, so a label
-         * wider than the frame cannot widen the document on a phone.
-         */}
-        <div
-          className="pointer-events-none absolute left-1/2 top-1/2 w-[min(112vw,var(--visa-w))] -translate-x-1/2 -translate-y-1/2 opacity-[0.12] mix-blend-luminosity"
-          style={{ ['--visa-w' as string]: `${Math.round(size * 3)}px` }} aria-hidden
-        >
-          <Stamp booth={b} collected size={720} className="!w-full" {...stampMarks(event)} />
-        </div>
         <div className="relative rounded-[36px] bg-white p-5" style={{ boxShadow: `0 0 0 ${ACCENT}px ${b.accentColor}, 0 30px 80px rgba(0,0,0,.45)` }}>
           {/* Keyed on the counter so the swap animation replays on every rotation. */}
           <div key={token.counter} className="qr-swap">
@@ -322,15 +312,14 @@ export default function Booth() {
           </svg>
         </div>
         </div>
-        {/* On glass, not on the illustration: the code lands over the campus canopy, and a 2em
-            accent-coloured word on tree tops is the one thing on this screen that must never be
-            hard to read from across a hall. */}
+        {/* On glass: a 2em accent-coloured word is the one thing on this screen that must never
+            be hard to read from across a hall, and the wave field runs right under it. */}
         <div ref={codeRef} className="glass px-[2em] py-[0.6em] text-center">
-          <div className="stamp-text text-[0.55em] text-on-chrome-soft">{t('booth.manualCode')}</div>
+          <div className="stamp-text text-[0.55em] text-ink-soft">{t('booth.manualCode')}</div>
           <div key={token.counter} className="code-swap fig text-[2em] tracking-[0.15em] sm:text-[2.4em] sm:tracking-[0.25em]" style={{ color: accent }}>
             {formatManualCode(token.token)}
           </div>
-          <div className="text-[0.5em] text-on-chrome-soft">
+          <div className="text-[0.5em] text-ink-soft">
             {t('booth.rotatesIn')} <span className="tabular-nums">{Math.ceil(msLeft / 1000)}</span> {t('booth.seconds')}
           </div>
         </div>
@@ -349,7 +338,7 @@ export default function Booth() {
         ].map((f) => (
           <div key={f.label} className="glass flex flex-col items-center justify-center gap-0.5 px-2 py-[1.2vh] text-center">
             <div className="fig text-[1.8em] leading-none">{f.value}</div>
-            <div className="stamp-text text-[0.5em] text-on-chrome-soft">{f.label}</div>
+            <div className="stamp-text text-[0.5em] text-ink-soft">{f.label}</div>
           </div>
         ))}
       </footer>

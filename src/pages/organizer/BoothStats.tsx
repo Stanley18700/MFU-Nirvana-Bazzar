@@ -10,7 +10,7 @@ import { CsvButton, DataErrors, Fig, LiveDot, Notice, Spinner, fmt } from '../..
 import { clock } from '../../lib/eventText'
 import { dayOf, hourOf } from '../../../shared/model'
 import { VISITOR_TYPE_LABEL } from '../../lib/labels'
-import { onChrome } from '../../lib/onChrome'
+import { onStage } from '../../lib/onStage'
 
 /** §5.3 — the organizer sees their own booth only. */
 export default function BoothStats() {
@@ -59,15 +59,15 @@ export default function BoothStats() {
       {/* `items-start`, as on the kiosk: the status sits at the top of the row, under Sign out. */}
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
         <div>
-          <div className="stamp-text text-on-chrome-soft">{t('stats.worth', { location: booth.location, points: booth.points })}</div>
+          <div className="stamp-text text-ink-soft">{t('stats.worth', { location: booth.location, points: booth.points })}</div>
           <h1 className="text-2xl font-bold">{pick(booth.nameEn, booth.nameTh)}</h1>
         </div>
-        <LiveDot state={fromCache ? 'stale' : 'live'} dark>{fromCache ? t('status.reconnecting') : t('status.live')}</LiveDot>
+        <LiveDot state={fromCache ? 'stale' : 'live'}>{fromCache ? t('status.reconnecting') : t('status.live')}</LiveDot>
       </div>
       <DataErrors className="mt-3" />
 
       <section className="mt-5 grid grid-cols-1 gap-2 xs:grid-cols-3 sm:gap-3">
-        <Fig value={fmt(stat?.stamps)} label={t('stats.visitorsStamped')} accent={onChrome(booth.accentColor, true)}
+        <Fig value={fmt(stat?.stamps)} label={t('stats.visitorsStamped')} accent={onStage(booth.accentColor, true)}
           sub={last ? t('stats.lastAt', { time: clock(last) }) : t('stats.noneYet')} />
         <Fig value={stat?.rank ? `#${stat.rank}` : '–'} label={t('booth.rankOf', { count: booths.filter((b) => b.active).length })} />
         <Fig value={fmt(ev.totals.stamps)} label={t('booth.eventTotal')} />
@@ -91,11 +91,11 @@ export default function BoothStats() {
         <div className="mt-3 h-52">
           <ResponsiveContainer>
             <BarChart data={hourly} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-              <CartesianGrid vertical={false} stroke="rgba(207,227,234,.12)" />
-              <XAxis dataKey="hour" tick={{ fontSize: 11, fill: 'rgba(207,227,234,.6)' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={4} />
-              <YAxis tick={{ fontSize: 11, fill: 'rgba(207,227,234,.6)' }} axisLine={false} tickLine={false} allowDecimals={false} />
-              <Tooltip cursor={{ fill: 'rgba(207,227,234,.08)' }} contentStyle={{ borderRadius: 12, border: 'none', fontSize: 12, background: '#17414E', color: '#CFE3EA' }} itemStyle={{ color: '#CFE3EA' }} labelStyle={{ color: 'rgba(207,227,234,.6)' }} />
-              <Bar dataKey="visitors" fill={onChrome(booth.accentColor, true)} radius={[4, 4, 0, 0]} maxBarSize={36} />
+              <CartesianGrid vertical={false} stroke="rgba(23,65,78,.10)" />
+              <XAxis dataKey="hour" tick={{ fontSize: 11, fill: '#1F5A6B' }} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={4} />
+              <YAxis tick={{ fontSize: 11, fill: '#1F5A6B' }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip cursor={{ fill: 'rgba(23,65,78,.06)' }} contentStyle={{ borderRadius: 12, border: 'none', fontSize: 12, background: '#17414E', color: '#CFE3EA' }} itemStyle={{ color: '#CFE3EA' }} labelStyle={{ color: '#CFE3EA' }} />
+              <Bar dataKey="visitors" fill={onStage(booth.accentColor, true)} radius={[4, 4, 0, 0]} maxBarSize={36} />
             </BarChart>
           </ResponsiveContainer>
         </div>

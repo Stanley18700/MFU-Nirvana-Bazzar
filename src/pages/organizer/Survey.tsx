@@ -12,7 +12,7 @@ import { SurveyForm } from '../../components/SurveyForm'
 import { DataErrors, Notice, Spinner, Toast, fmt, type Msg } from '../../components/ui'
 import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import { num } from '../../lib/form'
-import { onChrome } from '../../lib/onChrome'
+import { onStage } from '../../lib/onStage'
 import {
   OPTION_LIMIT, QUESTION_KINDS, QUESTION_LIMIT, blankQuestion, hasOptions, surveyProblems,
   type QuestionKind, type SurveyDoc, type SurveyQuestion,
@@ -142,23 +142,23 @@ export default function Survey() {
       <Toast msg={msg} onClose={() => setMsg(null)} />
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
-          <div className="stamp-text" style={{ color: onChrome(booth.accentColor) }}>Survey</div>
+          <div className="stamp-text" style={{ color: onStage(booth.accentColor) }}>Survey</div>
           <h1 className="text-2xl font-bold">{pick(booth.nameEn, booth.nameTh)}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`rounded-full px-2.5 py-1 text-xs ${published ? 'bg-success/20 text-success-text' : 'bg-white/10 text-on-chrome-soft'}`}>
+          <span className={`rounded-full px-2.5 py-1 text-xs ${published ? 'bg-success/20 text-success-text' : 'bg-white/10 text-ink-soft'}`}>
             {published ? 'Live' : 'Draft'}
           </span>
-          <Link to={`/booth/survey/results${role === 'admin' ? `?boothId=${boothId}` : ''}`} className="btn-dark btn-sm">
+          <Link to={`/booth/survey/results${role === 'admin' ? `?boothId=${boothId}` : ''}`} className="btn-quiet btn-sm">
             Results{responses ? ` · ${fmt(responses)}` : ''}
           </Link>
         </div>
       </div>
-      <p className="mt-2 max-w-prose text-sm text-on-chrome-soft">
+      <p className="mt-2 max-w-prose text-sm text-ink-soft">
         Offered to a visitor straight after they collect this booth's stamp. Answering is optional
         and never changes their points, and you see the answers without seeing who gave them.
       </p>
-      <DataErrors dark className="mt-3" />
+      <DataErrors className="mt-3" />
 
       <section className="card mt-5">
         <h2 className="stamp-text text-ink-soft">The form</h2>
@@ -223,10 +223,10 @@ export default function Survey() {
 
       {preview && questions.length > 0 && (
         <section className="mt-5">
-          <h2 className="stamp-text text-on-chrome-soft">Preview — exactly what a visitor sees</h2>
+          <h2 className="stamp-text text-ink-soft">Preview — exactly what a visitor sees</h2>
           <div className="mt-3">
             {/* The visitor's own renderer, read-only. Nothing here is an approximation. */}
-            <SurveyForm questions={questions} answers={{}} onChange={() => undefined} readOnly accent={onChrome(booth.accentColor)} />
+            <SurveyForm questions={questions} answers={{}} onChange={() => undefined} readOnly accent={onStage(booth.accentColor)} />
           </div>
         </section>
       )}

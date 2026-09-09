@@ -565,7 +565,11 @@ details[open] > .pop-up { animation-name: pop-in-up; }
   top: 0;
   z-index: 30;
   padding-block: 0.625rem;
-  background: var(--color-stage);
+  /* Frosted, not filled: the wave field runs behind the whole page and the bar is part of it. */
+  background: rgb(255 255 255 / 0.62);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgb(255 255 255 / 0.7);
 }
 
 /*
@@ -669,6 +673,10 @@ a.card:active, button.card:active, .card-interactive:active {
   box-shadow: var(--shadow-card);
 }
 
+/* A card whose children own the padding — a sheet of rows rather than a padded panel. Declared
+ * after `.card` on purpose: same specificity, no cascade layer, so the later rule takes the box. */
+.card-flush { @apply overflow-hidden p-0; }
+
 /*
  * Glass panel, for figures sitting on the green kiosk. `backdrop-blur` has little to chew on over
  * flat chrome, so the read comes from the translucent fill, a hairline border and a lit top edge —
@@ -676,15 +684,13 @@ a.card:active, button.card:active, .card-interactive:active {
  * stops it looking like a plain grey box.
  */
 /*
- * Light and colourless: a white wash and a blur, so the pane reads as glass over the campus and
- * not as a card laid on it. It cannot darken what is behind it, so the illustration is held down
- * to 20% on the screens that use it — that, not a tint, is what buys the contrast.
+ * Frosted white over the sky wave field: the pane is a sheet of paper held up to the light, not a
+ * card sitting on a colour. `backdrop-blur` is what makes the waves under it soften rather than
+ * cut, which is the whole reason it can be this translucent and still carry ink type.
  */
 .glass {
-  @apply rounded-[20px] border border-white/15 bg-white/10 backdrop-blur-xl;
-  /* A lit top edge and no visible bottom one. */
-  background-image: linear-gradient(to bottom, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0));
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.20), 0 10px 30px -20px rgb(0 0 0 / 0.75);
+  @apply rounded-[20px] border border-white/70 bg-white/60 backdrop-blur-xl;
+  box-shadow: 0 10px 30px -18px rgb(23 65 78 / 0.35);
 }
 
 /* The four Notice tones on light grounds. Class-driven so `.on-chrome` below can restate them. */
@@ -709,12 +715,13 @@ a.card:active, button.card:active, .card-interactive:active {
  * booth's visa watermark with an opaque slab the width of the content column.
  */
 .on-chrome { @apply text-white; }
-/* Every panel on the organizer's screens is the same glass, for the same reason: the campus is
-   behind all four of them now, and a flat card on top of a picture is not a surface. */
-.on-chrome .card {
-  @apply border border-white/15 bg-white/10 shadow-none backdrop-blur-xl;
-  background-image: linear-gradient(to bottom, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0));
-}
+.on-chrome .card { @apply border border-white/15 bg-white/10 shadow-none backdrop-blur-xl; }
+/*
+ * The organizer's own surfaces. Their ground is the sky wave field, so a panel is frosted glass
+ * rather than an opaque white card — the waves keep running underneath it.
+ */
+.on-stage .card { @apply border border-white/70 bg-white/60 shadow-[0_10px_30px_-18px_rgb(23_65_78/0.35)] backdrop-blur-xl; }
+.on-stage .field { @apply border-ink/15 bg-white/75; }
 .on-chrome .field { @apply border-white/25 bg-white/10 text-white placeholder:text-on-chrome-soft/70 focus:border-foil focus:ring-foil/25; }
 .on-chrome .btn-ghost, .on-chrome .btn-quiet { @apply bg-white/14 font-medium text-white shadow-none hover:bg-white/22 hover:text-white focus-visible:ring-foil/60 focus-visible:ring-offset-chrome; }
 .on-chrome .btn-primary { @apply bg-reward text-ink hover:bg-orange-500 focus-visible:ring-foil/60 focus-visible:ring-offset-chrome; }
@@ -747,6 +754,18 @@ a.card:active, button.card:active, .card-interactive:active {
 .on-chrome .text-warn-text { @apply text-warn-on-chrome; }
 .on-chrome .bg-white\/50, .on-chrome .bg-white\/70 { @apply bg-white/[0.07]; }
 .on-chrome .bg-ink\/5, .on-chrome .bg-ink\/6 { @apply bg-white/[0.07]; }
+/* The hover variant needs its own line: the rule above matches the class, not `:hover`, so an
+   ink wash on glass came out invisible and the account rows answered nothing on the dark ground. */
+.on-chrome .hover\:bg-ink\/6:hover { @apply bg-white/[0.10]; }
+/*
+ * A row-shaped control answers a press by darkening; only pills scale.
+ *
+ * `.btn`'s `active:scale-[.98]` is right for a pill and wrong for a 20rem row — a full-width strip
+ * that shrinks reads as the page flexing, not as the row being pressed. Disclosure summaries, list
+ * rows and field-shaped triggers use this instead, so every one of them answers, and answers alike.
+ */
+.press-row { @apply transition active:bg-ink/10; }
+.on-chrome .press-row:active { @apply bg-white/20; }
 .on-chrome .border-ink\/10, .on-chrome .border-ink\/15, .on-chrome .border-ink\/20 { @apply border-white/20; }
 .on-chrome .border-t-action { @apply border-t-foil; }
 

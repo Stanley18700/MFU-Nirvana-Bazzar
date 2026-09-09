@@ -1,6 +1,6 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
-import { Notice, Spinner } from '../../components/ui'
+import { BackLink, Notice, Spinner } from '../../components/ui'
 
 /**
  * §4.4 — `/r/<payload>`: the visitor's redemption QR opened with the phone's native camera
@@ -21,8 +21,8 @@ export default function RedeemLanding() {
   return (
     <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="mx-auto min-h-full max-w-md bg-chrome p-4 text-white">
       <header className="flex items-center justify-between px-1 py-3">
-        <Link to="/passport" className="text-sm text-on-chrome-soft">← Passport</Link>
-        <div className="stamp-text text-foil">Redemption code</div>
+        <BackLink to="/passport" dark>Passport</BackLink>
+        <div className="stamp-text text-ink-soft">Redemption code</div>
         <span className="w-16" />
       </header>
       <div className="rounded-3xl bg-white p-6 text-ink">

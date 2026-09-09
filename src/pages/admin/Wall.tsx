@@ -5,6 +5,7 @@ import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { db } from '../../lib/firebase'
 import { ms, useBooths, useBoothStats, useBuckets, useCollection, useEvent, useEventStats } from '../../lib/data'
 import { Crest, DataErrors, Icon, fmt } from '../../components/ui'
+import { StageGround } from '../../components/OrganizerPage'
 import type { DrawName } from './Draw'
 
 /** How long the draw holds the screen before the live stats come back. */
@@ -88,9 +89,8 @@ export default function Wall() {
 
   return (
     <>
-    {/* Its own layer rather than a fill on `main`, so anything placed behind it can be seen. */}
-    <div className="fixed inset-0 -z-20 bg-stage" aria-hidden />
-    <main className="relative flex h-dvh flex-col overflow-hidden p-[4vw] text-white">
+    <StageGround />
+    <main className="on-stage relative flex h-dvh flex-col overflow-hidden p-[4vw] text-ink">
       <header className="flex items-start justify-between gap-[2vw]">
         {/* The festival's mark leads, as it does on everything else the festival prints. It was on
             the right, where it competed with the two controls for the same corner; identity goes
@@ -114,26 +114,26 @@ export default function Wall() {
         <div className="flex shrink-0 items-center gap-[1.5vw]">
           {!fs && (
             <div className="flex items-center gap-[0.8vw]">
-              <Link to="/admin" className="btn-dark inline-flex items-center gap-[0.5vw] px-[1.2vw] py-[0.7vh] text-[1.1vw]">
+              <Link to="/admin" className="btn-quiet inline-flex items-center gap-[0.5vw] px-[1.2vw] py-[0.7vh] text-[1.1vw]">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-[1.1vw] w-[1.1vw]"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>Admin console
               </Link>
-              <button className="btn-dark inline-flex items-center gap-[0.5vw] px-[1.2vw] py-[0.7vh] text-[1.1vw]" onClick={goFull}>
+              <button className="btn-quiet inline-flex items-center gap-[0.5vw] px-[1.2vw] py-[0.7vh] text-[1.1vw]" onClick={goFull}>
                 {Icon.fullscreen}Full screen
               </button>
             </div>
           )}
         </div>
       </header>
-      <DataErrors dark className="mt-[2vh] text-[1.2vw]" />
+      <DataErrors className="mt-[2vh] text-[1.2vw]" />
       {reveal ? (
         <section className="flex flex-1 flex-col items-center justify-center text-center">
-          <div className="stamp-text text-[1.4vw] text-foil">
+          <div className="stamp-text text-[1.4vw] text-action">
             {suspense ? 'Drawing' : reveal.names.length === 1 ? 'Winner' : 'Winners'}
           </div>
           {suspense ? (
-            <Crest className="mt-[5vh] h-[16vw] w-[16vw] animate-pulse text-foil" />
+            <Crest className="mt-[5vh] h-[16vw] w-[16vw] animate-pulse text-action" />
           ) : reveal.names.length === 0 ? (
-            <p className="mt-[6vh] text-[3vw] text-on-chrome-soft">Nobody was eligible.</p>
+            <p className="mt-[6vh] text-[3vw] text-ink-soft">Nobody was eligible.</p>
           ) : (
             <>
               <ol className="mt-[4vh] flex flex-col gap-[3vh]">
@@ -141,11 +141,11 @@ export default function Wall() {
                   /* Staggered, so a row of five names arrives one at a time rather than as a block. */
                   <li key={n.uid} className="winner-in" style={{ animationDelay: `${i * 120}ms` }}>
                     <div className="fig text-[6vw] leading-none">{n.displayName}</div>
-                    <div className="mt-[1vh] font-mono text-[1.8vw] tracking-[0.2em] text-foil">{n.passportNo}</div>
+                    <div className="mt-[1vh] font-mono text-[1.8vw] tracking-[0.2em] text-action">{n.passportNo}</div>
                   </li>
                 ))}
               </ol>
-              <div className="stamp-text mt-[6vh] text-[1.2vw] text-on-chrome-soft">Drawn from {fmt(reveal.poolSize)} entries</div>
+              <div className="stamp-text mt-[6vh] text-[1.2vw] text-ink-soft">Drawn from {fmt(reveal.poolSize)} entries</div>
             </>
           )}
         </section>
@@ -153,7 +153,7 @@ export default function Wall() {
       <>
       <section className="mt-[3vh] grid shrink-0 grid-cols-3 gap-[2vw]">
         {[['Visitors', ev.totals.visitors], ['Stamps', ev.totals.stamps], ['Prizes', ev.totals.redeemed]].map(([l, v]) => (
-          <div key={l as string} className="glass p-[2vw]"><div className="fig text-[7vw] leading-none text-orange-300">{fmt(v as number)}</div><div className="stamp-text mt-[1vh] text-[1.2vw] text-on-chrome-soft">{l as string}</div></div>
+          <div key={l as string} className="glass p-[2vw]"><div className="fig text-[7vw] leading-none text-action">{fmt(v as number)}</div><div className="stamp-text mt-[1vh] text-[1.2vw] text-ink-soft">{l as string}</div></div>
         ))}
       </section>
       {/* `min-h-0` is what keeps this honest: without it the flex child is free to grow past the
@@ -163,9 +163,9 @@ export default function Wall() {
           <ol className="grid h-full grid-cols-2 content-between gap-x-[3vw] gap-y-[1.2vh]">
             {board.map((b, i) => (
               <li key={b.id} className="flex items-center gap-[1vw] text-[1.6vw]">
-                <span className="w-[2vw] text-right text-on-chrome-soft">{i + 1}</span>
+                <span className="w-[2vw] text-right text-ink-soft">{i + 1}</span>
                 <span className="w-[16vw] truncate">{b.nameEn}</span>
-                <div className="h-[1.6vw] flex-1 rounded bg-white/10"><div className="h-full rounded" style={{ width: `${(b.stamps / max) * 100}%`, background: i === 0 ? 'var(--color-orange-300)' : b.accentColor }} /></div>
+                <div className="h-[1.6vw] flex-1 rounded bg-ink/10"><div className="h-full rounded" style={{ width: `${(b.stamps / max) * 100}%`, background: i === 0 ? 'var(--color-orange-500)' : b.accentColor }} /></div>
                 <span className="fig w-[4vw] text-right">{fmt(b.stamps)}</span>
               </li>
             ))}
@@ -174,9 +174,9 @@ export default function Wall() {
           <div className="glass min-h-0 flex-1 p-[1.5vw]">
             <ResponsiveContainer>
               <AreaChart data={timeline}>
-                <XAxis dataKey="t" tick={{ fill: 'rgba(207,227,234,.6)', fontSize: 14 }} axisLine={false} tickLine={false} minTickGap={40} />
-                <YAxis tick={{ fill: 'rgba(207,227,234,.6)', fontSize: 14 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Area type="monotone" dataKey="stamps" stroke="#FFD9A3" strokeWidth={3} fill="rgba(255,217,163,.18)" dot={false} isAnimationActive={false} />
+                <XAxis dataKey="t" tick={{ fill: '#1F5A6B', fontSize: 14 }} axisLine={false} tickLine={false} minTickGap={40} />
+                <YAxis tick={{ fill: '#1F5A6B', fontSize: 14 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Area type="monotone" dataKey="stamps" stroke="#12708A" strokeWidth={3} fill="rgba(18,112,138,.14)" dot={false} isAnimationActive={false} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -184,7 +184,7 @@ export default function Wall() {
       </section>
       </>
       )}
-      <footer className="stamp-text mt-[2vh] flex shrink-0 items-center justify-between gap-4 text-[1vw] text-on-chrome-soft">
+      <footer className="stamp-text mt-[2vh] flex shrink-0 items-center justify-between gap-4 text-[1vw] text-ink-soft">
         <span>Scan the QR at the welcome sign to start your passport · mfupassport.web.app</span>
         <span>{hint ?? (fs ? 'Esc leaves full screen' : 'Press F for full screen')}</span>
       </footer>

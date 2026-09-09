@@ -15,7 +15,7 @@ type BoothLike = Pick<BoothDoc, 'shortName' | 'accentColor' | 'badgeThumbUrl' | 
 export function BoothWatermark({ booth, marks }: { booth: BoothLike | null | undefined; marks?: { markTop: string; markBottom: string } }) {
   if (!booth) return null
   return (
-    <div className="pointer-events-none fixed bottom-[-6vmin] right-[-10vmin] -z-10 opacity-[0.12] mix-blend-luminosity" aria-hidden>
+    <div className="pointer-events-none fixed bottom-[-6vmin] right-[-10vmin] -z-10 opacity-[0.16] mix-blend-multiply print:hidden" aria-hidden>
       <div className="w-[min(78vmin,720px)] -rotate-[8deg]">
         <Stamp booth={booth} collected size={720} className="!w-full" {...marks} />
       </div>
@@ -36,6 +36,20 @@ export function BoothWatermark({ booth, marks }: { booth: BoothLike | null | und
  * layout on every organizer screen rather than a 1024px ribbon on three of the four, and switching
  * tabs does not shift the nav sideways.
  */
+/**
+ * The sky wave field, behind every organizer surface and the hall screen.
+ *
+ * `object-cover` because it is a field and not a picture: it may be cropped anywhere. Fixed rather
+ * than absolute so it does not scroll with a long page — the waves are the room, not the content.
+ */
+export function StageGround() {
+  return (
+    <div className="pointer-events-none fixed inset-0 -z-20 bg-page print:hidden" aria-hidden>
+      <img src="/brand/bg-sky-waves.webp" alt="" className="h-full w-full object-cover" />
+    </div>
+  )
+}
+
 export function OrganizerPage({ boothId, booth, marks, children, compact = false, actions }: {
   boothId: string | null | undefined
   booth?: BoothLike | null
@@ -46,12 +60,12 @@ export function OrganizerPage({ boothId, booth, marks, children, compact = false
 }) {
   return (
     <>
-      <div className="fixed inset-0 -z-20 bg-stage" aria-hidden />
+      <StageGround />
       <BoothWatermark booth={booth} marks={marks} />
       {/* `large`, like the kiosk: one bar size across every organizer screen rather than a big one
           on the booth display and a small one everywhere else. */}
-      <OrganizerBar boothId={boothId} dark compact={compact} actions={actions} large />
-      <main className="on-chrome relative min-h-full w-full px-[4vw] pb-10 pt-4">
+      <OrganizerBar boothId={boothId} compact={compact} actions={actions} large />
+      <main className="on-stage relative min-h-full w-full px-[4vw] pb-10 pt-4 text-ink">
         {children}
       </main>
     </>

@@ -120,7 +120,7 @@ export default function Redeem() {
 
   const shell = (children: React.ReactNode) => (
     <OrganizerPage boothId={role === 'admin' ? null : claimBooth} booth={mine.data} compact>
-      <header className="py-2"><div className="stamp-text text-foil">Prize desk</div></header>
+      <header className="py-2"><div className="stamp-text text-ink-soft">Prize desk</div></header>
       {children}
     </OrganizerPage>
   )
@@ -148,9 +148,9 @@ export default function Redeem() {
   return shell(
     <>
       {/* §4.4 — live stock strip, with a stale flag when the figures come from the cache */}
-      <div className="flex items-center justify-between text-xs text-on-chrome-soft">
+      <div className="flex items-center justify-between text-xs text-ink-soft">
         <span>Stock</span>
-        <LiveDot state={offline ? 'offline' : stockStale ? 'stale' : 'live'} dark size="sm">
+        <LiveDot state={offline ? 'offline' : stockStale ? 'stale' : 'live'} size="sm">
           {offline ? 'Offline — figures may be old' : tiersState.fromCache ? 'Reconnecting' : 'Live'}
         </LiveDot>
       </div>
@@ -162,13 +162,13 @@ export default function Redeem() {
           const tone = t.stockRemaining <= 5 ? 'text-danger-on-chrome' : pct < 0.2 ? 'text-warn-on-chrome' : 'text-success-on-chrome'
           return (
             <div key={t.id} className="rounded-xl bg-white/5 p-3">
-              <div className="stamp-text text-on-chrome-soft">{t.name}</div>
-              <div className={`fig text-xl xs:text-2xl ${tone}`}>{fmt(t.stockRemaining)}<span className="text-sm text-on-chrome-soft"> / {fmt(t.stockTotal)}</span></div>
+              <div className="stamp-text text-ink-soft">{t.name}</div>
+              <div className={`fig text-xl xs:text-2xl ${tone}`}>{fmt(t.stockRemaining)}<span className="text-sm text-ink-soft"> / {fmt(t.stockTotal)}</span></div>
             </div>
           )
         })}
       </div>
-      <DataErrors dark className="mt-3 text-sm" />
+      <DataErrors className="mt-3 text-sm" />
 
       {done ? (
         <section className="mt-4 rounded-3xl bg-success p-6 text-center text-white page-in" role="status" aria-live="polite">
@@ -178,7 +178,7 @@ export default function Redeem() {
           <div className="mt-4 text-lg font-semibold">{done.name}</div>
           <div className="text-sm text-white/75">{[done.passportNo, clock(done.at)].filter(Boolean).join(' · ')}</div>
           <button className="btn-gold mt-6 w-full py-3.5 text-lg" onClick={reset} autoFocus>Next visitor</button>
-          <button className="btn-dark btn-sm mt-3" onClick={() => setDone(null)}>Hand over another tier to {done.name.split(' ')[0]}</button>
+          <button className="btn-quiet btn-sm mt-3" onClick={() => setDone(null)}>Hand over another tier to {done.name.split(' ')[0]}</button>
         </section>
       ) : lookup ? (
         <section className="mt-4 rounded-3xl bg-white p-5 text-ink page-in">
@@ -227,29 +227,29 @@ export default function Redeem() {
         <Scanner onResult={(t) => void onCred({ payload: t })} paused={busy || !!lookup || !!done} className="mx-auto mt-4 aspect-[4/3] w-full max-w-2xl" />
         {busy && <Spinner label="Looking up…" />}
         <form onSubmit={submitManual} className="glass mt-4 p-4">
-          <div className="stamp-text text-on-chrome-soft">Or type what the visitor reads out</div>
+          <div className="stamp-text text-ink-soft">Or type what the visitor reads out</div>
           <div className="mt-2 grid gap-2 [&>*]:min-w-0 sm:grid-cols-[1fr_1fr_auto]">
-            <label className="block text-xs text-on-chrome-soft">Passport number
+            <label className="block text-xs text-ink-soft">Passport number
               <input className="field mt-1 bg-white/90 font-mono uppercase" value={passport} onChange={(e) => setPassport(e.target.value.toUpperCase())}
                 placeholder={`${prefix}-0042`} autoCapitalize="characters" autoComplete="off" inputMode="text" />
             </label>
-            <label className="block text-xs text-on-chrome-soft">8-character code
+            <label className="block text-xs text-ink-soft">8-character code
               <input className="field mt-1 bg-white/90 font-mono uppercase" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())}
                 placeholder="ABCD EFGH" autoCapitalize="characters" autoComplete="off" />
             </label>
             <button className="btn-gold self-end" disabled={busy || !(PAYLOAD_RE.test(code) || (passport.trim() && code.replace(/\s+/g, '').length === 8))}>Look up</button>
           </div>
-          <p className="mt-2 text-xs text-on-chrome-soft">Both are on the visitor's Prize page. Just the digits work for the passport number ("42" means {prefix}-0042).</p>
+          <p className="mt-2 text-xs text-ink-soft">Both are on the visitor's Prize page. Just the digits work for the passport number ("42" means {prefix}-0042).</p>
         </form>
-        {msg && <div className="mt-3"><DarkNotice tone={msg.tone}>{msg.text}</DarkNotice></div>}
+        {msg && <div className="mt-3"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
         {recent.length > 0 && (
           <section className="mt-5">
-            <h2 className="stamp-text text-on-chrome-soft">Handed over on this device</h2>
+            <h2 className="stamp-text text-ink-soft">Handed over on this device</h2>
             <ul className="mt-2 flex flex-col gap-1 text-sm">
               {recent.map((r) => (
                 <li key={r.at} className="flex justify-between gap-3 rounded-lg bg-white/5 px-3 py-2">
-                  <span className="truncate"><b>{r.tier}</b> · {r.name}{r.passportNo ? <span className="text-on-chrome-soft"> · {r.passportNo}</span> : null}</span>
-                  <span className="shrink-0 tabular-nums text-on-chrome-soft">{clock(r.at)}</span>
+                  <span className="truncate"><b>{r.tier}</b> · {r.name}{r.passportNo ? <span className="text-ink-soft"> · {r.passportNo}</span> : null}</span>
+                  <span className="shrink-0 tabular-nums text-ink-soft">{clock(r.at)}</span>
                 </li>
               ))}
             </ul>

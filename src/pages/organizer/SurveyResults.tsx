@@ -10,7 +10,7 @@ import { useLocale } from '../../lib/locale'
 import { CsvButton, DataErrors, Fig, Notice, Spinner, fmt } from '../../components/ui'
 import { clock } from '../../lib/eventText'
 import { hasOptions, type SurveyAnswer, type SurveyDoc, type SurveyQuestion, type SurveyResponseDoc } from '../../../shared/model'
-import { onChrome } from '../../lib/onChrome'
+import { onStage } from '../../lib/onStage'
 
 /** Free text is listed, not charted; everything else groups into counts. */
 const isText = (q: SurveyQuestion) => q.kind === 'short' || q.kind === 'paragraph' || q.kind === 'date'
@@ -68,18 +68,18 @@ export default function SurveyResults() {
     <>
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
-          <div className="stamp-text" style={{ color: onChrome(booth.accentColor) }}>Survey results</div>
+          <div className="stamp-text" style={{ color: onStage(booth.accentColor) }}>Survey results</div>
           <h1 className="text-2xl font-bold">{pick(booth.nameEn, booth.nameTh)}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link to={builder} className="btn-dark btn-sm">Edit the questions</Link>
+          <Link to={builder} className="btn-quiet btn-sm">Edit the questions</Link>
           <CsvButton rows={csv} name={`${boothId}-survey-responses`} label="Export CSV" />
         </div>
       </div>
-      <DataErrors dark className="mt-3" />
+      <DataErrors className="mt-3" />
 
       <section className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
-        <Fig value={fmt(rows.length)} label="Responses" accent={onChrome(booth.accentColor, true)}
+        <Fig value={fmt(rows.length)} label="Responses" accent={onStage(booth.accentColor, true)}
           sub={rows.length ? `last at ${clock(ms(rows[0].submittedAt) ?? 0)}` : 'none yet'} />
         <Fig value={rate === null ? '–' : `${rate}%`} label="Of those stamped" sub={`${fmt(stamped)} collected the stamp`} />
         <Fig value={survey.data?.active ? 'Live' : 'Draft'} label="Status" sub={`${questions.length} question${questions.length === 1 ? '' : 's'}`} />
@@ -100,7 +100,7 @@ export default function SurveyResults() {
       )}
 
       {rows.length > 0 && questions.map((q, i) => (
-        <QuestionResult key={q.id} q={q} index={i} rows={rows} accent={onChrome(booth.accentColor, true)}
+        <QuestionResult key={q.id} q={q} index={i} rows={rows} accent={onStage(booth.accentColor, true)}
           boothId={boothId} showAll={showAll} />
       ))}
 
