@@ -498,8 +498,6 @@ details[open] > .pop { animation: pop-in var(--dur-fast) var(--ease-enter) backw
  * becoming tall thin pills.
  */
 .organizer-bar-lg { font-size: clamp(0.8rem, 0.95vw, 1.25rem); }
-/* Bar and page share one container, so the tabs line up with the content under them. */
-.organizer-shell { --shell-max: 1600px; }
 .organizer-bar-lg .seg-item,
 .organizer-bar-lg .btn-sm,
 .organizer-bar-lg summary { font-size: 1em; padding-inline: 1.1em; padding-block: 0.5em; }
@@ -507,24 +505,16 @@ details[open] > .pop { animation: pop-in var(--dur-fast) var(--ease-enter) backw
 .organizer-bar-lg .btn-icon-sm svg { inline-size: 1.15em; block-size: 1.15em; }
 .organizer-bar-lg .account-avatar { inline-size: 1.7em; block-size: 1.7em; font-size: 0.75em; }
 
-/* Full-width: the bar already spans the viewport, so it has no parent gutter to escape. */
-.organizer-bar-full { margin-inline: 0; padding-inline: 0; }
-
+/*
+ * The bar is always the top row of the viewport — never nested inside a page's own column, which
+ * is what used to make it start 217px in on three tabs and 77px in on the kiosk, and left the
+ * account control floating 250px short of the corner. Its one row of chrome spans edge to edge and
+ * only its contents are inset, by the same `4vw` gutter the pages under it use.
+ */
 .organizer-bar {
   position: sticky;
   top: 0;
   z-index: 30;
-  /*
-   * Negative margins out to the page's own gutter, and padding back in. A pseudo-element stretched
-   * `-100vw` was the first attempt and it grew the document by a viewport width at every size — an
-   * absolutely positioned box outside its parent still counts toward scrollWidth. Margins do not:
-   * the bar lands exactly on the parent's padding edge and nothing overflows.
-   *
-   * `--bar-gutter` is the page's horizontal padding. The kiosk sets its own, because it is
-   * full-bleed with a viewport-relative gutter rather than a centred column.
-   */
-  margin-inline: calc(-1 * var(--bar-gutter, 1.25rem));
-  padding-inline: var(--bar-gutter, 1.25rem);
   padding-block: 0.625rem;
   background: var(--color-chrome);
 }

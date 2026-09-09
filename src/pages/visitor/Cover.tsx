@@ -1,10 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { useBooths, useEvent, useTiers } from '../../lib/data'
-import { useCollection } from '../../lib/data'
-import { collection, limit, query } from 'firebase/firestore'
-import { db } from '../../lib/firebase'
-import { feedbackFormUrl, type FeedbackFormDoc } from '../../../shared/model'
 import { eventMark } from '../../lib/eventText'
 import { Crest, Spinner, fmt } from '../../components/ui'
 import { PaperHills } from '../auth/parts'
@@ -23,7 +19,6 @@ export default function Cover() {
   const tiers = useTiers().filter((t) => t.active)
   const booths = useBooths()
   const event = useEvent()
-  const feedbackForm = useCollection<FeedbackFormDoc>(query(collection(db, 'feedbackForms'), limit(1)), [], 'the feedback form').data[0]
   if (!profile) return <Spinner />
   const points = profile.points ?? 0
   const { sorted, reached, next, pct } = tierProgress(points, tiers)
@@ -95,13 +90,6 @@ export default function Cover() {
           <span className="font-semibold">See what's worth most</span>
           <span className="text-xs text-ink-soft">Far-corner booths pay 20 points</span>
         </Link>
-        {feedbackForm && (
-          <a href={feedbackFormUrl(feedbackForm, profile.passportNo)} target="_blank" rel="noreferrer" className="card flex flex-col gap-1 hover:bg-white xs:col-span-2">
-            <span className="stamp-text text-ink-soft">Tell us</span>
-            <span className="font-semibold">Give feedback</span>
-            <span className="text-xs text-ink-soft">Two minutes, opens in Google Forms</span>
-          </a>
-        )}
       </section>
 
     </main>

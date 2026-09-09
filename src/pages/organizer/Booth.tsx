@@ -246,23 +246,23 @@ export default function Booth() {
     <div className="fixed inset-0 -z-20 bg-chrome print:hidden" aria-hidden />
     <BoothWatermark booth={b} marks={stampMarks(event)} />
     <main className="booth-screen relative flex min-h-full flex-col text-white print:hidden">
-      <header className="px-[4vw] pt-[3vh]">
-        {/*
-         * Same shape as /booth/stats and /redeem: the bar is its own full-width row above the
-         * title, so the tabs get the whole width instead of a 60% column and Sign out sits in the
-         * real top-right corner of the screen. `large` scales it with the display, because
-         * everything else here is sized against the viewport and a rem-sized bar reads as a
-         * misprint beside a 42px title on a hall screen.
-         */}
-        <OrganizerBar
-          boothId={session.boothId} dark compact large className="mb-3" style={{ ['--bar-gutter' as string]: '4vw' }}
-          actions={!fs && (
-            <div className="flex items-center gap-1.5">
-              <IconButton icon={Icon.fullscreen} label={t('booth.fullScreen')} onClick={goFull} dark />
-              <IconButton icon={Icon.print} label={t('booth.printCard')} onClick={() => window.print()} dark />
-            </div>
-          )}
-        />
+      {/*
+       * Outside the header, not inside it: the bar is the top row of the screen on every organizer
+       * page, so it must not inherit this one's padding — that is what put the kiosk's tabs at a
+       * different x from the other three tabs'. `large` scales it with the display, because
+       * everything else here is sized against the viewport and a rem-sized bar reads as a misprint
+       * beside a 42px title on a hall screen.
+       */}
+      <OrganizerBar
+        boothId={session.boothId} dark compact large
+        actions={!fs && (
+          <div className="flex items-center gap-1.5">
+            <IconButton icon={Icon.fullscreen} label={t('booth.fullScreen')} onClick={goFull} dark />
+            <IconButton icon={Icon.print} label={t('booth.printCard')} onClick={() => window.print()} dark />
+          </div>
+        )}
+      />
+      <header className="px-[4vw] pt-[2vh]">
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
           <div className="min-w-0">
             <div className="stamp-text flex items-center gap-[0.5em] text-[0.55em] text-on-chrome-soft"><span className="inline-block h-[0.7em] w-[0.7em] shrink-0 rounded-full" style={{ background: b.accentColor }} aria-hidden />{t('booth.worth', { location: b.location, points: b.points })}</div>

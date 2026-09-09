@@ -41,7 +41,6 @@ import Wall from './pages/admin/Wall'
 import Print from './pages/admin/Print'
 import BoothCards from './pages/admin/BoothCards'
 import Setup from './pages/admin/Setup'
-import Feedback from './pages/admin/Feedback'
 
 /**
  * Everything past this point needs a real, confirmed account — anonymous sign-in is gone (§4.1),
@@ -127,7 +126,6 @@ export default function App() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="users" element={<Users />} />
-          <Route path="feedback" element={<Feedback />} />
           <Route path="event" element={<EventAdmin />} />
           <Route path="booths" element={<Booths />} />
           <Route path="prizes" element={<Prizes />} />

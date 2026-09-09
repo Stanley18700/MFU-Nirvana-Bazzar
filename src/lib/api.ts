@@ -27,7 +27,6 @@ export const api = {
   redemptionCode: call<Record<string, never>, { code: string; counter: number; period: number; payload: string; serverTime: number }>('redemptionCode'),
   /** Copies the address on the Auth account onto users/{uid} after an email change. */
   syncAccount: call<Record<string, never>, { ok: true; synced: boolean; contact: string | null; contactVerified?: boolean }>('syncAccount'),
-  syncFeedbackNow: call<Record<string, never>, { formId: string; fetched: number; total: number }>('syncFeedbackNow'),
   /** Idempotent: `existing` is true when a request was already on file; `requestedAt` is when it was filed. */
   requestErasure: call<Record<string, never>, { ok: true; existing: boolean; requestedAt: number | null }>('requestErasure'),
   // organizer

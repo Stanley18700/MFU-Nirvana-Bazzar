@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { useBooth } from '../lib/data'
@@ -16,17 +16,13 @@ import { useDismissable } from '../lib/useDismissable'
  * `compact` is the kiosk variant: one row of small links inside the booth header, hidden while the
  * screen is in full screen so nothing competes with the QR.
  */
-export function OrganizerBar({ boothId, dark = false, compact = false, actions, className = '', style, full = false, large = false }: {
+export function OrganizerBar({ boothId, dark = false, compact = false, actions, className = '', large = false }: {
   boothId: string | null | undefined
   dark?: boolean
   compact?: boolean
   /** Page-specific buttons — they render between the nav and Sign out so one row, one rhythm. */
   actions?: ReactNode
   className?: string
-  /** Carries `--bar-gutter` where the page's horizontal padding is not the shared column gutter. */
-  style?: CSSProperties
-  /** Span the viewport and align contents to the shared column, rather than bleeding to a parent's gutter. */
-  full?: boolean
   /** Scale with the screen, for the kiosk, where everything else is sized against the viewport. */
   large?: boolean
 }) {
@@ -79,8 +75,10 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
   const close = () => { if (menu.current) menu.current.open = false }
 
   return (
-    <div style={style} className={`organizer-bar ${large ? 'organizer-bar-lg' : ''} ${full ? 'organizer-bar-full block' : 'flex items-center gap-3'} w-full ${className}`}>
-    <div className={full ? 'mx-auto flex w-full max-w-[1600px] items-center gap-3 px-[4vw]' : 'contents'}>
+    <div className={`organizer-bar ${large ? 'organizer-bar-lg' : ''} ${className}`}>
+    {/* One gutter, shared with every page body: the nav starts where the heading starts and the
+        account control ends where the content ends, at the far corner of the screen. */}
+    <div className="flex w-full items-center gap-3 px-[4vw]">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {/* No booth name here: every page that uses this bar already carries it as its heading. */}
         <nav ref={navRef} aria-label={t('nav.pages')} className="flex min-w-0 flex-1 items-center">

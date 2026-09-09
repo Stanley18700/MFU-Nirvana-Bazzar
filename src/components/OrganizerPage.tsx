@@ -32,9 +32,9 @@ export function BoothWatermark({ booth, marks }: { booth: BoothLike | null | und
  * is full-width here and only its contents are aligned to the column, so it always knows how much
  * screen it actually has.
  *
- * The column is the same generous one the booth display uses — a `4vw` gutter to a 1600px cap —
- * so a desktop gets a desktop layout on every organizer screen rather than a 1024px ribbon on
- * three of the four.
+ * The column is the booth display's own: full-bleed to a `4vw` gutter, so a desktop gets a desktop
+ * layout on every organizer screen rather than a 1024px ribbon on three of the four, and switching
+ * tabs does not shift the nav sideways.
  */
 export function OrganizerPage({ boothId, booth, marks, children, compact = false, actions }: {
   boothId: string | null | undefined
@@ -50,8 +50,8 @@ export function OrganizerPage({ boothId, booth, marks, children, compact = false
       <BoothWatermark booth={booth} marks={marks} />
       {/* `large`, like the kiosk: one bar size across every organizer screen rather than a big one
           on the booth display and a small one everywhere else. */}
-      <OrganizerBar boothId={boothId} dark compact={compact} actions={actions} full large />
-      <main className="on-chrome relative mx-auto min-h-full w-full max-w-[1600px] px-[4vw] pb-10 pt-4">
+      <OrganizerBar boothId={boothId} dark compact={compact} actions={actions} large />
+      <main className="on-chrome relative min-h-full w-full px-[4vw] pb-10 pt-4">
         {children}
       </main>
     </>
