@@ -90,12 +90,12 @@ export function Select({
 
   return (
     <details
-      ref={ref} className={`select-host relative ${className}`} onKeyDown={onKeyDown}
+      ref={ref} className={`relative ${className}`} onKeyDown={onKeyDown}
       onToggle={(e) => setOpen(e.currentTarget.open)}
     >
       <summary
         id={id}
-        className={`field flex cursor-pointer list-none items-center gap-2 ${disabled ? 'pointer-events-none opacity-45' : ''}`}
+        className={`press-row field flex cursor-pointer list-none items-center gap-2 ${disabled ? 'pointer-events-none opacity-45' : ''}`}
         aria-label={ariaLabel} aria-haspopup="listbox" aria-disabled={disabled || undefined} tabIndex={disabled ? -1 : 0}
         onClick={(e) => { if (disabled) e.preventDefault() }}
       >

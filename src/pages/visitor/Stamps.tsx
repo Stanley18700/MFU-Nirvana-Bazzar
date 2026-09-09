@@ -45,27 +45,73 @@ export default function Stamps() {
 
   return (
     <main className="px-5 pt-6">
-      <header className="flex items-end justify-between">
-        <div>
-          <div className="stamp-text text-ink-soft">Stamps</div>
+      <header>
+        <div className="stamp-text text-ink-soft">Stamps</div>
+        <div className="mt-1 flex items-baseline gap-3">
           <h1 className="text-2xl font-bold">{collected.length} of {booths.length}</h1>
         </div>
-        <div className="text-right text-sm text-ink-soft">{remainingPoints} points still on the floor</div>
+        {/* "1 of 12" was the only account of progress on a page whose whole subject is progress. */}
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink/10" role="img" aria-label={`${collected.length} of ${booths.length} booths stamped`}>
+          <div className="h-full rounded-full bg-action transition-[width] duration-500 ease-out" style={{ width: `${booths.length ? (collected.length / booths.length) * 100 : 0}%` }} />
+        </div>
       </header>
 
+      {/*
+        * Your stamps first. The collected section was below eleven things you had not done, so a
+        * passport — a collection — opened on its own to-do list, and the one visa you had earned
+        * was a long scroll away. Full width, because a visa is the reward and the reward is worth
+        * reading; the two-up grid put a detailed document at thumbnail size.
+        */}
+      <section className="mt-7">
+        <h2 className="stamp-text text-ink-soft">Your stamps</h2>
+        {collected.length === 0 ? (
+          <p className="mt-3 rounded-[20px] bg-white p-6 text-center text-sm text-ink-soft shadow-card">No stamps yet. Tap <b>Scan</b> at your first booth.</p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-3">
+            {collected.map((b) => (
+              <li key={b.id}>
+                <button onClick={() => setOpen(b)} className="press-row flex w-full cursor-pointer items-center gap-4 rounded-[20px] bg-white p-3 text-left shadow-card transition hover:shadow-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action/45">
+                  <Stamp booth={b} collected tilt={tiltFor(b.id)} size={132} points={b.points} {...marks} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold leading-tight">{b.nameEn}</span>
+                    <span className="mt-1 block text-xs text-success-text">Stamped · +{b.points} pts</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/*
+        * What is left is a route through the hall, not a collection, so it is a list rather than a
+        * wall of faded visas. The short code is what is printed on the booth itself, and the points
+        * are what the ordering is for.
+        */}
       {remaining.length > 0 && (
-        <section className="mt-6">
-          <h2 className="stamp-text text-ink-soft">Still to collect · highest value first</h2>
-          <ul className="mt-3 grid grid-cols-2 gap-3">
+        <section className="mt-8">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <h2 className="stamp-text text-ink-soft">Still to collect</h2>
+            <span className="text-xs text-ink-soft">{remainingPoints} points still on the floor</span>
+          </div>
+          <ul className="mt-3 overflow-hidden rounded-[20px] bg-white shadow-card">
             {remaining.map((b) => {
               const notToday = !b.activeDays.includes(today) && event.days.includes(today)
               return (
-                <li key={b.id}>
-                  <button onClick={() => setOpen(b)} className="flex w-full cursor-pointer flex-col items-center gap-1 rounded-[20px] border border-dashed border-ink/28 bg-white/45 p-2 text-center transition hover:bg-white/70 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action/45">
-                    <Stamp booth={b} collected={false} points={b.points} size={168} {...marks} />
-                    <span className="line-clamp-2 text-xs font-medium leading-tight">{b.nameEn}</span>
-                    <span className="stamp-text text-ink">{b.points} pts</span>
-                    {notToday && <span className="text-[11px] text-warn-text">{b.activeDays.map(dayLabel).join(' · ')}</span>}
+                <li key={b.id} className="border-t rule first:border-t-0">
+                  <button onClick={() => setOpen(b)} className="press-row flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left transition hover:bg-ink/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-action/45">
+                    {/* The visa itself, uncollected. Below 150px the component drops to its plain
+                        variant, which is what a row-height preview wants — the shape and the booth's
+                        own code, not the micro-print. */}
+                    <Stamp booth={b} collected={false} size={84} points={b.points} {...marks} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm">{b.nameEn}</span>
+                      {notToday && <span className="block text-[11px] text-warn-text">{b.activeDays.map(dayLabel).join(' · ')} only</span>}
+                    </span>
+                    <span className="shrink-0 text-xs font-semibold tabular-nums text-ink">{b.points} pts</span>
+                    <span aria-hidden className="shrink-0 text-ink-soft">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+                    </span>
                   </button>
                 </li>
               )
@@ -73,25 +119,6 @@ export default function Stamps() {
           </ul>
         </section>
       )}
-
-      <section className="mt-8">
-        <h2 className="stamp-text text-ink-soft">Collected</h2>
-        {collected.length === 0 ? (
-          <p className="mt-3 rounded-[20px] bg-white p-6 text-center shadow-card text-sm text-ink-soft">No stamps yet. Tap <b>Scan</b> at your first booth.</p>
-        ) : (
-          <ul className="mt-3 grid grid-cols-2 gap-3">
-            {collected.map((b) => (
-              <li key={b.id}>
-                <button onClick={() => setOpen(b)} className="flex w-full cursor-pointer flex-col items-center gap-1 rounded-[20px] bg-white p-2 text-center shadow-card transition hover:shadow-raised active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action/45">
-                  <Stamp booth={b} collected tilt={tiltFor(b.id)} size={168} {...marks} />
-                  <span className="line-clamp-2 text-xs font-medium leading-tight">{b.nameEn}</span>
-                  <span className="text-[11px] text-ink-soft">✓ +{b.points} pts</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
 
       {open && (
         <div className="scrim-in fixed inset-0 z-40 flex items-end justify-center bg-ink/60 p-4 sm:items-center" onClick={() => setOpen(null)}>

@@ -4,7 +4,7 @@ import { useEvent } from '../../lib/data'
 import { AccountMenu } from '../../components/AccountMenu'
 import { DataErrors, Icon } from '../../components/ui'
 import { useSlidingPill } from '../../lib/useSlidingPill'
-import { PaperHills, UniversityMark } from '../auth/parts'
+import { UniversityMark } from '../auth/parts'
 
 type Item = { to: string; label: string; icon: ReactNode; end?: boolean; away?: boolean }
 
@@ -56,8 +56,28 @@ function SideNav({ collapsed, onToggle }: { collapsed: boolean; onToggle?: () =>
   const nav = useSlidingPill<HTMLElement>()
   return (
     <>
+      {/*
+        * The design system's paper-cut campus, the same asset the booth screen, the passport cover
+        * and the signed-out horizon stand on, so the console belongs to the same set. It replaces
+        * the three SVG ridges that stood in for it while the asset could not be pulled.
+        *
+        * A fixed 22rem, centred and clipped, rather than the rail's own width. The campus is
+        * 2421px of drawn detail; poured into a 15rem rail it renders at a tenth scale and the
+        * rooftops turn to grain, and the rail then narrows to 4.5rem on collapse and halves it
+        * again. Held at one size it stays the same campus at the same scale, and collapsing just
+        * shows less of it.
+        */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <PaperHills className="absolute -bottom-6 left-[-20%] h-32 w-[140%]" opacity={0.14} />
+        <img
+          src="/brand/illus-campus-papercut.webp" alt="" aria-hidden
+          className="absolute bottom-0 left-1/2 w-[22rem] max-w-none -translate-x-1/2 opacity-[0.15]"
+          // Faded into the chrome, not laid on it: its skyline is otherwise a hard horizontal edge
+          // straight across the rail, and a straight edge above the account row reads as a panel.
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent, #000 42%)',
+            maskImage: 'linear-gradient(to bottom, transparent, #000 42%)',
+          }}
+        />
       </div>
       <div className={`relative flex items-center gap-3 py-4 ${collapsed ? 'justify-center px-2' : 'px-5'}`}>
         {/* The design system's rail leads with the festival logo. That artwork is one of the five
@@ -139,6 +159,24 @@ export default function AdminLayout() {
 
   return (
     <div className="flex min-h-full flex-col lg:flex-row">
+      {/*
+        * The festival's own sky wave field, full bleed, as the console's ground — the same asset the
+        * signed-out screens stand on, so the console is the same festival at a different density.
+        * It replaces the flat `page-quiet` the design system's admin kit specified; that kit chose
+        * flat "so white panels read cleanly", which they still do, because every panel here is
+        * opaque white and the field only ever shows in the gutters between them.
+        *
+        * Fixed, not scrolled: the waves are broad and slow, and dragging them past a long table
+        * would turn a still ground into motion nobody asked for.
+        *
+        * A sibling of the rail and the content, not a child of either: `main` hosts `.page-in`,
+        * whose transform would make itself the containing block for anything fixed inside it.
+        */}
+      <img
+        src="/brand/bg-sky-waves.webp" alt="" aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 h-full w-full object-cover print:hidden"
+      />
+
       {/* Phone and tablet: the rail is a drawer, so the bar is what is always on screen. */}
       <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 bg-chrome px-3 text-white lg:hidden">
         <button

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { api, errorMessage } from '../../lib/api'
 import type { ScanResult } from '../../../shared/model'
 import { ScanResultView } from './ScanResult'
-import { Notice, Spinner } from '../../components/ui'
+import { BackLink, Notice, Spinner } from '../../components/ui'
 import { FestivalBackdrop } from '../auth/parts'
 
 /** §4.3 — `/s/<token>`: the booth QR opened with the phone's native camera app. */
@@ -40,7 +40,7 @@ export default function ScanLanding() {
   return (
     <><FestivalBackdrop hills={false} /><main className="relative mx-auto min-h-full max-w-md p-4 text-ink">
       <header className="flex items-center justify-between gap-2 px-1 py-3">
-        <Link to="/passport" className="btn-quiet btn-sm">← Passport</Link>
+        <BackLink to="/passport">Passport</BackLink>
         <div className="stamp-text text-ink">Booth check-in</div>
         <span className="w-16" />
       </header>

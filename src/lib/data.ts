@@ -122,8 +122,13 @@ export function ms(v: unknown): number | null {
 }
 
 export function useBooths(includeInactive = false) {
-  return useCollection<BoothDoc>(query(collection(db, 'booths'), orderBy('sortOrder')), [], 'the booth list').data
-    .filter((b) => includeInactive || b.active)
+  return useBoothsState(includeInactive).data
+}
+
+/** The booths plus listener state, for screens that must not judge anything before they arrive. */
+export function useBoothsState(includeInactive = false) {
+  const r = useCollection<BoothDoc>(query(collection(db, 'booths'), orderBy('sortOrder')), [], 'the booth list')
+  return { ...r, data: r.data.filter((b) => includeInactive || b.active) }
 }
 
 export function useTiers() {

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, errorMessage, type SurveyOffer } from '../../lib/api'
 import { useBooth } from '../../lib/data'
 import { SurveyForm, useAnswers, useMissing } from '../../components/SurveyForm'
-import { Notice, Spinner } from '../../components/ui'
+import { BackLink, Notice, Spinner } from '../../components/ui'
 import { FestivalBackdrop } from '../auth/parts'
 
 /**
@@ -52,7 +52,7 @@ export default function Survey() {
   const shell = (children: React.ReactNode) => (
     <><FestivalBackdrop hills={false} /><main className="relative mx-auto flex min-h-full max-w-md flex-col text-ink">
       <header className="flex items-center justify-between gap-2 px-5 py-4">
-        <Link to="/passport/stamps" className="btn-quiet btn-sm">← Passport</Link>
+        <BackLink to="/passport/stamps">Passport</BackLink>
         <div className="stamp-text truncate text-ink">{booth?.nameEn ?? 'Booth'}</div>
         <span className="w-16" />
       </header>

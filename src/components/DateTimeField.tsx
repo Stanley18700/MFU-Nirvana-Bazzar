@@ -93,7 +93,7 @@ export function DateTimeField({ value, onChange, id, ariaLabel }: {
 
   return (
     <details ref={ref} className="relative" onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary id={id} className="field flex cursor-pointer list-none items-center gap-2" aria-label={ariaLabel} aria-haspopup="dialog">
+      <summary id={id} className="press-row field flex cursor-pointer list-none items-center gap-2" aria-label={ariaLabel} aria-haspopup="dialog">
         <span aria-hidden className="shrink-0 text-ink-soft">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 3v4M16 3v4M3 10h18" /></svg>
         </span>

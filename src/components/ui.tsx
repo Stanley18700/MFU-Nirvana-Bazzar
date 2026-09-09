@@ -125,6 +125,45 @@ export function DarkNotice({ tone = 'info', children }: { tone?: 'info' | 'amber
  * export — clicking used to do nothing at all, which read as a broken button. `confirm` asks
  * before exporting anything that carries personal or sensitive data (spec §4.1, §10).
  */
+/**
+ * Going back is a control, not a citation.
+ *
+ * It was an underlined link on the auth screens and bare text on the prize-desk landing, while
+ * four other screens already used a quiet pill for exactly the same move. An underline is the
+ * convention for "this takes you to a document"; going back is something you press. One component
+ * so the six of them cannot drift apart again.
+ */
+export function BackLink({ to, children, label, dark = false, className = '' }: {
+  to: string
+  /** Where you land, when naming it is worth the width. Omit for a plain step back. */
+  children?: ReactNode
+  /** The accessible name, and the hover label when there is no visible one. */
+  label?: string
+  dark?: boolean
+  className?: string
+}) {
+  const name = label ?? (typeof children === 'string' ? children : 'Back')
+  // A named destination is worth its width — "Passport" says where you land, which an arrow cannot.
+  if (children) {
+    return (
+      <Link to={to} className={`${dark ? 'btn-dark' : 'btn-quiet'} btn-sm ${className}`}>
+        {Icon.back}{children}
+      </Link>
+    )
+  }
+  // "Back" beside a back arrow is the arrow again in words. The glyph carries it, and `.tip` gives
+  // the name to a pointer and a keyboard, the way every other icon-only control here does.
+  return (
+    <Link
+      to={to} aria-label={name}
+      className={`tip ${dark ? 'btn-dark tip-dark' : 'btn-quiet tip-light'} btn-sm btn-icon-sm ${className}`}
+    >
+      {Icon.back}
+      <span className="tip-label">{name}</span>
+    </Link>
+  )
+}
+
 export function CsvButton({ rows, name, label = 'CSV', confirm, columns, className = '' }: {
   rows: CsvRow[]; name: string; label?: string; confirm?: string; columns?: string[]; className?: string
 }) {
@@ -208,6 +247,15 @@ export function DataErrors({ dark, className = '' }: { dark?: boolean; className
  */
 export function TabBar({ tabs, scanTo }: { tabs: Array<{ to: string; label: string; icon: ReactNode; end?: boolean }>; scanTo?: string }) {
   const rail = useSlidingPill<HTMLDivElement>()
+  const half = scanTo ? Math.ceil(tabs.length / 2) : tabs.length
+  const [left, right] = [tabs.slice(0, half), tabs.slice(half)]
+  const span = (n: number) => `repeat(${n},minmax(0,1fr))`
+  const cols = scanTo ? `${span(half)} 5.5rem ${span(tabs.length - half)}` : span(tabs.length)
+  const renderTab = (t: { to: string; label: string; icon: ReactNode; end?: boolean }) => (
+    <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => `flex min-w-0 flex-col items-center gap-0.5 px-1 py-2.5 text-center text-[11px] font-semibold transition ${isActive ? 'text-ink' : 'text-ink-soft'}`}>
+      {({ isActive }: { isActive: boolean }) => <><span className={isActive ? 'text-sky-800' : 'text-ink-soft'}>{t.icon}</span>{t.label}</>}
+    </NavLink>
+  )
   return (
     <div className={`fixed inset-x-0 bottom-0 z-20 ${scanTo ? 'pt-8' : ''}`}>
     {scanTo && (
@@ -218,17 +266,22 @@ export function TabBar({ tabs, scanTo }: { tabs: Array<{ to: string; label: stri
         {Icon.scan}
       </Link>
     )}
-    <nav className="border-t rule bg-white/94 backdrop-blur-[14px]" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} aria-label="Passport pages">
+    {/* A floor under the labels. With no safe-area inset — Chrome's device mode, most Android
+        gesture bars — the descenders sat on the very last pixel of the screen. */}
+    <nav className="border-t rule bg-white/94 backdrop-blur-[14px]" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.5rem)' }} aria-label="Passport pages">
       {/*
         * Columns come from the tab count, not a class: Tailwind scans source text for complete
         * class names, so `grid-cols-${n}` would never be compiled.
+        *
+        * With a scan button there is a real gutter in the middle, not just a button laid over the
+        * bar. At 412px the 64px button plus its 4px ring covered the inner third of both Stamps and
+        * Prize, so a thumb aimed at either of them landed on the camera. The column is wide enough
+        * for the ring plus 8px of clearance on each side.
         */}
-      <div ref={rail} className="tab-rail mx-auto grid max-w-md" style={{ gridTemplateColumns: `repeat(${tabs.length},minmax(0,1fr))` }}>
-        {tabs.map((t) => (
-          <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => `flex min-w-0 flex-col items-center gap-0.5 px-1 py-2.5 text-center text-[11px] font-semibold transition ${isActive ? 'text-ink' : 'text-ink-soft'}`}>
-            {({ isActive }: { isActive: boolean }) => <><span className={isActive ? 'text-sky-800' : 'text-ink-soft'}>{t.icon}</span>{t.label}</>}
-          </NavLink>
-        ))}
+      <div ref={rail} className="tab-rail mx-auto grid max-w-md" style={{ gridTemplateColumns: cols }}>
+        {left.map(renderTab)}
+        {scanTo && <span aria-hidden />}
+        {right.map(renderTab)}
       </div>
     </nav>
     </div>
@@ -236,6 +289,9 @@ export function TabBar({ tabs, scanTo }: { tabs: Array<{ to: string; label: stri
 }
 
 export const Icon = {
+  /* Drawn rather than the "←" character: a glyph is whatever the font decides, sits on the text
+     baseline instead of the optical centre, and thickens with the surrounding font weight. */
+  back: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M19 12H5M11 18l-6-6 6-6" /></svg>,
   cover: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="4" y="3" width="16" height="18" rx="2" /><circle cx="12" cy="10" r="3" /><path d="M8 17h8" /></svg>,
   stamps: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>,
   prize: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 3l2.7 5.5 6 .9-4.4 4.2 1.1 6-5.4-2.9L6.6 19.6l1.1-6L3.3 9.4l6-.9z" /></svg>,

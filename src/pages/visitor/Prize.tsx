@@ -43,11 +43,15 @@ export default function Prize() {
   if (!profile) return <Spinner />
   const points = profile.points ?? 0
 
+  // The first tier still out of reach is the one this page is actually about.
+  const nextId = tiers.find((t) => points < t.thresholdPoints && !unlocks.some((u) => u.tierId === t.id && !u.voidedAt))?.id
+
   return (
     <main className="px-5 pt-6">
       <div className="stamp-text text-ink-soft">Prize</div>
       <h1 className="text-2xl font-bold">{fmt(points)} points</h1>
 
+      <TierRoad points={points} tiers={tiers} />
       {anyUnlockedUnredeemed && (
         <section className="relative mt-5 overflow-hidden rounded-3xl border-2 border-foil bg-white p-5 text-center shadow-xl shadow-foil/20">
           <div className="stamp-text text-foil">Entry visa · show this at the prize desk</div>
@@ -69,30 +73,82 @@ export default function Prize() {
           const u = unlocks.find((x) => x.tierId === t.id)
           const unlocked = points >= t.thresholdPoints || (!!u && !u.voidedAt)
           const redeemed = !!u?.redeemedAt && !u?.voidedAt
+          const isNext = t.id === nextId
           const lowStock = t.stockTotal > 0 && t.stockRemaining / t.stockTotal < 0.2
+          /*
+           * Four states that used to look like one. Every tier was the same card with the same four
+           * grey lines, so the one you can actually reach next — the only one worth walking for —
+           * had no more presence than the one 140 points away.
+           */
           return (
-            <li key={t.id} className={`card flex items-center gap-4 ${unlocked ? 'ring-2 ring-foil/70' : 'opacity-80'}`}>
-              <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-full ${redeemed ? 'bg-success text-white' : unlocked ? 'bg-foil text-ink' : 'bg-ink/10 text-ink-soft'}`}>
-                {redeemed ? '✓' : <span className="fig text-sm">{t.thresholdPoints}</span>}
+            <li key={t.id} className={`card ${redeemed ? 'opacity-70' : ''} ${isNext ? 'ring-2 ring-action' : unlocked && !redeemed ? 'ring-2 ring-foil' : ''}`}>
+              {isNext && <div className="stamp-text mb-1 text-action">Next</div>}
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="min-w-0 truncate font-semibold">{t.name}</h2>
+                {/* One state, one phrase, on the right of the row it belongs to — not a fourth
+                    grey line under three others. */}
+                {redeemed ? <span className="shrink-0 text-xs font-medium text-success-text">Collected</span>
+                  : unlocked ? <span className="shrink-0 text-xs font-semibold text-foil">Ready to collect</span>
+                  : isNext ? <span className="shrink-0 text-sm font-semibold text-action">{fmt(t.thresholdPoints - points)} to go</span>
+                  : <span className="shrink-0 text-xs tabular-nums text-ink-soft">{t.thresholdPoints} pts</span>}
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="font-semibold">{t.name} <span className="text-xs font-normal text-ink-soft">· {t.thresholdPoints} pts</span></div>
-                <div className="text-sm text-ink-soft">{t.reward}</div>
-                {redeemed && <div className="text-xs text-success-text">Collected · thank you</div>}
-                {/* Live remaining stock, always visible on every tier (event planners' request).
-                    Supersedes the 20%-threshold rule in spec §4.4. */}
-                {!redeemed && t.stockTotal > 0 && (t.stockRemaining <= 0
-                  ? <div className="text-xs text-danger-text">{t.outOfStockNoteEn || 'This prize has run out'}</div>
-                  : <div className={`text-xs ${lowStock ? 'text-warn-text' : 'text-ink-soft'}`}>{fmt(t.stockRemaining)} left</div>)}
-                {!unlocked && <div className="text-xs text-ink-soft">{t.thresholdPoints - points} more points</div>}
-                {t.grantsDrawEntry && <div className="text-xs text-foil">+ entry to the closing stage draw</div>}
-              </div>
+              <p className="mt-0.5 text-sm text-ink-soft">{t.reward}</p>
+              {t.grantsDrawEntry && <p className="mt-1 text-xs text-foil">+ entry to the closing stage draw</p>}
+              {/* Stock is the organisers' fact, not yours, so it sits apart from your own gap. */}
+              {!redeemed && t.stockTotal > 0 && (
+                <p className={`mt-2 text-right text-xs ${t.stockRemaining <= 0 ? 'text-danger-text' : lowStock ? 'text-warn-text' : 'text-ink-soft'}`}>
+                  {t.stockRemaining <= 0 ? (t.outOfStockNoteEn || 'This prize has run out') : `${fmt(t.stockRemaining)} left`}
+                </p>
+              )}
             </li>
           )
         })}
       </ul>
 
-      {!anyUnlockedUnredeemed && <div className="mt-6"><Notice>Reach {tiers[0]?.thresholdPoints ?? 50} points and your redemption code appears here.</Notice></div>}
+      {!anyUnlockedUnredeemed && <div className="mt-6"><Notice>Your redemption code appears here the moment a tier unlocks. Show it at the prize desk.</Notice></div>}
     </main>
+  )
+}
+
+/**
+ * Where you are against every threshold at once.
+ *
+ * The page led with a points total and then described the distance to the next prize in words, as
+ * the fourth line of a card. A road shows all three goals and your position on it in one glance,
+ * which is the question this tab exists to answer — and it is not the Cover's ring repeated,
+ * because the ring can only ever describe the next tier.
+ */
+function TierRoad({ points, tiers }: { points: number; tiers: Array<{ id: string; thresholdPoints: number }> }) {
+  const top = tiers[tiers.length - 1]?.thresholdPoints ?? 0
+  if (!top) return null
+  const pct = (v: number) => Math.max(0, Math.min(100, (v / top) * 100))
+  return (
+    /* Inset by half a marker so the first and last dots, and their numbers, stay on the page. */
+    <div className="mt-5 px-3">
+      <div className="relative h-2 rounded-full bg-ink/10">
+        <div className="absolute inset-y-0 left-0 rounded-full bg-action transition-[width] duration-500 ease-out" style={{ width: `${pct(points)}%` }} />
+        {tiers.map((t) => {
+          const done = points >= t.thresholdPoints
+          return (
+            <span
+              key={t.id} aria-hidden
+              className={`absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 ${done ? 'border-action bg-foil' : 'border-ink/25 bg-white'}`}
+              style={{ left: `${pct(t.thresholdPoints)}%` }}
+            />
+          )
+        })}
+      </div>
+      <div className="relative mt-2 h-4">
+        {tiers.map((t) => (
+          <span
+            key={t.id}
+            className={`absolute -translate-x-1/2 text-[11px] tabular-nums ${points >= t.thresholdPoints ? 'font-semibold text-ink' : 'text-ink-soft'}`}
+            style={{ left: `${pct(t.thresholdPoints)}%` }}
+          >
+            {t.thresholdPoints}
+          </span>
+        ))}
+      </div>
+    </div>
   )
 }

@@ -3,6 +3,7 @@ import { useAuth } from '../../lib/auth'
 import { useBooths, useEvent, useTiers } from '../../lib/data'
 import { eventMark } from '../../lib/eventText'
 import { Crest, Spinner, fmt } from '../../components/ui'
+import { dayOf } from '../../../shared/model'
 
 export function tierProgress<T extends { id: string; name: string; thresholdPoints: number }>(points: number, tiers: T[]) {
   const sorted = [...tiers].sort((a, b) => a.thresholdPoints - b.thresholdPoints)
@@ -22,6 +23,16 @@ export default function Cover() {
   const points = profile.points ?? 0
   const { sorted, reached, next, pct } = tierProgress(points, tiers)
   const r = 54, c = 2 * Math.PI * r
+
+  /*
+   * The one thing the tab bar cannot tell you: which booth to walk to. Worth the most, open today,
+   * not yet stamped — the same ordering the Stamps route uses, resolved to a single answer.
+   */
+  const stamped = new Set(profile.stampedBoothIds ?? [])
+  const today = dayOf(new Date())
+  const nextBooth = booths
+    .filter((b) => !stamped.has(b.id) && (!event.days.includes(today) || b.activeDays.includes(today)))
+    .sort((a, b) => b.points - a.points || a.sortOrder - b.sortOrder)[0]
 
   return (
     <main className="px-5 pt-6">
@@ -63,36 +74,48 @@ export default function Cover() {
             </div>
           </div>
         </div>
-        {/* Tier strip with live remaining stock (event planners' request) — wraps on narrow phones. */}
-        <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2">
+        {/* Which tiers you have reached, and nothing else. The remaining stock used to sit here
+            too — an organiser's fact, three lines long, on the one screen a visitor opens most.
+            It is on the Prize tab, beside the tier it belongs to. */}
+        <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
           {sorted.map((t) => (
             <div key={t.id} className="flex items-center gap-1.5">
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${reached.includes(t) ? 'bg-foil' : 'bg-white/25'}`} />
               <span className={`text-xs ${reached.includes(t) ? 'text-foil' : 'text-on-chrome-soft'}`}>{t.name}</span>
-              {t.stockTotal > 0 && (
-                <span className={`text-[11px] ${t.stockRemaining <= 0 ? 'text-danger-text' : 'text-on-chrome-soft'}`}>
-                  {t.stockRemaining <= 0 ? 'sold out' : `${fmt(t.stockRemaining)} left`}
-                </span>
-              )}
             </div>
           ))}
         </div>
+        {/* The ring already says how many points to go. This says what they are for. */}
         <p className="mt-3 text-sm text-on-chrome-soft">
-          {next ? <><b>{next.thresholdPoints - points} more points</b> to {next.name} — {next.reward.toLowerCase()}.</> : <>You have reached every tier. Show your Prize page at the desk.</>}
+          {next ? <>Next up: <b className="text-white">{next.name}</b> — {next.reward.toLowerCase()}.</> : <>You have reached every tier. Show your Prize page at the desk.</>}
         </p>
       </section>
 
-      <section className="mt-6 grid grid-cols-1 gap-3 xs:grid-cols-2">
-        <Link to="/scan" className="card flex flex-col gap-1 hover:bg-white">
-          <span className="stamp-text text-ink-soft">Next</span>
-          <span className="font-semibold">Scan a booth</span>
-          <span className="text-xs text-ink-soft">Point your camera at the booth screen</span>
-        </Link>
-        <Link to="/passport/stamps" className="card flex flex-col gap-1 hover:bg-white">
-          <span className="stamp-text text-ink-soft">Route</span>
-          <span className="font-semibold">See what's worth most</span>
-          <span className="text-xs text-ink-soft">Far-corner booths pay 20 points</span>
-        </Link>
+      {/*
+        * Two cards used to sit here, one pointing at the scan button three centimetres below it and
+        * one pointing at the Stamps tab beside it. A third of the screen spent restating the tab
+        * bar. This answers the question the tab bar cannot: where to walk next.
+        */}
+      <section className="mt-6">
+        {nextBooth ? (
+          <Link to="/passport/stamps" className="card press-row flex items-center gap-4 hover:bg-white">
+            <span className="min-w-0 flex-1">
+              <span className="stamp-text block text-ink-soft">Go here next</span>
+              <span className="mt-1 block truncate text-lg font-semibold">{nextBooth.nameEn}</span>
+              <span className="mt-0.5 block truncate text-xs text-ink-soft">{nextBooth.location}</span>
+            </span>
+            <span className="shrink-0 text-right">
+              <span className="fig block text-2xl text-action">{nextBooth.points}</span>
+              <span className="stamp-text block text-[10px] text-ink-soft">points</span>
+            </span>
+          </Link>
+        ) : (
+          <div className="card text-center text-sm text-ink-soft">
+            {stamped.size >= booths.length && booths.length > 0
+              ? 'Every booth stamped. Take your passport to the prize desk.'
+              : 'Nothing left to collect today — check back tomorrow for the booths that rotate.'}
+          </div>
+        )}
       </section>
 
     </main>

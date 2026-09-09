@@ -1,38 +1,15 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
 import { useEvent } from '../../lib/data'
 import { eventDateLine } from '../../lib/eventText'
+import { BackLink } from '../../components/ui'
 
 // DarkNotice moved to components/ui so the booth screen and shared notices can use it; kept here for the auth pages.
 export { Notice } from '../../components/ui'
 
 /**
- * The paper-cut mountains from the key visual, in three layers.
- *
- * Drawn rather than placed because `illus-campus-papercut.png` could not be pulled from the design
- * tool (see .design-sync/NOTES.md) — swap this for that image when it arrives. It is a separate
- * component because the admin rail and the passport cover both set it behind their own ground at
- * low opacity, exactly as the design system's UI kits do.
- */
-export function PaperHills({ className = '', opacity = 1 }: { className?: string; opacity?: number }) {
-  const layers: Array<[string, string]> = [
-    ['M0 110C140 70 260 60 400 90 540 120 640 40 800 70 960 100 1060 30 1200 60 1320 85 1400 70 1440 80V320H0Z', '#8FC08C'],
-    ['M0 190C160 150 280 170 420 150 560 130 660 100 820 140 980 180 1080 110 1220 140 1340 165 1400 150 1440 160V320H0Z', '#6E9E6B'],
-    ['M0 250C200 220 340 240 480 225 640 208 720 190 900 220 1060 248 1200 205 1440 240V320H0Z', '#4C764F'],
-  ]
-  return (
-    <svg className={className} style={{ opacity }} viewBox="0 0 1440 320" preserveAspectRatio="none" aria-hidden>
-      {layers.map(([d, fill]) => <path key={fill} d={d} fill={fill} />)}
-    </svg>
-  )
-}
-
-/**
  * The festival set behind the signed-out screens and the passport pages, after the key visual: a
- * sky ground with wave bands, white paper-cut clouds, a paper sun, the line-art globe, and layered
- * green paper hills at the foot. The hills are drawn in SVG because the supplied
- * `illus-campus-papercut.png` could not be pulled from the design tool (see .design-sync/NOTES.md);
- * swap them for that image when it arrives. `hills={false}` for pages with a bottom tab bar.
+ * sky ground with wave bands, white paper-cut clouds, a paper sun, the line-art globe, and the
+ * paper-cut campus at the foot. `hills={false}` for pages with a bottom tab bar.
  */
 export function FestivalBackdrop({ hills = true }: { hills?: boolean }) {
   return (
@@ -126,7 +103,7 @@ export function AuthShell({ title, lead, children, foot, back = '/' }: {
       <FestivalBackdrop />
       <main className="relative mx-auto flex min-h-full max-w-md flex-col px-5 pb-[max(15vh,130px)] pt-6 text-ink sm:pb-12">
         <div className="flex items-center justify-between gap-3">
-          {back ? <Link to={back} className="link text-sm text-ink-soft hover:text-ink">← Back</Link> : <span />}
+          {back ? <BackLink to={back} label="Back" /> : <span />}
           <UniversityMark className="h-11 w-11" />
         </div>
         <div className="haze mt-5 self-start">

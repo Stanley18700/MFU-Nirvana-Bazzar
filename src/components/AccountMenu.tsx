@@ -53,7 +53,7 @@ export function AccountMenu({ dark = false, up = false, rail }: { dark?: boolean
         className={rail === 'full'
           // Not `.btn`: that is `inline-flex` and unlayered, so it wins over `flex` and shrink-wraps
           // the row to its text. A footer row this size should read as one wide, pressable target.
-          ? `flex w-full cursor-pointer list-none items-center gap-2.5 rounded-xl px-3.5 py-2 text-left transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foil/60 ${dark ? 'text-white hover:bg-white/12' : 'text-ink hover:bg-ink/6'}`
+          ? `flex w-full cursor-pointer list-none items-center gap-2.5 rounded-xl px-3.5 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foil/60 ${dark ? 'text-white hover:bg-white/12 active:bg-white/20' : 'text-ink hover:bg-ink/6 active:bg-ink/10'}`
           : `btn-sm flex cursor-pointer list-none items-center gap-2 rounded-full ${dark ? 'btn-dark' : 'btn-quiet'}`}
         aria-label={`${t('nav.account')}${name ? ` — ${name}` : ''}`}
       >

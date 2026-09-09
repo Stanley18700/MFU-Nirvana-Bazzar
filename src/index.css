@@ -129,6 +129,13 @@
   color-scheme: light;
 }
 
+/*
+ * The other way the bar could change width under its own pill: on a desktop browser, going from a
+ * tall page to a short one takes the scrollbar away and widens the viewport by 15px. Reserving the
+ * gutter costs nothing on a phone, where scrollbars are overlaid anyway. The larger cause was the
+ * page-enter animation; see `page-in` below.
+ */
+html { scrollbar-gutter: stable; }
 html, body, #root { height: 100%; }
 body {
   margin: 0;
@@ -168,8 +175,19 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.015em; line-he
 }
 .stamp-land { animation: stamp-land var(--dur-drop) var(--ease-settle) both; }
 
+/*
+ * No horizontal travel, deliberately. `translateX(20px)` pushed a full-width page 20px past the
+ * right edge for the length of the animation, which extends the document's scrollable width — and
+ * a mobile layout viewport grows to match it. Measured on a tab change, the bottom bar went
+ * 412 -> 429 -> 412 across 350ms, so its tabs moved while the sliding pill was chasing one: the
+ * pill flew 6px past its target and then walked back. Clipping the overflow does not help, because
+ * the viewport has already been resized by the time anything is painted.
+ *
+ * A scale that only ever grows *into* its box cannot overflow anything, and it keeps what the
+ * slide was for: the page arrives rather than appearing.
+ */
 @keyframes page-in {
-  from { transform: translateX(20px) scale(0.985); opacity: 0; }
+  from { transform: scale(0.975); opacity: 0; }
   to { transform: none; opacity: 1; }
 }
 /*

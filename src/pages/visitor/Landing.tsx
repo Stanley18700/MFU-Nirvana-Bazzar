@@ -43,13 +43,25 @@ export default function Landing() {
 
       <div className="page-in flex flex-col items-center gap-5" style={{ animationDelay: '60ms' }}>
         <UniversityMark className="h-28 w-28 xs:h-36 xs:w-36" />
-        {/* A tinted panel rather than `.haze`: over the campus its backdrop blur draws a hard
-            rectangle that the recipe's radial mask fades the colour out of but not the blur. */}
-        <div className="flex flex-col items-center gap-3 rounded-[28px] bg-sky-100/75 px-5 py-3">
-          <ScrapLabel tone="orange" tilt={1.75}>Digital passport</ScrapLabel>
-          <p className="max-w-xs text-pretty text-ink sm:max-w-sm">
-            Collect a stamp at every booth with your own phone, earn points, and trade them for a prize.
-          </p>
+        {/*
+          * A tinted panel rather than `.haze`: over the campus its backdrop blur draws a hard
+          * rectangle that the recipe's radial mask fades the colour out of but not the blur.
+          *
+          * The scrap sits astride the panel's top edge rather than inside it. Inside, it read as
+          * the first line of the content; taped across the edge it labels the panel, which is what
+          * it is for — and a paper scrap stuck slightly askew over a join is the festival's own
+          * idiom rather than a heading borrowed from somewhere else.
+          */}
+        <div className="relative mt-2">
+          {/* The wrapper does the positioning: ScrapLabel spends `transform` on its own tilt. */}
+          <div className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2">
+            <ScrapLabel tone="orange" tilt={1.75}>Digital passport</ScrapLabel>
+          </div>
+          <div className="rounded-[28px] bg-sky-100/75 px-5 pb-4 pt-7">
+            <p className="max-w-xs text-pretty text-ink sm:max-w-sm">
+              Collect a stamp at every booth with your own phone, earn points, and trade them for a prize.
+            </p>
+          </div>
         </div>
       </div>
 

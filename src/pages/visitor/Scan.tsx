@@ -1,11 +1,10 @@
 import { useCallback, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
 import { Scanner } from '../../components/Scanner'
 import { api, errorMessage } from '../../lib/api'
 import { normaliseManualCode } from '../../../shared/token'
 import type { ScanResult } from '../../../shared/model'
 import { ScanResultView } from './ScanResult'
-import { Notice, Spinner } from '../../components/ui'
+import { BackLink, Notice, Spinner } from '../../components/ui'
 import { FestivalBackdrop } from '../auth/parts'
 
 export default function Scan() {
@@ -35,7 +34,7 @@ export default function Scan() {
   return (
     <><FestivalBackdrop hills={false} /><main className="relative mx-auto flex min-h-full max-w-md flex-col text-ink">
       <header className="flex items-center justify-between gap-2 px-5 py-4">
-        <Link to="/passport" className="btn-quiet btn-sm">← Passport</Link>
+        <BackLink to="/passport">Passport</BackLink>
         <div className="stamp-text text-ink">Scan a booth</div>
         <span className="w-16" />
       </header>
