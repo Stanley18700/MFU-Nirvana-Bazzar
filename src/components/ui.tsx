@@ -4,6 +4,7 @@ import { downloadCsv, type CsvRow } from '../lib/csv'
 import { useDataErrors } from '../lib/data'
 import { LOCALES, useLocale } from '../lib/locale'
 import { useSlidingPill } from '../lib/useSlidingPill'
+import { useBodyScrollLock } from '../lib/useBodyScrollLock'
 
 export function Fig({ value, label, accent, sub }: { value: ReactNode; label: string; accent?: string; sub?: ReactNode }) {
   return (
@@ -79,19 +80,17 @@ export function Drawer({ title, onClose, children, width = 'max-w-md', actions }
 }) {
   const closeRef = useRef<HTMLButtonElement>(null)
   const titleId = useId()
+  useBodyScrollLock(true)
   const close = useRef(onClose)
   close.current = onClose
   // Runs once per open: re-running on every render would re-grab focus from whatever the user is typing in.
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null
     closeRef.current?.focus()
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); close.current() } }
     document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
       opener?.focus?.()
     }
   }, [])

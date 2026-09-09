@@ -6,6 +6,7 @@ import { normaliseManualCode } from '../../../shared/token'
 import type { ScanResult } from '../../../shared/model'
 import { ScanResultView } from './ScanResult'
 import { Notice, Spinner } from '../../components/ui'
+import { FestivalBackdrop } from '../auth/parts'
 
 export default function Scan() {
   const [result, setResult] = useState<ScanResult | null>(null)
@@ -32,10 +33,10 @@ export default function Scan() {
   }
 
   return (
-    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="mx-auto flex min-h-full max-w-md flex-col bg-chrome text-white">
-      <header className="flex items-center justify-between px-5 py-4">
-        <Link to="/passport" className="text-sm text-on-chrome-soft">← Passport</Link>
-        <div className="stamp-text text-foil">Scan a booth</div>
+    <><FestivalBackdrop hills={false} /><main className="relative mx-auto flex min-h-full max-w-md flex-col text-ink">
+      <header className="flex items-center justify-between gap-2 px-5 py-4">
+        <Link to="/passport" className="btn-quiet btn-sm">← Passport</Link>
+        <div className="stamp-text text-ink">Scan a booth</div>
         <span className="w-16" />
       </header>
 
@@ -43,15 +44,18 @@ export default function Scan() {
         <div className="m-4 rounded-3xl bg-white text-ink"><ScanResultView result={result} onRetry={() => { setResult(null); setManual('') }} /></div>
       ) : (
         <>
-          <Scanner onResult={(t) => void submit(t)} paused={busy} className="mx-4 aspect-square max-h-[50dvh]" />
-          {busy && <div className="text-on-chrome-soft"><Spinner label="Checking…" /></div>}
+          {/* The one place the dark ground still earns its keep: a lens reads against it. */}
+          <div className="mx-4 overflow-hidden rounded-[28px] bg-chrome p-2 shadow-float">
+            <Scanner onResult={(t) => void submit(t)} paused={busy} className="aspect-square max-h-[50dvh] w-full" />
+          </div>
+          {busy && <Spinner label="Checking…" />}
           {err && <div className="mx-4 mt-3"><Notice tone="red">{err}</Notice></div>}
-          <form onSubmit={onManual} className="mx-4 mt-4 mb-8 rounded-2xl bg-white/5 p-4">
-            <label className="stamp-text text-on-chrome-soft" htmlFor="manual">Or type the 6-character code under the QR</label>
+          <form onSubmit={onManual} className="card card-static mx-4 mt-4 mb-8">
+            <label className="stamp-text text-ink-soft" htmlFor="manual">Or type the 6-character code under the QR</label>
             <div className="mt-2 flex gap-2">
-              <input id="manual" className="field flex-1 bg-white/90 text-center font-mono text-xl tracking-[0.35em] uppercase" maxLength={7} autoCapitalize="characters" autoCorrect="off" spellCheck={false}
+              <input id="manual" className="field flex-1 text-center font-mono text-xl tracking-[0.35em] uppercase" maxLength={7} autoCapitalize="characters" autoCorrect="off" spellCheck={false}
                 value={manual} onChange={(e) => setManual(normaliseManualCode(e.target.value))} placeholder="ABC234" />
-              <button className="btn-gold shrink-0" disabled={normaliseManualCode(manual).length !== 6 || busy}>Stamp</button>
+              <button className="btn-primary shrink-0" disabled={normaliseManualCode(manual).length !== 6 || busy}>Stamp</button>
             </div>
           </form>
         </>

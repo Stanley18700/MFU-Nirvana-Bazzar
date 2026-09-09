@@ -4,6 +4,7 @@ import { useBooths, useEvent } from '../../lib/data'
 import { Stamp } from '../../components/Stamp'
 import { stampMarks } from '../../lib/eventText'
 import { Spinner } from '../../components/ui'
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { dayOf, type BoothDoc } from '../../../shared/model'
 
 function tiltFor(id: string) {
@@ -26,6 +27,7 @@ export default function Stamps() {
   const dayLabel = makeDayLabel(event.days)
   const marks = stampMarks(event)
   const [open, setOpen] = useState<(BoothDoc & { id: string }) | null>(null)
+  useBodyScrollLock(!!open)
   const today = dayOf(new Date())
 
   const { collected, remaining } = useMemo(() => {

@@ -5,6 +5,7 @@ import { api, errorMessage } from '../../lib/api'
 import type { ScanResult } from '../../../shared/model'
 import { ScanResultView } from './ScanResult'
 import { Notice, Spinner } from '../../components/ui'
+import { FestivalBackdrop } from '../auth/parts'
 
 /** §4.3 — `/s/<token>`: the booth QR opened with the phone's native camera app. */
 export default function ScanLanding() {
@@ -37,10 +38,10 @@ export default function ScanLanding() {
   if (role === 'organizer') return <Navigate to="/booth" state={{ notice: "Staff accounts do not collect stamps — that code was for a visitor's phone." }} replace />
 
   return (
-    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="mx-auto min-h-full max-w-md bg-chrome p-4 text-white">
-      <header className="flex items-center justify-between px-1 py-3">
-        <Link to="/passport" className="text-sm text-on-chrome-soft">← Passport</Link>
-        <div className="stamp-text text-foil">Booth check-in</div>
+    <><FestivalBackdrop hills={false} /><main className="relative mx-auto min-h-full max-w-md p-4 text-ink">
+      <header className="flex items-center justify-between gap-2 px-1 py-3">
+        <Link to="/passport" className="btn-quiet btn-sm">← Passport</Link>
+        <div className="stamp-text text-ink">Booth check-in</div>
         <span className="w-16" />
       </header>
       <div className="rounded-3xl bg-white text-ink">
