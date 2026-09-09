@@ -307,7 +307,7 @@ input, select, textarea, button { font: inherit; }
  * Physical `top`/`left`, not the logical properties: `offsetLeft` is physical, and mixing the two
  * is silently correct in LTR and silently wrong in RTL. This app ships English and Thai, both LTR.
  */
-.seg::before, .tab-group::before, .tab-rail::before {
+.seg::before, .tab-group::before, .tab-rail::before, .tab-rail-v::before {
   content: '';
   position: absolute;
   top: 0;
@@ -332,7 +332,8 @@ input, select, textarea, button { font: inherit; }
  */
 .seg[data-tab-ready='true']::before,
 .tab-group[data-tab-ready='true']::before,
-.tab-rail[data-tab-ready='true']::before { opacity: 1; }
+.tab-rail[data-tab-ready='true']::before,
+.tab-rail-v[data-tab-ready='true']::before { opacity: 1; }
 
 /*
  * Segmented page navigation — the organizer's booth/stats/survey/desk switcher.

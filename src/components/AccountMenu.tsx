@@ -25,7 +25,7 @@ const ROLE_LABEL: Record<string, string> = { admin: 'Admin', organizer: 'Booth o
  * The visitor does not use this — their shell IS the tab bar, so Profile is a tab and this page's
  * job is done by `/passport/account`.
  */
-export function AccountMenu({ dark = false, up = false, className = '' }: { dark?: boolean; up?: boolean; className?: string }) {
+export function AccountMenu({ dark = false, up = false, compact = false, className = '' }: { dark?: boolean; up?: boolean; compact?: boolean; className?: string }) {
   const { user, profile, role } = useAuth()
   const { t } = useLocale()
   const loc = useLocation()
@@ -46,7 +46,7 @@ export function AccountMenu({ dark = false, up = false, className = '' }: { dark
         <span aria-hidden className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${dark ? 'bg-white/20 text-white' : 'bg-action text-white'}`}>
           {initials(name, email)}
         </span>
-        <span className="hidden sm:inline">{t('nav.account')}</span>
+        {!compact && <span className="hidden sm:inline">{t('nav.account')}</span>}
       </summary>
 
       <div className={`absolute right-0 z-40 flex w-64 flex-col rounded-xl bg-white p-1.5 text-sm text-ink shadow-lg ring-1 ring-black/10 ${up ? 'bottom-full mb-1' : 'mt-1'}`}>

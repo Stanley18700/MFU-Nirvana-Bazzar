@@ -96,7 +96,7 @@ function SideNav({ collapsed, onToggle }: { collapsed: boolean; onToggle?: () =>
       </nav>
 
       <div className={`mt-auto border-t border-white/10 py-3 ${collapsed ? 'flex justify-center px-2' : 'px-4'}`}>
-        <AccountMenu dark up className={collapsed ? '' : 'w-full'} />
+        <AccountMenu dark up compact={collapsed} className={collapsed ? '' : 'w-full'} />
       </div>
     </>
   )
