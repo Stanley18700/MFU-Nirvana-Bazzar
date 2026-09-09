@@ -31,6 +31,7 @@ const GROUPS: Array<{ title: string; items: Item[] }> = [
   ] },
   { title: 'Records', items: [
     { to: '/admin/audit', label: 'Audit log', icon: Icon.audit },
+    { to: '/admin/feedback', label: 'Feedback', icon: Icon.lists },
     { to: '/admin/refdata', label: 'Reference lists', icon: Icon.lists },
   ] },
   { title: 'Screens', items: [

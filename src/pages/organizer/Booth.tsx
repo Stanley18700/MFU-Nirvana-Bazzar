@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { BoothWatermark } from '../../components/OrganizerPage'
+import { stampMarks } from '../../lib/eventText'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useAuth, useSignOut } from '../../lib/auth'
 import { api, friendlyError } from '../../lib/api'
-import { useBooth, useBoothStat, useBooths, useEventStats } from '../../lib/data'
+import { useBooth, useBoothStat, useBooths, useEvent, useEventStats } from '../../lib/data'
 import { useLocale } from '../../lib/locale'
 import { QR } from '../../components/QR'
 import { BoothCard } from '../../components/BoothCard'
@@ -174,6 +176,7 @@ export default function Booth() {
 
   const stat = useBoothStat(session?.boothId ?? null)
   const ev = useEventStats()
+  const event = useEvent()
   const boothCount = useBooths().length
   // The live booth document: an admin switching this booth off, or changing its days, shows up here.
   const live = useBooth(session?.boothId).data
@@ -238,16 +241,21 @@ export default function Booth() {
 
   return (
     <>
-    <main className="booth-screen relative flex min-h-full flex-col bg-chrome text-white print:hidden">
+    {/* The booth's own visa behind its screen, at the same fraction of the display everywhere.
+        The ground is a backdrop rather than a fill on `main`, or `main` paints over it. */}
+    <div className="fixed inset-0 -z-20 bg-chrome print:hidden" aria-hidden />
+    <BoothWatermark booth={b} marks={stampMarks(event)} />
+    <main className="booth-screen relative flex min-h-full flex-col text-white print:hidden">
       <header className="px-[4vw] pt-[3vh]">
         {/*
          * Same shape as /booth/stats and /redeem: the bar is its own full-width row above the
          * title, so the tabs get the whole width instead of a 60% column and Sign out sits in the
-         * real top-right corner of the screen. Controls are sized in rem, not the kiosk em, so
-         * they stay readable on a phone and modest on a TV.
+         * real top-right corner of the screen. `large` scales it with the display, because
+         * everything else here is sized against the viewport and a rem-sized bar reads as a
+         * misprint beside a 42px title on a hall screen.
          */}
         <OrganizerBar
-          boothId={session.boothId} dark compact className="mb-3" style={{ ['--bar-gutter' as string]: '4vw' }}
+          boothId={session.boothId} dark compact large className="mb-3" style={{ ['--bar-gutter' as string]: '4vw' }}
           actions={!fs && (
             <div className="flex items-center gap-1.5">
               <IconButton icon={Icon.fullscreen} label={t('booth.fullScreen')} onClick={goFull} dark />

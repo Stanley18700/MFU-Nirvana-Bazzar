@@ -241,6 +241,50 @@ on Windows, `~/.config/gcloud/application_default_credentials.json` on Linux/mac
 Project settings → Service accounts → *Generate new private key*, save it outside the repo, then
 `set GOOGLE_APPLICATION_CREDENTIALS=C:\path\to\key.json` before `npm run seed`.)
 
+## 4a. Connect the feedback form (optional)
+
+Festival feedback is a **Google Form the organizers own**, so they can edit questions without a
+deploy. The admin dashboard's *Feedback* page pulls the responses in every 10 minutes
+(`functions/src/feedback.ts`) and the passport shows a *Give feedback* card that opens the form
+with the passport number pre-filled. Nothing here is needed for the rest of the app to work.
+
+1. Create the form at forms.google.com. If one question's title contains the word *passport*, it
+   is pre-filled from the app and shown per response; keep it optional. The live form is owned by
+   `6731503088@lamduan.mfu.ac.th`.
+2. Share the form (Share → add people) with the functions' service account as an **Editor** —
+   viewers can fill a form in but cannot read its responses:
+   ```
+   451027884644-compute@developer.gserviceaccount.com
+   ```
+3. Put the id from the form's edit URL (`docs.google.com/forms/d/<id>/edit`) in `functions/.env`
+   as `FEEDBACK_FORM_ID`, deploy, and press **Sync now** on the Feedback page. The Forms API is
+   already enabled on `mfu-passport`; on a new project enable it once:
+   `gcloud services enable forms.googleapis.com --project <id>`.
+
+No OAuth is involved: in production the function asks the metadata server for a Forms-scoped token
+of its own service account. The emulator has no metadata server, so locally the same code needs to
+*impersonate* that account. Grant yourself the right once (project owner only):
+
+```bash
+gcloud iam service-accounts add-iam-policy-binding 451027884644-compute@developer.gserviceaccount.com \
+  --project mfu-passport --member user:<you>@lamduan.mfu.ac.th --role roles/iam.serviceAccountTokenCreator
+```
+
+then write `~/.config/gcloud/adc-mfu-passport-as-functions-sa.json` — an ADC file of type
+`impersonated_service_account` whose `source_credentials` is your normal ADC file and whose
+`service_account_impersonation_url` is
+`https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/451027884644-compute@developer.gserviceaccount.com:generateAccessToken`
+— and point `GOOGLE_APPLICATION_CREDENTIALS` at it for the emulator or for the pull by itself:
+
+```bash
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 GOOGLE_APPLICATION_CREDENTIALS=~/.config/gcloud/adc-mfu-passport-as-functions-sa.json \
+  npm --prefix functions run feedback:pull      # against the emulator; drop the first variable to pull into the live project
+```
+
+Responses are keyed by Google's response id, so pulling twice changes nothing. They are **not**
+removed by *Archive & start a new event*; clear `feedbackResponses` by hand if next year's form
+should start empty.
+
 ## 5. Make yourself admin
 
 Open `https://mfu-passport.web.app/setup` on your laptop, enter your name and the

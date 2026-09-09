@@ -491,6 +491,23 @@ details[open] > .pop { animation: pop-in var(--dur-fast) var(--ease-enter) backw
  * know its own padding. The colour matches the page ground, so all it actually does is stop
  * scrolled content showing through.
  */
+/*
+ * The kiosk's bar. Every other thing on that screen is sized against the `.booth-screen` clamp, so
+ * a bar in fixed rem sat at 12px next to a 42px title on a hall display. Font-size scales with the
+ * viewport and the padding is in `em`, so the controls grow with it in proportion rather than
+ * becoming tall thin pills.
+ */
+.organizer-bar-lg { font-size: clamp(0.8rem, 0.95vw, 1.25rem); }
+.organizer-bar-lg .seg-item,
+.organizer-bar-lg .btn-sm,
+.organizer-bar-lg summary { font-size: 1em; padding-inline: 1.1em; padding-block: 0.5em; }
+.organizer-bar-lg .btn-icon-sm { inline-size: 2.4em; block-size: 2.4em; padding: 0; }
+.organizer-bar-lg .btn-icon-sm svg { inline-size: 1.15em; block-size: 1.15em; }
+.organizer-bar-lg .account-avatar { inline-size: 1.7em; block-size: 1.7em; font-size: 0.75em; }
+
+/* Full-width: the bar already spans the viewport, so it has no parent gutter to escape. */
+.organizer-bar-full { margin-inline: 0; padding-inline: 0; }
+
 .organizer-bar {
   position: sticky;
   top: 0;

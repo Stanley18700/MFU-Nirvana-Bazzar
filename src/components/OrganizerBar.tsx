@@ -16,7 +16,7 @@ import { useDismissable } from '../lib/useDismissable'
  * `compact` is the kiosk variant: one row of small links inside the booth header, hidden while the
  * screen is in full screen so nothing competes with the QR.
  */
-export function OrganizerBar({ boothId, dark = false, compact = false, actions, className = '', style }: {
+export function OrganizerBar({ boothId, dark = false, compact = false, actions, className = '', style, full = false, large = false }: {
   boothId: string | null | undefined
   dark?: boolean
   compact?: boolean
@@ -25,6 +25,10 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
   className?: string
   /** Carries `--bar-gutter` where the page's horizontal padding is not the shared column gutter. */
   style?: CSSProperties
+  /** Span the viewport and align contents to the shared column, rather than bleeding to a parent's gutter. */
+  full?: boolean
+  /** Scale with the screen, for the kiosk, where everything else is sized against the viewport. */
+  large?: boolean
 }) {
   const { role } = useAuth()
   const { data: booth } = useBooth(boothId)
@@ -75,7 +79,8 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
   const close = () => { if (menu.current) menu.current.open = false }
 
   return (
-    <div style={style} className={`organizer-bar flex w-full items-center gap-3 ${className}`}>
+    <div style={style} className={`organizer-bar ${large ? 'organizer-bar-lg' : ''} ${full ? 'organizer-bar-full block' : 'flex items-center gap-3'} w-full ${className}`}>
+    <div className={full ? 'mx-auto flex w-full max-w-5xl items-center gap-3 px-5' : 'contents'}>
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {/* No booth name here: every page that uses this bar already carries it as its heading. */}
         <nav ref={navRef} aria-label={t('nav.pages')} className="flex min-w-0 flex-1 items-center">
@@ -87,12 +92,14 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
               ))}
             </div>
           ) : (
-            <details ref={menu} className="relative">
+            <details ref={menu} className="relative shrink-0">
+              {/* `shrink-0` and no truncation: which page you are on is the one thing this control
+                  exists to say, and the kiosk's own action buttons were squeezing it to "B…". */}
               <summary
-                className={`btn-sm flex cursor-pointer list-none items-center gap-1.5 rounded-full ${dark ? 'btn-dark' : 'btn-quiet'}`}
+                className={`btn-sm flex shrink-0 cursor-pointer list-none items-center gap-1.5 whitespace-nowrap rounded-full ${dark ? 'btn-dark' : 'btn-quiet'}`}
                 aria-label={t('nav.pages')}
               >
-                <span className="truncate">{current?.label ?? t('nav.pages')}</span>
+                <span className="shrink-0">{current?.label ?? t('nav.pages')}</span>
                 <span aria-hidden className="text-[0.7em]">▾</span>
               </summary>
               <div className="pop absolute left-0 z-40 mt-1 flex w-56 flex-col rounded-xl bg-white p-1.5 text-sm text-ink shadow-lg ring-1 ring-black/10">
@@ -118,6 +125,7 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
       <div className={`flex shrink-0 items-center border-l pl-3 ${dark ? 'border-white/15' : 'border-ink/10'}`}>
         <AccountMenu dark={dark} />
       </div>
+    </div>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { OrganizerPage } from '../../components/OrganizerPage'
 import { Link, useSearchParams } from 'react-router-dom'
 import { collection, doc, limit, orderBy, query, where } from 'firebase/firestore'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -6,7 +7,6 @@ import { db } from '../../lib/firebase'
 import { useAuth } from '../../lib/auth'
 import { ms, useBooth, useBoothStat, useCollection, useDoc } from '../../lib/data'
 import { useLocale } from '../../lib/locale'
-import { OrganizerBar } from '../../components/OrganizerBar'
 import { CsvButton, DataErrors, Fig, Notice, Spinner, fmt } from '../../components/ui'
 import { clock } from '../../lib/eventText'
 import { hasOptions, type SurveyAnswer, type SurveyDoc, type SurveyQuestion, type SurveyResponseDoc } from '../../../shared/model'
@@ -53,9 +53,8 @@ export default function SurveyResults() {
     return out
   }), [rows, questions])
 
-  const bar = <OrganizerBar boothId={boothId} dark className="mb-4" />
   const shell = (children: React.ReactNode) => (
-    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="on-chrome mx-auto min-h-full max-w-3xl px-5 py-6">{bar}{children}</main></>
+    <OrganizerPage boothId={boothId} booth={booth} marks={undefined}>{children}</OrganizerPage>
   )
   if (boothId && loading) return shell(<Spinner label={t('stats.loading')} />)
   if (!boothId || !booth) return shell(<Notice tone="amber">{!boothId ? t('stats.noBooth') : t('stats.boothGone')}</Notice>)

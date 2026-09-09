@@ -1,11 +1,11 @@
 import { useState } from 'react'
+import { OrganizerPage } from '../../components/OrganizerPage'
 import { useSearchParams } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useAuth } from '../../lib/auth'
 import { ms, useBooth, useBoothStat, useBooths, useEvent, useEventStats } from '../../lib/data'
 import { useLocale } from '../../lib/locale'
 import { useSlidingPill } from '../../lib/useSlidingPill'
-import { OrganizerBar } from '../../components/OrganizerBar'
 import { CsvButton, DataErrors, Fig, LiveDot, Notice, Spinner, fmt } from '../../components/ui'
 import { clock } from '../../lib/eventText'
 import { dayOf, hourOf } from '../../../shared/model'
@@ -27,15 +27,13 @@ export default function BoothStats() {
   const todayStr = dayOf(new Date())
   const [picked, setPicked] = useState(days.includes(todayStr) ? todayStr : days[0])
 
-  const bar = <OrganizerBar boothId={boothId} dark className="mb-4" />
-  if (boothId && loading) return <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="on-chrome mx-auto min-h-full max-w-2xl px-5 py-6">{bar}<Spinner label={t('stats.loading')} /></main></>
+  if (boothId && loading) return <OrganizerPage boothId={boothId} booth={booth} marks={undefined}><Spinner label={t('stats.loading')} /></OrganizerPage>
   if (!boothId || !booth) {
     // Used to spin forever. A missing claim or a deleted booth is a thing to say, and a way out.
     return (
-      <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="on-chrome mx-auto min-h-full max-w-2xl px-5 py-6">
-        {bar}
+      <OrganizerPage boothId={boothId} booth={booth} marks={undefined}>
         <Notice tone="amber">{!boothId ? t('stats.noBooth') : t('stats.boothGone')}</Notice>
-      </main></>
+      </OrganizerPage>
     )
   }
 
@@ -56,8 +54,7 @@ export default function BoothStats() {
   const last = ms(stat?.lastStampAt)
 
   return (
-    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="on-chrome mx-auto min-h-full max-w-2xl px-5 py-6">
-      {bar}
+    <OrganizerPage boothId={boothId} booth={booth} marks={undefined}>
       {/* `items-start`, as on the kiosk: the status sits at the top of the row, under Sign out. */}
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
         <div>
@@ -126,6 +123,6 @@ export default function BoothStats() {
           ))}
         </ul>
       </section>
-    </main></>
+    </OrganizerPage>
   )
 }

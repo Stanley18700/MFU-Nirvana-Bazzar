@@ -352,3 +352,45 @@ export function surveyProblems(title: string, questions: SurveyQuestion[]): stri
   })
   return out
 }
+
+// ---------- festival feedback (Google Form, pulled by functions/src/feedback.ts) ----------
+
+/** One question of the organizers' Google Form, as the Forms API describes it. */
+export interface FeedbackQuestion {
+  /** Forms API questionId (hex). */
+  id: string
+  title: string
+  /** The same id in decimal — what a pre-filled link's `entry.<n>` parameter wants. */
+  entry: number
+}
+
+/** `feedbackForms/{formId}` — the form's shape plus sync bookkeeping. Readable by any signed-in visitor: the passport needs the link. */
+export interface FeedbackFormDoc {
+  formId: string
+  title: string
+  responderUri: string
+  questions: FeedbackQuestion[]
+  /** `entry` of the question whose title mentions "passport", pre-filled from the app; null when the form has none. */
+  passportEntry: number | null
+  responseCount: number
+  lastSyncAt: unknown
+}
+
+/** `feedbackResponses/{responseId}` — admins only: the passport number ties a response to a person. */
+export interface FeedbackResponseDoc {
+  formId: string
+  submittedAt: unknown
+  passportNo: string | null
+  /** Keyed by question id. Checkbox questions give a string[]; everything else, scale included, a string. */
+  answers: Record<string, string | string[]>
+  syncedAt: unknown
+}
+
+export function feedbackFormUrl(form: FeedbackFormDoc, passportNo?: string | null): string {
+  const u = new URL(form.responderUri)
+  if (form.passportEntry != null && passportNo) {
+    u.searchParams.set('usp', 'pp_url')
+    u.searchParams.set(`entry.${form.passportEntry}`, passportNo)
+  }
+  return u.toString()
+}

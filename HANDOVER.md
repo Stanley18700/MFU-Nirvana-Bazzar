@@ -138,6 +138,10 @@ collection/document): `stats/event/shards/{0..9}`, `stats/booths/items/{boothId}
 - **Web app config** — in `.env.local` on the dev machine (gitignored, and deliberately *not*
   in the committed `.env.local.example`). Re-read it any time from the console: **Project
   settings → General → Your apps → Web app → SDK setup and configuration**.
+- **Feedback Google Form** — owned by `6731503088@lamduan.mfu.ac.th`; the functions' service account
+  `451027884644-compute@developer.gserviceaccount.com` is an editor on it so it can read responses.
+  Its id is `FEEDBACK_FORM_ID` in `functions/.env`. Moving the form to another owner means sharing
+  it with that account again (SETUP.md §4a).
 - **EmailJS ids** — in `functions/.env` on the dev machine, likewise not committed. The private
   key is in Secret Manager.
 - **$50 GCP coupon** — Stanley has it; must be redeemed on the Blaze billing account.

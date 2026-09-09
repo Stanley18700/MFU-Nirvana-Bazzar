@@ -43,7 +43,7 @@ export function AccountMenu({ dark = false, up = false, compact = false, classNa
         className={`btn-sm flex cursor-pointer list-none items-center gap-2 rounded-full ${dark ? 'btn-dark' : 'btn-quiet'}`}
         aria-label={`${t('nav.account')}${name ? ` — ${name}` : ''}`}
       >
-        <span aria-hidden className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${dark ? 'bg-white/20 text-white' : 'bg-action text-white'}`}>
+        <span aria-hidden className={`account-avatar grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-bold ${dark ? 'bg-white/20 text-white' : 'bg-action text-white'}`}>
           {initials(name, email)}
         </span>
         {!compact && <span className="hidden sm:inline">{t('nav.account')}</span>}

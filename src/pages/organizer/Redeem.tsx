@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Scanner } from '../../components/Scanner'
 import { api, friendlyError, type LookupResult, type RedemptionCred } from '../../lib/api'
 import { useBooth, useBooths, useEvent, useTiersState } from '../../lib/data'
-import { OrganizerBar } from '../../components/OrganizerBar'
+import { OrganizerPage } from '../../components/OrganizerPage'
 import { DarkNotice, DataErrors, fmt, LiveDot, type Msg, Notice, Spinner } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
 import { clock } from '../../lib/eventText'
@@ -119,14 +119,10 @@ export default function Redeem() {
   function reset() { setLookup(null); setCred(null); setMsg(null); setDone(null); setArmed(null); setStale(false); setPassport(''); setCode('') }
 
   const shell = (children: React.ReactNode) => (
-    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="mx-auto min-h-full max-w-lg bg-chrome px-5 pb-8 text-white">
-      <header className="py-4">
-        {/* The bar above the title, as on /booth and /booth/stats. */}
-        <OrganizerBar boothId={role === 'admin' ? null : claimBooth} dark compact className="mb-3" />
-        <div className="stamp-text text-foil">Prize desk</div>
-      </header>
+    <OrganizerPage boothId={role === 'admin' ? null : claimBooth} booth={mine.data} compact>
+      <header className="py-2"><div className="stamp-text text-foil">Prize desk</div></header>
       {children}
-    </main></>
+    </OrganizerPage>
   )
 
   // Gate: only a prize-desk booth (or an admin) may run this screen. Before, anyone with the role
