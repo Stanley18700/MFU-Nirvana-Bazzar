@@ -39,13 +39,25 @@ export default function Cover() {
       <section className="relative isolate overflow-hidden rounded-[36px] bg-chrome px-6 py-8 text-white shadow-float">
         {/* The passport cover is a printed object: the mountains show through the board, the way
             the design system's guest kit sets them behind it. */}
+        {/*
+          * The campus at the size and strength the design system's own guest kit gives it — wider
+          * than the card, pushed off its left edge, and fading in from a quarter down rather than
+          * from halfway. It was 16% of a card-width image masked away until nothing but a haze
+          * survived at the very bottom, so the one piece of artwork on the passport's own cover
+          * was the thing you could not see.
+          */}
         <img
           src="/brand/illus-campus-papercut.webp" alt="" aria-hidden
-          className="pointer-events-none absolute -bottom-4 left-0 -z-10 w-full opacity-[0.16]"
-          style={{ WebkitMaskImage: 'linear-gradient(to bottom, transparent, #000 45%)', maskImage: 'linear-gradient(to bottom, transparent, #000 45%)' }}
+          className="pointer-events-none absolute -bottom-5 left-[-11%] -z-10 w-[128%] max-w-none opacity-[0.22]"
+          style={{ WebkitMaskImage: 'linear-gradient(to bottom, transparent, #000 26%)', maskImage: 'linear-gradient(to bottom, transparent, #000 26%)' }}
         />
-        <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full border border-foil/20" />
-        <div className="absolute -right-4 -top-4 h-40 w-40 rounded-full border border-foil/10" />
+        {/*
+          * Blind embossing, the way a real cover carries its border: the card's own colour lifted
+          * a few percent. The two gold arcs that were here are in no part of the design system —
+          * clipped by the corner they read as a moon, and they were the only foil above the crest,
+          * competing with it. An inset frame is also the visa's own language, which draws two.
+          */}
+        <div aria-hidden className="pointer-events-none absolute inset-3 rounded-[28px] ring-1 ring-inset ring-white/[0.09]" />
         <div className="stamp-text text-foil">Mae Fah Luang University</div>
         <div className="mt-1 text-lg font-semibold tracking-wide">{eventMark(event)}</div>
         <div className="mt-8 flex items-center gap-5">

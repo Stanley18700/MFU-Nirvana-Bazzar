@@ -140,12 +140,14 @@ function Identity({ name, passportNo, role, email, className = '' }: {
   )
   return (
     <div className={`relative isolate overflow-hidden rounded-[28px] bg-chrome px-5 py-5 shadow-float ${className}`}>
-      {/* The cover's own mountains, behind the board at the same strength. */}
+      {/* The cover's own mountains, at the cover's own size and strength — the two boards are the
+          same printed object and must not drift apart. */}
       <img
         src="/brand/illus-campus-papercut.webp" alt="" aria-hidden
-        className="pointer-events-none absolute -bottom-4 left-0 -z-10 w-full opacity-[0.16]"
-        style={{ WebkitMaskImage: 'linear-gradient(to bottom, transparent, #000 45%)', maskImage: 'linear-gradient(to bottom, transparent, #000 45%)' }}
+        className="pointer-events-none absolute -bottom-5 left-[-11%] -z-10 w-[128%] max-w-none opacity-[0.22]"
+        style={{ WebkitMaskImage: 'linear-gradient(to bottom, transparent, #000 26%)', maskImage: 'linear-gradient(to bottom, transparent, #000 26%)' }}
       />
+      <div aria-hidden className="pointer-events-none absolute inset-2.5 rounded-[22px] ring-1 ring-inset ring-white/[0.09]" />
       {body}
     </div>
   )
