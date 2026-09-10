@@ -36,7 +36,18 @@ export default function Cover() {
 
   return (
     <main className="px-5 pt-6">
-      <section className="relative isolate overflow-hidden rounded-[36px] bg-chrome/85 px-6 py-8 text-white shadow-float backdrop-blur-xl">
+      {/*
+        * sky-950, not chrome. It is the lightest ground in the palette that still carries white
+        * text: at 85% over the sky it lands on #1E6E84, where white is 5.80:1 and the tier labels
+        * on sky-200 are 5.03:1. One step lighter, sky-900, takes white itself to 4.49:1 and there
+        * is nowhere left to stand.
+        *
+        * Foil pays for it. Gold is a light colour, so it loses contrast as the board lightens —
+        * 3.60:1 here, which is large-text only. So foil is now the rule "figures and the seal,
+        * never small type": the crest and the points keep it, the eyebrow gives it up, and the
+        * passport number keeps it by getting big enough to qualify, which it deserved anyway.
+        */}
+      <section className="relative isolate overflow-hidden rounded-[36px] bg-sky-950/85 px-6 py-8 text-white shadow-float backdrop-blur-xl">
         {/* The passport cover is a printed object: the mountains show through the board, the way
             the design system's guest kit sets them behind it. */}
         {/*
@@ -58,20 +69,20 @@ export default function Cover() {
           * competing with it. An inset frame is also the visa's own language, which draws two.
           */}
         <div aria-hidden className="pointer-events-none absolute inset-3 rounded-[28px] ring-1 ring-inset ring-white/[0.12]" />
-        <div className="stamp-text text-foil">Mae Fah Luang University</div>
+        <div className="stamp-text text-sky-100">Mae Fah Luang University</div>
         <div className="mt-1 text-lg font-semibold tracking-wide">{eventMark(event)}</div>
         <div className="mt-8 flex items-center gap-5">
           <Crest className="h-20 w-20 shrink-0 text-foil" />
           <div className="min-w-0">
-            <div className="stamp-text text-on-chrome-soft">Passport</div>
+            <div className="stamp-text text-sky-200">Passport</div>
             <div className="truncate text-2xl font-bold">{profile.displayName}</div>
-            <div className="font-mono text-sm tracking-widest text-foil">{profile.passportNo}</div>
+            <div className="font-mono text-xl font-bold tracking-widest text-foil">{profile.passportNo}</div>
           </div>
         </div>
         <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
             <div className="fig text-5xl text-foil">{fmt(points)}</div>
-            <div className="stamp-text text-on-chrome-soft">points · {profile.stampCount ?? 0} of {booths.length} stamps</div>
+            <div className="stamp-text text-sky-200">points · {profile.stampCount ?? 0} of {booths.length} stamps</div>
           </div>
           <div className="relative h-24 w-24 shrink-0 xs:h-32 xs:w-32">
             <svg viewBox="0 0 128 128" className="h-full w-full -rotate-90">
@@ -81,7 +92,7 @@ export default function Cover() {
             <div className="absolute inset-0 grid place-items-center text-center">
               <div>
                 <div className="fig text-xl">{next ? next.thresholdPoints - points : '✓'}</div>
-                <div className="text-[11px] uppercase tracking-wider text-on-chrome-soft">{next ? 'to go' : 'top tier'}</div>
+                <div className="text-[11px] uppercase tracking-wider text-sky-200">{next ? 'to go' : 'top tier'}</div>
               </div>
             </div>
           </div>
@@ -93,12 +104,12 @@ export default function Cover() {
           {sorted.map((t) => (
             <div key={t.id} className="flex items-center gap-1.5">
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${reached.includes(t) ? 'bg-foil' : 'bg-white/25'}`} />
-              <span className={`text-xs ${reached.includes(t) ? 'text-foil' : 'text-on-chrome-soft'}`}>{t.name}</span>
+              <span className={`text-xs ${reached.includes(t) ? 'text-foil' : 'text-sky-200'}`}>{t.name}</span>
             </div>
           ))}
         </div>
         {/* The ring already says how many points to go. This says what they are for. */}
-        <p className="mt-3 text-sm text-on-chrome-soft">
+        <p className="mt-3 text-sm text-sky-200">
           {next ? <>Next up: <b className="text-white">{next.name}</b> — {next.reward.toLowerCase()}.</> : <>You have reached every tier. Show your Prize page at the desk.</>}
         </p>
       </section>
