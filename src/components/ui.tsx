@@ -347,7 +347,6 @@ export const Icon = {
   fullscreen: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>,
   /* Add to Home Screen: a handset with an arrow landing in it. Same 24px box and 1.8 stroke as
      the rail glyphs, sized 15 to sit level with `fullscreen` in the kiosk header. */
-  install: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="6" y="2" width="12" height="20" rx="2.5" /><path d="M12 8v6M9.5 11.5L12 14l2.5-2.5" /></svg>,
   print: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M7 8V3h10v5" /><path d="M7 18H5a2 2 0 01-2-2v-3a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 01-2 2h-2" /><rect x="7" y="14" width="10" height="7" rx="1" /></svg>,
 }
 

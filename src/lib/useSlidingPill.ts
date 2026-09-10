@@ -88,7 +88,7 @@ export function useSlidingPill<T extends HTMLElement = HTMLDivElement>(key?: str
      * was actually looking at.
      *
      * `restoring` lives on the element too, because the effect re-runs before that frame lands
-     * (`useFitsOneLine` sets state on mount) and measuring in the same frame writes both
+     * (a parent may set state on mount) and measuring in the same frame writes both
      * positions before a single paint, which is no transition at all.
      */
     if (strip && strip.dataset.tabRestoring) return

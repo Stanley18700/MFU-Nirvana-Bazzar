@@ -4,8 +4,6 @@ import { useAuth } from '../lib/auth'
 import { useBooth } from '../lib/data'
 import { useLocale } from '../lib/locale'
 import { AccountMenu } from './AccountMenu'
-import { useSlidingPill } from '../lib/useSlidingPill'
-import { useFitsOneLine } from '../lib/useFitsOneLine'
 import { useDismissable } from '../lib/useDismissable'
 
 /**
@@ -28,10 +26,8 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
 }) {
   const { role } = useAuth()
   const { data: booth } = useBooth(boothId)
-  const { t, locale } = useLocale()
+  const { t } = useLocale()
   const loc = useLocation()
-  // Named, so the pill carries its position across the remount every navigation causes here.
-  const pages = useSlidingPill('organizer')
   const menu = useRef<HTMLDetailsElement>(null)
   useDismissable(menu)
   const [fs, setFs] = useState(!!document.fullscreenElement)
@@ -55,22 +51,20 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
 
   /**
    * Pages, then this page's actions, then the way out — the order AdminLayout uses, so an
-   * organizer moving between the two panels finds the same thing in the same place. The nav sits
-   * in its own tinted group: without it, six equal chips in a row gave no clue which were pages
-   * and which were buttons, and the active page was indistinguishable from a hover.
+   * organizer moving between the two panels finds the same thing in the same place.
    *
-   * The account menu is deliberately NOT one of them. It lives outside the `nav` landmark (it
+   * The pages are one disclosure naming the current page, at every width. This used to swap
+   * between a tab strip and this menu depending on whether the strip still fit on one line. Two
+   * forms meant the bar looked like two different products, and the measurement picked wrongly —
+   * the menu on a 2000px kiosk, the strip on a phone, the opposite of what it was for. One form
+   * cannot disagree with itself, and it holds its width whatever the language or the number of
+   * pages a role can see.
+   *
+   * The account menu is deliberately not among them. It lives outside the `nav` landmark (it
    * navigates nowhere — it changes a setting or ends the session) and sits in the far corner
-   * behind a divider, so on a shared tablet it is never mistaken for another tab and Sign out is
+   * behind a divider, so on a shared tablet it is never mistaken for another page and Sign out is
    * never a thumb-width from Stats.
    */
-  /**
-   * One row at every width. The strip used to wrap when the pages outgrew the space, which left a
-   * single chip stranded on a second line beside a lane of empty bar — and on a shared tablet the
-   * page you are on is the one thing the bar has to say clearly. When it stops fitting it becomes
-   * a disclosure naming the current page, so nothing is hidden and nothing wraps.
-   */
-  const { ref: navRef, fits } = useFitsOneLine<HTMLElement>(`${locale}:${items.length}`)
 
   /*
    * Below every hook, deliberately. This used to sit up with the fullscreen state, so pressing
@@ -89,37 +83,29 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
     <div className="flex w-full items-center gap-3 px-[4vw]">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         {/* No booth name here: every page that uses this bar already carries it as its heading. */}
-        <nav ref={navRef} aria-label={t('nav.pages')} className="flex min-w-0 flex-1 items-center">
-          {fits ? (
-            <div ref={pages} className={`seg ${dark ? 'seg-dark' : 'seg-light'}`}>
+        <nav aria-label={t('nav.pages')} className="flex min-w-0 flex-1 items-center">
+          <details ref={menu} className="relative shrink-0">
+            {/* `shrink-0` and no truncation: which page you are on is the one thing this control
+                exists to say, and the kiosk's own action buttons were squeezing it to "B…". */}
+            <summary
+              className={`btn-sm flex shrink-0 cursor-pointer list-none items-center gap-1.5 whitespace-nowrap rounded-full ${dark ? 'btn-dark' : 'btn-quiet'}`}
+              aria-label={t('nav.pages')}
+            >
+              <span className="shrink-0">{current?.label ?? t('nav.pages')}</span>
+              <span aria-hidden className="text-[0.7em]">▾</span>
+            </summary>
+            <div className="pop absolute left-0 z-40 mt-1 flex w-56 flex-col rounded-xl bg-white p-1.5 text-sm text-ink shadow-lg ring-1 ring-black/10">
               {items.map((n) => (
-                // NavLink sets aria-current="page" itself, which is what drives the active style.
-                <NavLink key={n.to} to={n.to} end={n.end} className="seg-item whitespace-nowrap">{n.label}</NavLink>
+                // NavLink sets aria-current="page" itself, which is what marks the current page.
+                <NavLink
+                  key={n.to} to={n.to} end={n.end} onClick={close}
+                  className={({ isActive }) => `menu-item ${isActive ? 'font-semibold' : ''}`}
+                >
+                  {n.label}
+                </NavLink>
               ))}
             </div>
-          ) : (
-            <details ref={menu} className="relative shrink-0">
-              {/* `shrink-0` and no truncation: which page you are on is the one thing this control
-                  exists to say, and the kiosk's own action buttons were squeezing it to "B…". */}
-              <summary
-                className={`btn-sm flex shrink-0 cursor-pointer list-none items-center gap-1.5 whitespace-nowrap rounded-full ${dark ? 'btn-dark' : 'btn-quiet'}`}
-                aria-label={t('nav.pages')}
-              >
-                <span className="shrink-0">{current?.label ?? t('nav.pages')}</span>
-                <span aria-hidden className="text-[0.7em]">▾</span>
-              </summary>
-              <div className="pop absolute left-0 z-40 mt-1 flex w-56 flex-col rounded-xl bg-white p-1.5 text-sm text-ink shadow-lg ring-1 ring-black/10">
-                {items.map((n) => (
-                  <NavLink
-                    key={n.to} to={n.to} end={n.end} onClick={close}
-                    className={({ isActive }) => `menu-item ${isActive ? 'font-semibold' : ''}`}
-                  >
-                    {n.label}
-                  </NavLink>
-                ))}
-              </div>
-            </details>
-          )}
+          </details>
         </nav>
         {actions}
       </div>
