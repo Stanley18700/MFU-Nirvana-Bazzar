@@ -42,9 +42,25 @@ export const join = onCall(async (req) => {
   const ethnicGroupRaw = str(d.ethnicGroup, 'ethnicGroup', { required: false, max: 80 })
   const ethnicGroup = ethnicConsent && ethnicGroupRaw && ethnicGroupRaw !== 'Prefer not to say' ? ethnicGroupRaw : null
 
+  /*
+   * A backstop against scripted mass-registration, not a queue limit.
+   *
+   * This was five per hour per /24, which is a working limit on a home connection and a broken
+   * one at a festival: a hall full of visitors on the venue's WiFi all leave from a single NAT
+   * address, so the sixth person to register in an hour was told to come back later. At the gate,
+   * on the busiest hour of the event, with no way for them to work around it.
+   *
+   * The real barrier to a fake passport is above: `join` refuses any account whose email address
+   * is not verified, so every registration costs an inbox round-trip and Firebase Auth's own
+   * abuse protection applies before this code runs. The number here only has to stop a script
+   * that already has a pile of verified addresses, so it can be generous.
+   */
   const { ipPrefix } = clientFingerprint(req)
-  if (!(await rateLimit(`join_${ipPrefix}`, 5, 3600))) {
-    throw new HttpsError('resource-exhausted', 'Too many registrations from this network, try again later')
+  if (!(await rateLimit(`join_${ipPrefix}`, 200, 3600))) {
+    throw new HttpsError(
+      'resource-exhausted',
+      'Too many new passports from this network in the last hour. Ask a member of staff — they can register you on a phone.',
+    )
   }
 
   const userRef = db.doc(`users/${uid}`)

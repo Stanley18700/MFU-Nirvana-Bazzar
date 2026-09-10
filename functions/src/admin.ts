@@ -631,12 +631,40 @@ export const acceptInvite = onCall(async (req) => {
 
   const claims = inv.role === 'organizer' ? { role: 'organizer', boothId: inv.boothId } : { role: 'admin' }
   await auth.setCustomUserClaims(uid, claims)
-  await db.doc(`users/${uid}`).set({
-    role: inv.role, displayName: inv.displayName, contact: inv.email, contactVerified: true,
-    boothId: inv.boothId, visitorType: 'staff', institution: 'MFU', countryCode: 'TH', isInternational: false,
-    stampCount: 0, points: 0, stampedBoothIds: [], daysAttended: [],
-    createdAt: FieldValue.serverTimestamp(), lastSeenAt: FieldValue.serverTimestamp(),
-  }, { merge: true })
+
+  /*
+   * Promote the account; do not re-create it.
+   *
+   * The blank counters, the 'staff' visitor type and the MFU/TH defaults are what a brand new
+   * staff account needs, and writing them over an existing document is how a student who
+   * registered as a visitor in the morning and was asked to run a booth in the afternoon lost
+   * their stamps: `points`, `stampCount`, `stampedBoothIds` and `daysAttended` all went back to
+   * zero, their own answers about who they are were replaced with MFU/TH/staff, and `createdAt`
+   * moved to today — while their `scans` stayed on the booth counters, so the passport and the
+   * booth totals then disagreed.
+   *
+   * So the defaults are only written when there is nothing there, and an existing document gets
+   * exactly the four fields the invitation is actually about. `displayName` is deliberately left
+   * alone too: theirs is the name they chose, and the invitation's is whatever the admin typed
+   * into the CSV.
+   */
+  const userRef = db.doc(`users/${uid}`)
+  const existingUser = await userRef.get()
+  await userRef.set(existingUser.exists
+    ? {
+      role: inv.role,
+      boothId: inv.boothId,
+      contact: inv.email,
+      contactVerified: true,
+      displayName: (existingUser.data() as UserDoc).displayName || inv.displayName,
+      lastSeenAt: FieldValue.serverTimestamp(),
+    }
+    : {
+      role: inv.role, displayName: inv.displayName, contact: inv.email, contactVerified: true,
+      boothId: inv.boothId, visitorType: 'staff', institution: 'MFU', countryCode: 'TH', isInternational: false,
+      stampCount: 0, points: 0, stampedBoothIds: [], daysAttended: [],
+      createdAt: FieldValue.serverTimestamp(), lastSeenAt: FieldValue.serverTimestamp(),
+    }, { merge: true })
   if (inv.boothId) await db.doc(`booths/${inv.boothId}`).set({ organizerUid: uid }, { merge: true })
   // Keep the hash (see revokeInvite): a second visit to the link should say "already used", not "invalid".
   await snap.ref.set({ status: 'accepted', acceptedAt: FieldValue.serverTimestamp(), acceptedUid: uid }, { merge: true })

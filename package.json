@@ -15,6 +15,7 @@
     "rescue:admin": "npm --prefix functions run rescue:admin --",
     "reset:emulator": "node scripts/reset-emulator.mjs",
     "e2e": "npm run reset:emulator && npm run seed:emulator && node scripts/e2e/run.mjs",
+    "e2e:auth": "npm run reset:emulator && npm run seed:emulator && node scripts/e2e-auth.mjs",
     "e2e:survey": "npm run reset:emulator && npm run seed:emulator && node scripts/e2e-survey.mjs"
   },
   "dependencies": {

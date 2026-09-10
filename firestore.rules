@@ -88,9 +88,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    /*
+     * A visitor's own unlock rows, and the admin's. `isOrganizer()` used to be here too, which
+     * let any booth organizer list every visitor's unlocks — visitor id included — when nothing
+     * in the app asks them to: the prize desk reads what it needs through the
+     * `lookupRedemption` callable, which runs as the server and never consults these rules.
+     */
     match /tierUnlocks/{id} {
-      allow read: if isAdmin() || isOrganizer()
-                  || (signedIn() && resource.data.visitorId == request.auth.uid);
+      allow read: if isAdmin() || (signedIn() && resource.data.visitorId == request.auth.uid);
       allow write: if false;
     }
 
