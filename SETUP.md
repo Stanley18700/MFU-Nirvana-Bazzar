@@ -14,6 +14,32 @@ npm install                       # root: Vite + React client
 npm --prefix functions install    # Cloud Functions
 ```
 
+### If a Google host times out but the web works
+
+On a network with a broken IPv6 route, every Node tool in this project fails and none of them say
+why. Node 17 and later ask DNS for AAAA first and try that address; `curl` and `gcloud` fall back to
+IPv4, Node does not. It has cost us two different-looking failures:
+
+- `firebase deploy` → **"Failed to authenticate, have you run firebase login?"** — not an auth
+  problem at all. `--debug` shows `request to https://oauth2.googleapis.com/token failed` with an
+  empty reason.
+- `firebase emulators:start` → **"Failed to make request to …cloud-firestore-emulator-vN.jar"**.
+
+Check it in one line — a `000` on the first and a number on the second is the fault:
+
+```bash
+curl -6 -s -o /dev/null -m 8 -w '%{http_code}\n' https://oauth2.googleapis.com/
+curl -4 -s -o /dev/null -m 8 -w '%{http_code}\n' https://oauth2.googleapis.com/
+```
+
+Prefer IPv4 for the command, or put the same line in your shell profile and forget it:
+
+```bash
+export NODE_OPTIONS=--dns-result-order=ipv4first
+```
+
+It is deliberately not baked into `package.json`: this is one machine's network, not the project's.
+
 ## 1. Create the Firebase project **(you)**
 
 1. https://console.firebase.google.com → **Add project**. Ours is **`mfu-passport`**, so the site is
