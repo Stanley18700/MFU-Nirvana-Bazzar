@@ -156,16 +156,18 @@ export default function Redeem() {
           {offline ? 'Offline — figures may be old' : tiersState.fromCache ? 'Reconnecting' : 'Live'}
         </LiveDot>
       </div>
-      <div className="mt-1 grid grid-cols-2 gap-2 xs:grid-cols-3">
+      {/* Chips that wrap, not a three-column grid: on a phone three tiers at 110px each clipped
+          the figures, and the desk only ever glances at this while a visitor waits. */}
+      <div className="mt-1 flex flex-wrap gap-2">
         {tiers.map((t) => {
           const pct = t.stockTotal ? t.stockRemaining / t.stockTotal : 0
           // The `-text` values, not the on-chrome ones: this strip sits on the sky now, where the
           // pale on-chrome green measured 1.6:1. Those three were written for a dark ground.
           const tone = t.stockRemaining <= 5 ? 'text-danger-text' : pct < 0.2 ? 'text-warn-text' : 'text-success-text'
           return (
-            <div key={t.id} className="glass p-3">
-              <div className="stamp-text text-ink-soft">{t.name}</div>
-              <div className={`fig text-xl xs:text-2xl ${tone}`}>{fmt(t.stockRemaining)}<span className="text-sm text-ink-soft"> / {fmt(t.stockTotal)}</span></div>
+            <div key={t.id} className="glass flex min-w-0 items-baseline gap-2 px-3 py-2">
+              <span className="stamp-text truncate text-ink-soft">{t.name}</span>
+              <span className={`fig text-lg ${tone}`}>{fmt(t.stockRemaining)}<span className="text-xs text-ink-soft"> / {fmt(t.stockTotal)}</span></span>
             </div>
           )
         })}
@@ -179,8 +181,8 @@ export default function Redeem() {
           {done.reward && <div className="mt-1 text-white/85">{done.reward}</div>}
           <div className="mt-4 text-lg font-semibold">{done.name}</div>
           <div className="text-sm text-white/75">{[done.passportNo, clock(done.at)].filter(Boolean).join(' · ')}</div>
-          <button className="btn-gold mt-6 w-full py-3.5 text-lg" onClick={reset} autoFocus>Next visitor</button>
-          <button className="btn-quiet btn-sm mt-3" onClick={() => setDone(null)}>Hand over another tier to {done.name.split(' ')[0]}</button>
+          <button className="btn-gold btn-lg mt-6 w-full" onClick={reset} autoFocus>Next visitor</button>
+          <button className="btn-quiet btn-sm mt-3" onClick={() => setDone(null)}>Another tier for {done.name.split(' ')[0]}</button>
         </section>
       ) : lookup ? (
         <section className="mt-4 rounded-3xl bg-white p-5 text-ink page-in">
@@ -198,12 +200,14 @@ export default function Redeem() {
                 {t.redeemedAt ? <span className="shrink-0 rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success-text">Done</span>
                   : t.unlocked ? (
                     <button
-                      className={`${armed === t.id ? 'btn-gold' : 'btn-primary'} shrink-0`}
+                      // Capped: an armed "Confirm Gold — festival tote" otherwise pushed the tier's
+                      // own description off a phone.
+                      className={`${armed === t.id ? 'btn-gold' : 'btn-primary'} max-w-[48%] shrink-0`}
                       disabled={busy || stale || t.stockRemaining <= 0}
                       onClick={() => confirm(t.id)}
                       aria-live="polite"
                     >
-                      {t.stockRemaining <= 0 ? 'Out of stock' : armed === t.id ? `Confirm ${t.name}` : 'Hand over'}
+                      <span className="min-w-0 truncate">{t.stockRemaining <= 0 ? 'Out of stock' : armed === t.id ? `Confirm ${t.name}` : 'Hand over'}</span>
                     </button>
                   )
                   : <span className="shrink-0 text-xs text-ink-soft">{t.thresholdPoints - lookup.visitor.points} pts short</span>}
@@ -226,17 +230,18 @@ export default function Redeem() {
       <div hidden={!!lookup || !!done}>
         {/* Capped and centred: the desk column is as wide as the display now, and a viewfinder
             stretched to 1600px is neither easier to aim at nor pleasant to stand in front of. */}
-        <Scanner onResult={(t) => void onCred({ payload: t })} paused={busy || !!lookup || !!done} className="mx-auto mt-4 aspect-[4/3] w-full max-w-2xl" />
+        <Scanner onResult={(t) => void onCred({ payload: t })} paused={busy || !!lookup || !!done} className="mx-auto mt-4 aspect-[4/3] w-full max-w-2xl"
+          fallback="Type the visitor's passport number and 8-character code below instead." />
         {busy && <Spinner label="Looking up…" />}
         <form onSubmit={submitManual} className="glass mt-4 p-4">
           <div className="stamp-text text-ink-soft">Or type what the visitor reads out</div>
           <div className="mt-2 grid gap-2 [&>*]:min-w-0 sm:grid-cols-[1fr_1fr_auto]">
             <label className="block text-xs text-ink-soft">Passport number
-              <input className="field mt-1 bg-white/90 font-mono uppercase" value={passport} onChange={(e) => setPassport(e.target.value.toUpperCase())}
+              <input className="field mt-1 bg-white/90 font-mono text-base uppercase" value={passport} onChange={(e) => setPassport(e.target.value.toUpperCase())}
                 placeholder={`${prefix}-0042`} autoCapitalize="characters" autoComplete="off" inputMode="text" />
             </label>
             <label className="block text-xs text-ink-soft">8-character code
-              <input className="field mt-1 bg-white/90 font-mono uppercase" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())}
+              <input className="field mt-1 bg-white/90 font-mono text-base uppercase" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())}
                 placeholder="ABCD EFGH" autoCapitalize="characters" autoComplete="off" />
             </label>
             <button className="btn-gold self-end" disabled={busy || !(PAYLOAD_RE.test(code) || (passport.trim() && code.replace(/\s+/g, '').length === 8))}>Look up</button>

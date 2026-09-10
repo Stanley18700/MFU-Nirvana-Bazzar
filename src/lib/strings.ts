@@ -46,7 +46,10 @@ export const en = {
   // iPhone Safari has no Fullscreen API at all, so the advice is Add to Home Screen instead.
   'booth.fsIos': 'iPhone and iPad cannot go full screen from inside Safari. Tap Share, then “Add to Home Screen”, and open the booth screen from that icon — it runs without the address bar.',
   'booth.fullScreen': 'Full screen',
+  'booth.exitFullScreen': 'Exit full screen',
   'booth.printCard': 'Print card',
+  'booth.showCode': 'Show code to visitor',
+  'booth.closeCode': 'Back to booth screen',
   'booth.switchedOff': 'This booth was switched off by the admin — visitor scans are refused until it is switched back on.',
   'booth.notToday': "Not scheduled today on the visitors' stamp map — codes still work if someone scans.",
 
@@ -153,7 +156,10 @@ export const th: Record<StringKey, string> = {
   'booth.fsBlocked': 'โหมดเต็มหน้าจอถูกปิดกั้น — กด F11 (⌃⌘F บน Mac)',
   'booth.fsIos': 'iPhone และ iPad ไม่สามารถเปิดโหมดเต็มหน้าจอจากใน Safari ได้ ให้กดปุ่มแชร์ แล้วเลือก “เพิ่มไปยังหน้าจอโฮม” และเปิดหน้าจอบูธจากไอคอนนั้น — จะไม่มีแถบที่อยู่เว็บ',
   'booth.fullScreen': 'เต็มหน้าจอ',
+  'booth.exitFullScreen': 'ออกจากโหมดเต็มหน้าจอ',
   'booth.printCard': 'พิมพ์การ์ดบูธ',
+  'booth.showCode': 'แสดงรหัสให้ผู้เข้าชม',
+  'booth.closeCode': 'กลับสู่หน้าจอบูธ',
   'booth.switchedOff': 'ผู้ดูแลระบบปิดบูธนี้ไว้ — การสแกนของผู้เข้าชมจะไม่ได้รับตราประทับจนกว่าจะเปิดใช้งานอีกครั้ง',
   'booth.notToday': 'วันนี้ไม่มีกำหนดแสดงบนแผนผังตราประทับของผู้เข้าชม — แต่รหัสยังใช้ได้หากมีผู้สแกน',
 

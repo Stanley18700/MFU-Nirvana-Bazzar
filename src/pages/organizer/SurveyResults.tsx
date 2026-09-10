@@ -78,7 +78,7 @@ export default function SurveyResults() {
       </div>
       <DataErrors className="mt-3" />
 
-      <section className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+      <section className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
         <Fig value={fmt(rows.length)} label="Responses" accent={onStage(booth.accentColor, true)}
           sub={rows.length ? `last at ${clock(ms(rows[0].submittedAt) ?? 0)}` : 'none yet'} />
         <Fig value={rate === null ? '–' : `${rate}%`} label="Of those stamped" sub={`${fmt(stamped)} collected the stamp`} />
@@ -119,8 +119,10 @@ export default function SurveyResults() {
             In the order they arrived. Answers are not linked to a visitor — nobody's name or
             passport number is stored with them.
           </p>
+          {/* A floor on the width, so a phone scrolls the table sideways instead of squeezing
+              one column per question into a ribbon of broken words (as the admin's audit log). */}
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[36rem] text-sm">
               <thead>
                 <tr className="text-left text-xs text-ink-soft">
                   <th className="py-1 pr-2">#</th><th className="pr-2">When</th>

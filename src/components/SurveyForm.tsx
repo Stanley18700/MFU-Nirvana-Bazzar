@@ -90,9 +90,9 @@ function QuestionInput({ q, value, onChange, accent }: {
       return (
         <div className="flex flex-col gap-1.5">
           {(q.options ?? []).map((o) => (
-            <label key={o} className="flex items-start gap-2 text-sm">
+            <label key={o} className="flex min-h-10 items-center gap-2.5 text-sm">
               {/* Grouped by question id, so two questions on the page never share a selection. */}
-              <input type="radio" name={q.id} className="mt-0.5" checked={value === o} onChange={() => onChange(o)} />
+              <input type="radio" name={q.id} className="h-5 w-5 shrink-0" checked={value === o} onChange={() => onChange(o)} />
               <span className="min-w-0">{o}</span>
             </label>
           ))}
@@ -109,8 +109,8 @@ function QuestionInput({ q, value, onChange, accent }: {
       return (
         <div className="flex flex-col gap-1.5">
           {(q.options ?? []).map((o) => (
-            <label key={o} className="flex items-start gap-2 text-sm">
-              <input type="checkbox" className="mt-0.5" checked={picked.includes(o)}
+            <label key={o} className="flex min-h-10 items-center gap-2.5 text-sm">
+              <input type="checkbox" className="h-5 w-5 shrink-0" checked={picked.includes(o)}
                 onChange={(e) => {
                   const next = e.target.checked ? [...picked, o] : picked.filter((x) => x !== o)
                   onChange(next.length ? next : undefined)
@@ -152,11 +152,11 @@ function QuestionInput({ q, value, onChange, accent }: {
       const stars = q.stars ?? 5
       const chosen = typeof value === 'number' ? value : 0
       return (
-        <div className="flex items-center gap-1" role="radiogroup" aria-label={q.title}>
+        <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label={q.title}>
           {Array.from({ length: stars }, (_, i) => i + 1).map((n) => (
             <button key={n} type="button" role="radio" aria-checked={chosen === n} aria-label={`${n} of ${stars}`}
               onClick={() => onChange(chosen === n ? undefined : n)}
-              className="p-1 text-2xl leading-none"
+              className="grid h-11 w-11 place-items-center text-2xl leading-none"
               style={{ color: n <= chosen ? (accent ?? '#C8A24A') : 'rgba(22,35,58,.22)' }}>
               ★
             </button>
