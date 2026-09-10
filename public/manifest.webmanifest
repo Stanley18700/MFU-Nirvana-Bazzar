@@ -1,0 +1,14 @@
+{
+  "name": "MFU InterFest Passport",
+  "short_name": "InterFest",
+  "description": "Collect a stamp at every booth, earn points, and trade them for a prize.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#7EDFF2",
+  "theme_color": "#7EDFF2",
+  "icons": [
+    { "src": "/brand/logo-festival.webp", "sizes": "512x512", "type": "image/webp", "purpose": "any" }
+  ]
+}

@@ -5,6 +5,7 @@ import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
 import { db } from '../../lib/firebase'
 import { ms, useBooths, useBoothStats, useBuckets, useCollection, useEvent, useEventStats } from '../../lib/data'
 import { Crest, DataErrors, Icon, fmt } from '../../components/ui'
+import { fullscreenElement, isStandalone, onFullscreenChange, requestFullscreen } from '../../lib/fullscreen'
 import { StageGround } from '../../components/OrganizerPage'
 import type { DrawName } from './Draw'
 
@@ -59,17 +60,17 @@ export default function Wall() {
 
   // Full screen is an explicit button (and the F key), not a click anywhere: the old page-wide
   // handler gave no hint it existed and threw an unhandled rejection when the browser refused.
-  const [fs, setFs] = useState(!!document.fullscreenElement)
+  // Same story as the booth screen: an iPad shown the hall screen has no Fullscreen API on iOS
+  // before iPadOS 13, and an iPhone never does. Admin-only, so these stay English.
+  const [fs, setFs] = useState(() => !!fullscreenElement() || isStandalone())
   const [hint, setHint] = useState<string | null>(null)
-  useEffect(() => {
-    const on = () => setFs(!!document.fullscreenElement)
-    document.addEventListener('fullscreenchange', on)
-    return () => document.removeEventListener('fullscreenchange', on)
-  }, [])
-  const goFull = useCallback(() => {
-    const el = document.documentElement
-    if (!el.requestFullscreen) { setHint('Full screen is not available in this browser — press F11.'); return }
-    el.requestFullscreen().then(() => setHint(null)).catch(() => setHint('Full screen was blocked — press F11 (⌃⌘F on a Mac).'))
+  useEffect(() => onFullscreenChange(() => setFs(!!fullscreenElement() || isStandalone())), [])
+  const goFull = useCallback(async () => {
+    const failure = await requestFullscreen()
+    setHint(failure === null ? null
+      : failure === 'ios' ? 'iPhone and iPad cannot go full screen from inside Safari. Tap Share, then “Add to Home Screen”, and open the hall screen from that icon.'
+      : failure === 'unsupported' ? 'Full screen is not available in this browser — press F11.'
+      : 'Full screen was blocked — press F11 (⌃⌘F on a Mac).')
   }, [])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) goFull() }

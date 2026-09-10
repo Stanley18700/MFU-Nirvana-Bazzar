@@ -5,6 +5,7 @@ import { useAuth, useSignOut } from '../../lib/auth'
 import { api, friendlyError } from '../../lib/api'
 import { useBooth, useBoothStat, useBooths, useEvent, useEventStats } from '../../lib/data'
 import { useLocale } from '../../lib/locale'
+import { fullscreenElement, isStandalone, onFullscreenChange, requestFullscreen } from '../../lib/fullscreen'
 import { QR } from '../../components/QR'
 import { BoothCard } from '../../components/BoothCard'
 import { OrganizerBar } from '../../components/OrganizerBar'
@@ -119,20 +120,31 @@ export default function Booth() {
     }
   }, [requestWake, load])
 
-  // Full screen is an explicit press — on a phone the organizer is also using for other things it
-  // would be rude — with a hint when the browser refuses, as on the hall screen.
-  const [fs, setFs] = useState(!!document.fullscreenElement)
+  /**
+   * Full screen is an explicit press — on a phone the organizer is also using for other things it
+   * would be rude — with a hint when the browser refuses, as on the hall screen.
+   *
+   * iPhone Safari has no Fullscreen API, so the button used to answer a tap with "press F11" on a
+   * device with no keyboard. It is hidden there instead, and the hint explains Add to Home Screen,
+   * which is the only way to lose Safari's chrome on iOS. Hidden too once the screen already runs
+   * without chrome, whether from full screen or from the home-screen icon.
+   */
+  const [fs, setFs] = useState(() => !!fullscreenElement() || isStandalone())
   const [fsHint, setFsHint] = useState<string | null>(null)
-  useEffect(() => {
-    const on = () => { setFs(!!document.fullscreenElement); void requestWake() }
-    document.addEventListener('fullscreenchange', on)
-    return () => document.removeEventListener('fullscreenchange', on)
-  }, [requestWake])
-  function goFull() {
+  // Shown unless the screen is already chrome-free. Kept on iOS on purpose: an organizer who taps
+  // it wants full screen, and the hint is where they find out how to actually get it.
+  const showFullscreenButton = !isStandalone()
+  useEffect(() => onFullscreenChange(() => {
+    setFs(!!fullscreenElement() || isStandalone())
     void requestWake()
-    const el = document.documentElement
-    if (!el.requestFullscreen) { setFsHint(t('booth.fsUnavailable')); return }
-    el.requestFullscreen().then(() => setFsHint(null)).catch(() => setFsHint(t('booth.fsBlocked')))
+  }), [requestWake])
+  async function goFull() {
+    void requestWake()
+    const failure = await requestFullscreen()
+    setFsHint(failure === null ? null
+      : failure === 'ios' ? t('booth.fsIos')
+      : failure === 'unsupported' ? t('booth.fsUnavailable')
+      : t('booth.fsBlocked'))
   }
 
   // True once the QR section is on the page at all — before that there is nothing to measure.
@@ -264,7 +276,7 @@ export default function Booth() {
         boothId={session.boothId} compact large
         actions={!fs && (
           <div className="flex items-center gap-1.5">
-            <IconButton icon={Icon.fullscreen} label={t('booth.fullScreen')} onClick={goFull} />
+            {showFullscreenButton && <IconButton icon={Icon.fullscreen} label={t('booth.fullScreen')} onClick={goFull} />}
             <IconButton icon={Icon.print} label={t('booth.printCard')} onClick={() => window.print()} />
           </div>
         )}
