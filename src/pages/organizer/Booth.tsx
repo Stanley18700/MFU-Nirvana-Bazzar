@@ -7,7 +7,6 @@ import { api, friendlyError } from '../../lib/api'
 import { useBooth, useBoothStat, useBooths, useEvent, useEventStats } from '../../lib/data'
 import { useLocale } from '../../lib/locale'
 import { exitFullscreen, fullscreenElement, isStandalone, onFullscreenChange, requestFullscreen } from '../../lib/fullscreen'
-import { useInstall } from '../../lib/install'
 import { QR } from '../../components/QR'
 import { BoothCard } from '../../components/BoothCard'
 import { OrganizerBar } from '../../components/OrganizerBar'
@@ -222,29 +221,6 @@ export default function Booth() {
       : failure === 'unsupported' ? t('booth.fsUnavailable')
       : t('booth.fsBlocked'))
   }, [requestWake, t])
-  /**
-   * Add to Home Screen. Chromium hands us an install event we can replay on a tap; Safari never
-   * does, so there the button opens the two taps to do it by hand — which on an iPhone is the
-   * only route to a booth screen without the address bar, the same advice `booth.fsIos` gives.
-   * Hidden once the app is already running from the icon.
-   */
-  const { mode: installMode, platform: installPlatform, install } = useInstall()
-  const [installSteps, setInstallSteps] = useState(false)
-  const installRef = useRef<HTMLDivElement>(null)
-  const onInstall = useCallback(() => {
-    if (installMode === 'prompt') void install()
-    else setInstallSteps((v) => !v)
-  }, [installMode, install])
-  /*
-   * The steps sit with the other notices, at the top of the page — but on a phone the button that
-   * opens them is under the QR, a screen and a half further down, so the answer appeared 485px
-   * above the viewport and the tap looked like it had done nothing. Brought into view instead of
-   * moved, so the kiosk keeps one place for every notice.
-   */
-  useEffect(() => {
-    if (installSteps) installRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [installSteps])
-
   // The hall screen binds F for the same thing; a kiosk with a keyboard gets it here too.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey && !e.altKey) void goFull() }
@@ -386,7 +362,6 @@ export default function Booth() {
           // replaces full screen there. The room they free is what lets the three tabs fit.
           // `showFullscreenButton` drops it again once the screen already runs without chrome.
           <div className="hidden items-center gap-1.5 kiosk:flex">
-            {installMode !== 'done' && <IconButton icon={Icon.install} label={t('install.add')} onClick={onInstall} />}
             {showFullscreenButton && <IconButton icon={Icon.fullscreen} label={t('booth.fullScreen')} onClick={goFull} />}
             <IconButton icon={Icon.print} label={t('booth.printCard')} onClick={() => window.print()} />
           </div>
@@ -423,20 +398,6 @@ export default function Booth() {
         <DataErrors />
         {notice && <Notice>{notice}</Notice>}
         {fsHint && <Notice tone="amber">{fsHint}</Notice>}
-        {installSteps && installMode !== 'done' && (
-          <div ref={installRef}><Notice tone="info">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="font-semibold">{t('install.title')}</div>
-                <p className="mt-0.5">{t(`install.${installPlatform}`)}</p>
-                <p className="mt-1 text-ink-soft">{t('install.why')}</p>
-              </div>
-              <button type="button" className="btn-quiet btn-sm shrink-0" onClick={() => setInstallSteps(false)}>
-                {t('install.dismiss')}
-              </button>
-            </div>
-          </Notice></div>
-        )}
         {live && !live.active && <Notice tone="red">{t('booth.switchedOff')}</Notice>}
         {live?.active && offToday && <Notice tone="amber">{t('booth.notToday')}</Notice>}
       </div>
@@ -462,13 +423,6 @@ export default function Booth() {
           <button type="button" onClick={openShow} className="btn-primary btn-lg w-full">
             {Icon.fullscreen}{t('booth.showCode')}
           </button>
-          {/* Quiet, under the one thing this screen is for: a home-screen icon is set up once on
-              the morning of the event, not pressed all day. */}
-          {installMode !== 'done' && (
-            <button type="button" onClick={onInstall} className="btn-quiet btn-sm w-full">
-              {Icon.install}{t('install.add')}
-            </button>
-          )}
         </div>
       </section>
 
