@@ -310,7 +310,14 @@ export default function Booth() {
   const feedState = offline ? 'offline' as const : (stat.fromCache || ev.fromCache) ? 'stale' as const : 'live' as const
   const fresh = feedState === 'live'
   const today = dayOf(new Date())
-  const offToday = !!live && Array.isArray(live.activeDays) && live.activeDays.length > 0 && !live.activeDays.includes(today)
+  /**
+   * Off duty *during the festival*, which is not the same as "not scheduled today". Outside the
+   * event's own days nothing is scheduled, so without the `event.days` guard every booth screen
+   * carried an amber warning every day of the weeks before the festival opened — including booths
+   * that run all three days. The visitor's stamp map and cover already make the same check.
+   */
+  const offToday = !!live && Array.isArray(live.activeDays) && live.activeDays.length > 0
+    && event.days.includes(today) && !live.activeDays.includes(today)
 
   /**
    * On a kiosk the QR is sized from the space the section actually has, not from the viewport. The
@@ -385,7 +392,7 @@ export default function Booth() {
             {/* Eyebrow, title and manual code in the booth's own colour, as the design system has
                 them — the swatch dot they used to need is redundant once the line itself is the
                 colour. `onChrome` is what makes that safe for the dark-green booths. */}
-            <div className="stamp-text text-[length:max(0.55em,0.7rem)]" style={{ color: accentSmall }}>{t('booth.worth', { location: b.location, points: b.points })}</div>
+            <div className="stamp-text" style={{ color: accentSmall }}>{t('booth.worth', { location: b.location, points: b.points })}</div>
             <h1 className="mt-1 text-[1.6em] font-extrabold leading-[1.08]" style={{ color: accent }}>{pick(b.nameEn, b.nameTh)}</h1>
             <div className="text-[0.6em] text-ink-soft">{b.hostUnit}</div>
           </div>
@@ -410,7 +417,11 @@ export default function Booth() {
             be hard to read from across a hall, and the wave field runs right under it. The
             `max()` floors only bite on a phone, where 0.5em of the scaled base is 8px. */}
         <div ref={codeRef} className="glass px-[2em] py-[0.6em] text-center">
-          <div className="stamp-text text-[length:max(0.55em,0.7rem)] text-ink-soft">{t('booth.manualCode')}</div>
+          {/* No `text-[…em]` on the eyebrows here or in the footer. They were dead utilities until
+              `.stamp-text` was layered, and reviving them scaled the labels with the display —
+              which reads well but costs the code its height: 327px to 295px at 1920×1080, under
+              §5.1's 320px floor. The QR is what this screen is for, so the labels stay at 0.7rem. */}
+          <div className="stamp-text text-ink-soft">{t('booth.manualCode')}</div>
           <div key={token.counter} className="code-swap fig text-[2em] tracking-[0.15em] sm:text-[2.4em] sm:tracking-[0.25em]" style={{ color: accent }}>
             {formatManualCode(token.token)}
           </div>
@@ -439,7 +450,7 @@ export default function Booth() {
         ].map((f) => (
           <div key={f.label} className="glass flex min-w-0 flex-col items-center justify-center gap-0.5 px-1.5 py-[1.2vh] text-center">
             <div className="fig text-[1.8em] leading-none">{f.value}</div>
-            <div className="stamp-text text-[length:max(0.5em,0.7rem)] leading-tight text-balance text-ink-soft">{f.label}</div>
+            <div className="stamp-text leading-tight text-balance text-ink-soft">{f.label}</div>
           </div>
         ))}
       </footer>
