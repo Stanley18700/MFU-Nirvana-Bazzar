@@ -6,6 +6,7 @@ import { useAuth, useSignOut } from '../../lib/auth'
 import { api, friendlyError } from '../../lib/api'
 import { useBooth, useBoothStat, useBooths, useEvent, useEventStats } from '../../lib/data'
 import { useLocale } from '../../lib/locale'
+import { exitFullscreen, fullscreenElement, isStandalone, onFullscreenChange, requestFullscreen } from '../../lib/fullscreen'
 import { QR } from '../../components/QR'
 import { BoothCard } from '../../components/BoothCard'
 import { OrganizerBar } from '../../components/OrganizerBar'
@@ -194,24 +195,35 @@ export default function Booth() {
     }
   }, [requestWake, load])
 
-  // Full screen is an explicit press — on a phone the organizer is also using for other things it
-  // would be rude — with a hint when the browser refuses, as on the hall screen.
-  const [fs, setFs] = useState(!!document.fullscreenElement)
+  /**
+   * Full screen is an explicit press — on a phone the organizer is also using for other things it
+   * would be rude — with a hint when the browser refuses, as on the hall screen.
+   *
+   * iPhone Safari has no Fullscreen API, so the button used to answer a tap with "press F11" on a
+   * device with no keyboard. It is hidden there instead, and the hint explains Add to Home Screen,
+   * which is the only way to lose Safari's chrome on iOS. Hidden too once the screen already runs
+   * without chrome, whether from full screen or from the home-screen icon.
+   */
+  const [fs, setFs] = useState(() => !!fullscreenElement() || isStandalone())
   const [fsHint, setFsHint] = useState<string | null>(null)
-  useEffect(() => {
-    const on = () => { setFs(!!document.fullscreenElement); void requestWake() }
-    document.addEventListener('fullscreenchange', on)
-    return () => document.removeEventListener('fullscreenchange', on)
-  }, [requestWake])
-  const goFull = useCallback(() => {
+  // Shown unless the screen is already chrome-free. Kept on iOS on purpose: an organizer who taps
+  // it wants full screen, and the hint is where they find out how to actually get it.
+  const showFullscreenButton = !isStandalone()
+  useEffect(() => onFullscreenChange(() => {
+    setFs(!!fullscreenElement() || isStandalone())
     void requestWake()
-    const el = document.documentElement
-    if (!el.requestFullscreen) { setFsHint(t('booth.fsUnavailable')); return }
-    el.requestFullscreen().then(() => setFsHint(null)).catch(() => setFsHint(t('booth.fsBlocked')))
+  }), [requestWake])
+  const goFull = useCallback(async () => {
+    void requestWake()
+    const failure = await requestFullscreen()
+    setFsHint(failure === null ? null
+      : failure === 'ios' ? t('booth.fsIos')
+      : failure === 'unsupported' ? t('booth.fsUnavailable')
+      : t('booth.fsBlocked'))
   }, [requestWake, t])
   // The hall screen binds F for the same thing; a kiosk with a keyboard gets it here too.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey && !e.altKey) goFull() }
+    const onKey = (e: KeyboardEvent) => { if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey && !e.altKey) void goFull() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [goFull])
@@ -219,18 +231,20 @@ export default function Booth() {
   /**
    * Show code: the QR and the manual code alone, edge to edge, for a phone held up to a visitor.
    * A URL param rather than state, so the phone's back gesture closes it, a reload keeps it, and
-   * `/booth?show=1` can be pinned to a home screen. Full screen is taken where the browser offers
-   * it and silently skipped where it does not (iPhone Safari) — the view is the big code either
-   * way, so the F11 hint has no place here.
+   * `/booth?show=1` can be pinned to a home screen — which on an iPhone is also the only way to
+   * lose Safari's chrome, so it is the same advice `booth.fsIos` gives.
+   *
+   * Full screen goes through the shared helper and is simply not granted on an iPhone. No hint
+   * either way: the point of this view is the big code, and it is the big code regardless.
    */
   const show = params.get('show') === '1'
   const openShow = useCallback(() => {
     setParams((p) => { p.set('show', '1'); return p })
     void requestWake()
-    document.documentElement.requestFullscreen?.().catch(() => undefined)
+    void requestFullscreen()
   }, [setParams, requestWake])
   const closeShow = useCallback(() => {
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
+    void exitFullscreen()
     setParams((p) => { p.delete('show'); return p })
   }, [setParams])
   useEffect(() => {
@@ -346,20 +360,22 @@ export default function Booth() {
         actions={!fs && (
           // Not on a phone: printing an A4 card from one is nobody's job, and Show code below
           // replaces full screen there. The room they free is what lets the three tabs fit.
+          // `showFullscreenButton` drops it again once the screen already runs without chrome.
           <div className="hidden items-center gap-1.5 kiosk:flex">
-            <IconButton icon={Icon.fullscreen} label={t('booth.fullScreen')} onClick={goFull} />
+            {showFullscreenButton && <IconButton icon={Icon.fullscreen} label={t('booth.fullScreen')} onClick={goFull} />}
             <IconButton icon={Icon.print} label={t('booth.printCard')} onClick={() => window.print()} />
           </div>
         )}
       />
       {/* The bar leaves in full screen and a touch screen has no Esc key; a way back for a thumb.
-          Pointer-coarse only, so a hall display stays as clean as O-19 asks. */}
-      {fs && !show && (
+          Pointer-coarse only, so a hall display stays as clean as O-19 asks. Not for a home-screen
+          app: `fs` covers that too, and there is no full screen to leave there. */}
+      {fs && showFullscreenButton && !show && (
         <div className="fixed right-4 z-40 hidden pointer-coarse:block" style={{ top: 'max(1rem, env(safe-area-inset-top, 0px))' }}>
           <IconButton
             icon={<span aria-hidden className="text-lg leading-none">×</span>}
             label={t('booth.exitFullScreen')}
-            onClick={() => { void document.exitFullscreen?.().catch(() => undefined) }}
+            onClick={() => { void exitFullscreen() }}
           />
         </div>
       )}

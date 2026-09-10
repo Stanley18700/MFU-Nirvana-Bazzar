@@ -37,10 +37,25 @@ export function FestivalBackdrop({ hills = true }: { hills?: boolean }) {
         * canopy, at the height the mountains held: at its natural proportion it is two thirds of a
         * laptop screen, and every line of small print on this page then sits on rooftops.
         */}
+      {/*
+        * The horizon sits higher than it did — the band was 190px on a phone, a strip of ridge
+        * along the very bottom that read as a footer rather than as ground the page stands on.
+        * Still a crop, not the whole picture: at its natural proportion the campus is two thirds
+        * of a laptop screen and every line of small print ends up on a rooftop.
+        */}
       {hills && (
         <img
           src="/brand/illus-campus-papercut.webp" alt=""
-          className="absolute bottom-0 left-0 h-[min(24vh,190px)] w-full object-cover object-[50%_6%] sm:h-[min(34vh,300px)]"
+          className="absolute bottom-0 left-0 h-[min(34vh,280px)] w-full object-cover object-[50%_10%] sm:h-[min(44vh,380px)]"
+          // Dissolved into the sky rather than cut against it. Two things wanted this: the band's
+          // top was a hard horizontal rule straight across the page, which reads as a panel edge
+          // and not as distance; and raising the ridge put the foot link on dark canopy, where
+          // ink is unreadable. The fade gives the horizon back its height and leaves the top of
+          // the band pale enough to carry a line of type.
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent, #000 42%)',
+            maskImage: 'linear-gradient(to bottom, transparent, #000 42%)',
+          }}
         />
       )}
     </div>
@@ -117,7 +132,17 @@ export function AuthShell({ title, lead, children, foot, back = '/' }: {
           {children}
         </section>
 
-        {foot && <div className="mt-6 text-center text-sm text-ink">{foot}</div>}
+        {/*
+          * A slip of its own, not a line of ink on the ground. With the horizon raised, this sits
+          * roughly a third of the way into the campus band, where the fade has already brought the
+          * canopy back to most of its weight — measured, not guessed: ink on that green is nowhere
+          * near 4.5:1. The same white as the card above, so it reads as a companion to it.
+          */}
+        {foot && (
+          <div className="mt-8 flex justify-center">
+            <div className="rounded-full bg-white/92 px-5 py-2 text-center text-sm text-ink shadow-card backdrop-blur-sm">{foot}</div>
+          </div>
+        )}
       </main>
     </>
   )

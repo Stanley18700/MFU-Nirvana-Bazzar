@@ -43,6 +43,8 @@ export const en = {
   'booth.retry': 'Try again',
   'booth.fsUnavailable': 'Full screen is not available in this browser — press F11.',
   'booth.fsBlocked': 'Full screen was blocked — press F11 (⌃⌘F on a Mac).',
+  // iPhone Safari has no Fullscreen API at all, so the advice is Add to Home Screen instead.
+  'booth.fsIos': 'iPhone and iPad cannot go full screen from inside Safari. Tap Share, then “Add to Home Screen”, and open the booth screen from that icon — it runs without the address bar.',
   'booth.fullScreen': 'Full screen',
   'booth.exitFullScreen': 'Exit full screen',
   'booth.printCard': 'Print card',
@@ -152,6 +154,7 @@ export const th: Record<StringKey, string> = {
   'booth.retry': 'ลองอีกครั้ง',
   'booth.fsUnavailable': 'เบราว์เซอร์นี้ไม่รองรับโหมดเต็มหน้าจอ — กด F11',
   'booth.fsBlocked': 'โหมดเต็มหน้าจอถูกปิดกั้น — กด F11 (⌃⌘F บน Mac)',
+  'booth.fsIos': 'iPhone และ iPad ไม่สามารถเปิดโหมดเต็มหน้าจอจากใน Safari ได้ ให้กดปุ่มแชร์ แล้วเลือก “เพิ่มไปยังหน้าจอโฮม” และเปิดหน้าจอบูธจากไอคอนนั้น — จะไม่มีแถบที่อยู่เว็บ',
   'booth.fullScreen': 'เต็มหน้าจอ',
   'booth.exitFullScreen': 'ออกจากโหมดเต็มหน้าจอ',
   'booth.printCard': 'พิมพ์การ์ดบูธ',

@@ -130,22 +130,24 @@ function Identity({ name, passportNo, role, email, className = '' }: {
 }) {
   const body = (
     <>
-      <div className="stamp-text text-foil">Mae Fah Luang University</div>
+      <div className="stamp-text text-sky-100">Mae Fah Luang University</div>
       <div className="mt-1 truncate text-2xl font-bold text-white">{name}</div>
       {passportNo
-        ? <div className="mt-1 font-mono text-sm tracking-[0.2em] text-foil">{passportNo}</div>
-        : role && <div className="mt-1 text-sm text-on-chrome-soft">{ROLE_LABEL[role as keyof typeof ROLE_LABEL] ?? role}</div>}
-      {email && <div className="mt-3 truncate text-xs text-on-chrome-soft">{email}</div>}
+        ? <div className="mt-1 font-mono text-xl font-bold tracking-[0.18em] text-foil">{passportNo}</div>
+        : role && <div className="mt-1 text-sm text-sky-200">{ROLE_LABEL[role as keyof typeof ROLE_LABEL] ?? role}</div>}
+      {email && <div className="mt-3 truncate text-xs text-sky-200">{email}</div>}
     </>
   )
   return (
-    <div className={`relative isolate overflow-hidden rounded-[28px] bg-chrome px-5 py-5 shadow-float ${className}`}>
-      {/* The cover's own mountains, behind the board at the same strength. */}
+    <div className={`relative isolate overflow-hidden rounded-[28px] bg-sky-950/85 px-5 py-5 shadow-float backdrop-blur-xl ${className}`}>
+      {/* The cover's own mountains, at the cover's own size and strength — the two boards are the
+          same printed object and must not drift apart. */}
       <img
         src="/brand/illus-campus-papercut.webp" alt="" aria-hidden
-        className="pointer-events-none absolute -bottom-4 left-0 -z-10 w-full opacity-[0.16]"
-        style={{ WebkitMaskImage: 'linear-gradient(to bottom, transparent, #000 45%)', maskImage: 'linear-gradient(to bottom, transparent, #000 45%)' }}
+        className="pointer-events-none absolute -bottom-5 left-[-11%] -z-10 w-[128%] max-w-none opacity-[0.22]"
+        style={{ WebkitMaskImage: 'linear-gradient(to bottom, transparent, #000 26%)', maskImage: 'linear-gradient(to bottom, transparent, #000 26%)' }}
       />
+      <div aria-hidden className="pointer-events-none absolute inset-2.5 rounded-[22px] ring-1 ring-inset ring-white/[0.12]" />
       {body}
     </div>
   )

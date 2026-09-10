@@ -412,7 +412,15 @@ input, select, textarea, button { font: inherit; }
   @apply pointer-events-none absolute left-1/2 top-full z-30 mt-1.5 -translate-x-1/2 translate-y-1
     whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium opacity-0 shadow-lg transition;
 }
-.tip:hover > .tip-label, .tip:focus-visible > .tip-label { @apply translate-y-0 opacity-100; }
+/*
+ * Only where a real pointer exists. On a touchscreen `:hover` latches when you tap and stays until
+ * you tap something else, so the label sat open over the booth screen after every press.
+ * `:focus-visible` is kept unconditionally — that is the keyboard route, and it never latches.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .tip:hover > .tip-label { @apply translate-y-0 opacity-100; }
+}
+.tip:focus-visible > .tip-label { @apply translate-y-0 opacity-100; }
 /* Inverted against whatever it sits on, so it reads as a tooltip and not another button. */
 .tip-dark > .tip-label { @apply bg-white text-ink; }
 .tip-light > .tip-label { @apply bg-ink text-white; }
