@@ -120,6 +120,8 @@ Have two visitors with a **Voyager** unlock (100 points) before §4, and one at 
 | O-27 | Press **Show code to visitor** | A white full-bleed view: the QR as large as the screen allows, booth name, manual code, countdown, **Back to booth screen**. The URL gains `?show=1`; the phone's back gesture (or Esc) closes it; on Android Chrome it also goes full screen, on iPhone Safari it does not and shows no F11 hint | 5.1 | |
 | O-28 | Turn the phone sideways (844 × 390) on `/booth` and in Show code | Booth screen still scrolls with nothing under the notices; Show code puts the QR on the left and the code on the right | 5.1 | |
 | O-29 | `/booth/stats`, `/booth/survey`, `/booth/survey/results`, `/redeem` on a phone | Figures stack one per row; no horizontal scroll except inside the responses table; every button at least 44 px tall; focusing any field does not zoom the page (iPhone); Survey's Save row and Discard/Preview row are separate, **Remove all questions** sits alone at the foot | 5.3, 4.4 | |
+| O-30 | Open `/booth` on a date outside the event's days, then on an event day for a booth that is not scheduled that day | Outside the event: no amber "Not scheduled today" banner on any booth. On an event day: the banner appears only for a booth whose active days exclude that day, as the visitors' stamp map already shows | 5.1, 6.3 | |
+| O-31 | Booth screen in a window that is wide but short, e.g. 1850 × 860 | Type scales down with the height, the QR stays well clear of its 150 px minimum, and nothing overlaps the banner | 5.1 | |
 
 ## 4. Prize desk (Organizer A at booth-01, then repeat P-03 to P-05 as admin)
 

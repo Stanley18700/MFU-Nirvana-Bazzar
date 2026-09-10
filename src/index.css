@@ -346,8 +346,13 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.015em; line-he
 @keyframes toast-up { from { transform: translateY(14px); opacity: 0; filter: blur(2px); } to { transform: none; opacity: 1; filter: none; } }
 .toast-in { animation: toast-up var(--dur-page) var(--ease-enter) backwards; }
 
-/* Booth screen must be legible at 3 m (§2.6) — on a kiosk. */
-.booth-screen { font-size: clamp(24px, 2.2vw, 36px); }
+/*
+ * Booth screen must be legible at 3 m (§2.6) — on a kiosk. Scaled by the shorter axis as well as
+ * the wider one: a laptop window is often 1900 wide and only 800 tall, and a width-only clamp put
+ * hall-display type into two-thirds of the height, which squeezed the QR to its 150px floor. The
+ * code is what this screen exists to show, so height wins the argument.
+ */
+.booth-screen { font-size: clamp(24px, min(2.2vw, 3.4vh), 36px); }
 /*
  * On a phone the 24px floor overflows the manual code and the footer; scale with the short side of
  * the viewport instead, in either orientation. The thresholds mirror `isPhone` in Booth.tsx.
