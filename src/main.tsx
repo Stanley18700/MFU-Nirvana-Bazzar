@@ -5,6 +5,10 @@ import './index.css'
 import { AuthProvider } from './lib/auth'
 import { LocaleProvider } from './lib/locale'
 import { ErrorBoundary } from './components/ErrorBoundary'
+// Imported for its side effect: `beforeinstallprompt` fires once, early, often before React has
+// mounted, so the listener has to be attached at load or the Add to Home Screen button on the
+// booth screen would never light up. See lib/install.ts.
+import './lib/install'
 import App from './App'
 
 /*
