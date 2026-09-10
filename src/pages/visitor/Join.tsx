@@ -43,7 +43,7 @@ export default function Join() {
   }, [])
   const ethnicOptions: string[] = ethnic[f.countryCode] ?? []
 
-  if (!ready) return <Spinner />
+  if (!ready) return <Spinner page />
   if (role === 'visitor') return <Navigate to={from ?? '/passport'} replace />
   if (role === 'organizer' || role === 'admin') return <Navigate to="/" replace />
 

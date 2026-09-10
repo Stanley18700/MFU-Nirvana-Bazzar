@@ -16,7 +16,24 @@ export function Fig({ value, label, accent, sub }: { value: ReactNode; label: st
   )
 }
 
-export function Spinner({ label = 'Loading…' }: { label?: string }) {
+/**
+ * `page` for a wait that owns the screen — the auth guards, and anything reached before a shell
+ * has rendered. Those were a 16px grey ring on a bare white page, which is the one screen in the
+ * app that looked like no part of it. Inline everywhere else: a takeover inside a card, or over
+ * the passport's own tab bar, would be worse than the ring.
+ */
+export function Spinner({ label = 'Loading…', page = false }: { label?: string; page?: boolean }) {
+  if (page) {
+    return (
+      <div className="fixed inset-0 z-50 grid place-items-center bg-page" role="status" aria-live="polite">
+        <img src="/brand/bg-sky-waves.webp" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
+        <div className="relative flex flex-col items-center gap-5 px-6">
+          <img src="/brand/logo-festival.webp" alt="" aria-hidden className="mark-breathe w-[min(62vw,300px)]" />
+          <span className="text-sm font-medium text-ink-soft">{label}</span>
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="flex items-center justify-center gap-3 p-8 text-ink-soft" role="status">
       <span className="h-4 w-4 animate-spin rounded-full border-2 border-ink/20 border-t-action" />

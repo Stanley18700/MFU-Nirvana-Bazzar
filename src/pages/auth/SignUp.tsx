@@ -20,7 +20,7 @@ export default function SignUp() {
   const [busy, setBusy] = useState<'google' | 'email' | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
-  if (!ready) return <Spinner label="Opening your passport…" />
+  if (!ready) return <Spinner label="Opening your passport…" page />
   if (user) return <Navigate to={from ?? '/'} replace />
 
   async function google() {

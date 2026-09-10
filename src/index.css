@@ -262,6 +262,19 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.015em; line-he
 .drift { animation: drift 9s cubic-bezier(.45, 0, .55, 1) infinite; }
 
 /*
+ * Waiting, in the festival's own language. A rotating ring is the one gesture nothing else in this
+ * app makes — paper drops, settles and drifts, it does not spin — so the wordmark breathes instead,
+ * on the same slow ease as the clouds and the sun above it. Reduced motion keeps the mark still and
+ * lets the label do the work; a screen that only says it is loading by moving says nothing then.
+ */
+@keyframes mark-breathe {
+  0%, 100% { transform: translateY(0) scale(1); opacity: .92; }
+  50% { transform: translateY(-6px) scale(1.025); opacity: 1; }
+}
+.mark-breathe { animation: mark-breathe 2.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .mark-breathe { animation: none; } }
+
+/*
  * The stage-draw reveal on the hall screen: the festival's own motion — paper drops, one
  * overshoot, settles — at the size of a projector. The blur is doing work rather than decorating:
  * a name that cuts in hard reads as a slide change from the back of a hall, and resolving out of

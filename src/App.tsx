@@ -51,7 +51,7 @@ function RequireUser({ children }: { children?: React.ReactNode }) {
   const { ready, user, emailVerified } = useAuth()
   const loc = useLocation()
   const here = loc.pathname + loc.search
-  if (!ready) return <Spinner label="Opening your passport…" />
+  if (!ready) return <Spinner label="Opening your passport…" page />
   if (!user) return <Navigate to="/signin" state={{ from: here }} replace />
   if (!emailVerified) return <Navigate to="/verify-email" state={{ from: here }} replace />
   return children ? <>{children}</> : <Outlet />
@@ -61,7 +61,7 @@ function Guard({ roles, children }: { roles: Role[]; children?: React.ReactNode 
   const { ready, user, emailVerified, role } = useAuth()
   const loc = useLocation()
   const here = loc.pathname + loc.search
-  if (!ready) return <Spinner label="Opening your passport…" />
+  if (!ready) return <Spinner label="Opening your passport…" page />
   if (!user) return <Navigate to="/signin" state={{ from: here }} replace />
   if (!emailVerified) return <Navigate to="/verify-email" state={{ from: here }} replace />
   if (!role || !roles.includes(role)) {

@@ -8,7 +8,7 @@ import { FestivalBackdrop, ScrapLabel, UniversityMark } from '../auth/parts'
 export default function Landing() {
   const { ready, user, emailVerified, role } = useAuth()
   const event = useEvent()
-  if (!ready) return <Spinner label="Opening your passport…" />
+  if (!ready) return <Spinner label="Opening your passport…" page />
   if (role === 'visitor') return <Navigate to="/passport" replace />
   if (role === 'organizer') return <Navigate to="/booth" replace />
   if (role === 'admin') return <Navigate to="/admin" replace />

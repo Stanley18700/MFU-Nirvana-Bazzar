@@ -15,7 +15,7 @@ export default function SignIn() {
   const [busy, setBusy] = useState<'google' | 'email' | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
-  if (!ready) return <Spinner label="Opening your passport…" />
+  if (!ready) return <Spinner label="Opening your passport…" page />
   // Landing and the guards know where each role belongs; just get out of the way.
   if (user) return <Navigate to={from ?? '/'} replace />
 

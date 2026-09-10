@@ -26,7 +26,7 @@ export default function Account({ variant = 'page' }: { variant?: 'page' | 'pass
   const signOut = useSignOut()
   const { t } = useLocale()
 
-  if (!ready) return <Spinner />
+  if (!ready) return <Spinner page />
   if (!user) return <Navigate to="/signin" state={{ from: '/account' }} replace />
 
   const inPassport = variant === 'passport'

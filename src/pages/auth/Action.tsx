@@ -93,7 +93,7 @@ export default function Action() {
     nav(path, { replace: true })
   }
 
-  if (phase === 'working') return <Spinner label="Checking your link…" />
+  if (phase === 'working') return <Spinner label="Checking your link…" page />
 
   if (phase === 'error') {
     return (

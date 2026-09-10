@@ -11,7 +11,7 @@ export default function RedeemLanding() {
   const { token = '' } = useParams()
   const { ready, user, role } = useAuth()
 
-  if (!ready) return <Spinner label="Checking…" />
+  if (!ready) return <Spinner label="Checking…" page />
   // A prize-desk device that has been signed out: sign in, then land back on this code.
   if (!user) return <Navigate to="/signin" state={{ from: `/r/${token}` }} replace />
   if (role === 'organizer' || role === 'admin') {

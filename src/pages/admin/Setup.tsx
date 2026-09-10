@@ -17,7 +17,7 @@ export default function Setup() {
     try { await api.bootstrapAdmin({ key, displayName: name }); await refreshClaims(); nav('/admin', { replace: true }) } catch (e) { setErr(errorMessage(e)) } finally { setBusy(false) }
   }
   // bootstrapAdmin elevates whoever is calling, so there has to be a real account to elevate.
-  if (!ready) return <Spinner />
+  if (!ready) return <Spinner page />
   if (!user) return <Navigate to="/signin" state={{ from: '/setup' }} replace />
   if (!emailVerified) return <Navigate to="/verify-email" state={{ from: '/setup' }} replace />
 

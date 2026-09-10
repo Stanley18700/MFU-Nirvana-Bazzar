@@ -38,7 +38,7 @@ export default function VerifyEmail() {
     return () => clearInterval(id)
   }, [user, emailVerified, check])
 
-  if (!ready) return <Spinner label="Checking your account…" />
+  if (!ready) return <Spinner label="Checking your account…" page />
   if (!user) return <Navigate to="/signin" replace />
   if (emailVerified) return <Navigate to={from ?? '/'} replace />
 

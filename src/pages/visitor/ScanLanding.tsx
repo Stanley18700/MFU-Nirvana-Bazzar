@@ -28,7 +28,7 @@ export default function ScanLanding() {
     }).catch((e) => setErr(errorMessage(e)))
   }, [ready, role, token])
 
-  if (!ready) return <Spinner label="Checking your stamp…" />
+  if (!ready) return <Spinner label="Checking your stamp…" page />
   // No account, or a half-finished one: sign in / confirm / register and come straight back
   // to this token afterwards, so the visitor never loses the booth they just scanned (§4.3).
   if (!user) return <Navigate to="/signup" state={{ from: `/s/${token}` }} replace />

@@ -8,8 +8,34 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Mitr:wght@500;600&display=swap" rel="stylesheet" />
     <title>MFU InterFest Passport</title>
+    <!--
+      The first paint, before a single byte of JavaScript. The bundle is well over a megabyte, so
+      on a phone at the gate there were one or two seconds of blank white before React could put
+      anything on screen — the one view of this product that belonged to no part of it. Inline, so
+      it costs no request; the two images are 8KB and 43KB and are on the same origin.
+
+      It hands over to `<Spinner page />`, which is deliberately the same sky and the same
+      breathing wordmark, so the handover is invisible.
+    -->
+    <style>
+      html, body { height: 100%; margin: 0; }
+      body { background: #7EDFF2; }
+      #boot { position: fixed; inset: 0; display: grid; place-items: center; }
+      #boot .sky { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+      #boot .mark { position: relative; width: min(62vw, 300px); animation: boot-breathe 2.6s ease-in-out infinite; }
+      #boot.gone { opacity: 0; transition: opacity 260ms ease-out; pointer-events: none; }
+      @keyframes boot-breathe {
+        0%, 100% { transform: translateY(0) scale(1); opacity: .92; }
+        50% { transform: translateY(-6px) scale(1.025); opacity: 1; }
+      }
+      @media (prefers-reduced-motion: reduce) { #boot .mark { animation: none; } }
+    </style>
   </head>
   <body>
+    <div id="boot" aria-hidden="true">
+      <img class="sky" src="/brand/bg-sky-waves.webp" alt="" />
+      <img class="mark" src="/brand/logo-festival.webp" alt="" />
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
