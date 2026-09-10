@@ -13,7 +13,9 @@
  * staff and visitors, not a replacement — and the admin panel (~230 further strings, mostly
  * reporting vocabulary) stays English.
  */
-export const en = {
+import { adminEn, adminTh } from './strings.admin'
+
+const staffEn = {
   'lang.label': 'Language',
 
   // OrganizerBar
@@ -133,10 +135,12 @@ export const en = {
   'common.saving': 'Saving…',
 } as const
 
+export const en = { ...staffEn, ...adminEn }
+
 export type StringKey = keyof typeof en
 
 /** A missing key here is a compile error — that is the point of the explicit type. */
-export const th: Record<StringKey, string> = {
+const staffTh: Record<keyof typeof staffEn, string> = {
   'lang.label': 'ภาษา',
 
   'nav.pages': 'หน้าของบูธ',
@@ -247,3 +251,5 @@ export const th: Record<StringKey, string> = {
   'common.cancel': 'ยกเลิก',
   'common.saving': 'กำลังบันทึก…',
 }
+
+export const th: Record<StringKey, string> = { ...staffTh, ...adminTh }

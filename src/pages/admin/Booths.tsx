@@ -8,10 +8,11 @@ import { useBooths, useCollection, useEvent } from '../../lib/data'
 import { Stamp } from '../../components/Stamp'
 import { stampMarks } from '../../lib/eventText'
 import { CopyButton, Notice, Toast, type Msg } from '../../components/ui'
-import { ZONE_LABEL } from '../../lib/labels'
+import { useLabels } from '../../lib/labels'
 import { Select } from '../../components/Select'
 import { numOpt } from '../../lib/form'
 import { ACCENTS, type BoothDoc, type InviteDoc, type UserDoc, type Zone } from '../../../shared/model'
+import { useLocale } from '../../lib/locale'
 
 type Row = BoothDoc & { id: string }
 const empty: BoothInput = { nameEn: '', nameTh: '', shortName: '', hostUnit: '', location: '', descriptionEn: '', zone: 'entrance', points: 10, isPrizeDesk: false, active: true }
@@ -19,6 +20,8 @@ const FILTER_FROM = 9
 
 /** §6.3 / §6.6 — booth CRUD, points, artwork, rotate secret, and the organizer for each booth (§6.4). */
 export default function Booths() {
+  const { t } = useLocale()
+  const { ZONE_LABEL } = useLabels()
   const booths = useBooths(true)
   // Days and default zone points are the live event's, not constants (spec 7.1).
   const event = useEvent()
@@ -75,13 +78,13 @@ export default function Booths() {
   }
 
   async function rotate(b: Row) {
-    if (!window.confirm(`Rotate the secret of ${b.nameEn}? Every code currently on its screen or in a photo stops working immediately.`)) return
+    if (!window.confirm(t('booths.rotateConfirm', { name: b.nameEn }))) return
     setBusyId(b.id)
     try { await api.rotateBoothSecret({ id: b.id }); setMsg({ tone: 'green', text: `${b.nameEn}: secret rotated. Its screen picks the new codes up within 15 minutes, or as soon as its tab is refocused — no reload needed.` }) } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusyId(null) }
   }
 
   async function remove(b: Row) {
-    if (!window.confirm(`Delete ${b.nameEn}? If it already has stamps it will be deactivated instead.`)) return
+    if (!window.confirm(t('booths.deleteConfirm', { name: b.nameEn }))) return
     setBusyId(b.id)
     try { const r = await api.deleteBooth({ id: b.id }); setMsg({ tone: 'green', text: r.deactivated ? `${b.nameEn} has stamps — deactivated instead of deleted.` : `${b.nameEn} deleted.` }) } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusyId(null) }
   }
@@ -95,8 +98,8 @@ export default function Booths() {
   async function upload(b: Row, kind: 'badge' | 'photo', file: File) {
     setBusyId(b.id); setMsg(null)
     try {
-      if (kind === 'badge' && file.size > 512 * 1024) throw new Error('Badge must be under 512 KB')
-      if (kind === 'photo' && file.size > 2 * 1024 * 1024) throw new Error('Photo must be under 2 MB')
+      if (kind === 'badge' && file.size > 512 * 1024) throw new Error(t('booths.badgeTooBig'))
+      if (kind === 'photo' && file.size > 2 * 1024 * 1024) throw new Error(t('booths.photoTooBig'))
       const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
       const r = sref(storage, `booths/${b.id}/${kind}.${ext}`)
       await uploadBytes(r, file, { contentType: file.type })
@@ -108,7 +111,7 @@ export default function Booths() {
 
   /** Clears the URL on the booth (the server treats an explicit null as "remove") and, best effort, the file behind it. */
   async function removeImage(b: Row, kind: 'badge' | 'photo') {
-    if (!window.confirm(kind === 'badge' ? `Remove the badge of ${b.nameEn}? The generated stamp takes over.` : `Remove the photo of ${b.nameEn}?`)) return
+    if (!window.confirm(kind === 'badge' ? t('booths.removeBadgeConfirm', { name: b.nameEn }) : t('booths.removePhotoConfirm', { name: b.nameEn }))) return
     setBusyId(b.id); setMsg(null)
     try {
       const url = kind === 'badge' ? b.badgeUrl : b.photoUrl
@@ -131,31 +134,31 @@ export default function Booths() {
               <div className="min-w-0"><div className="truncate font-semibold">{b.nameEn}</div><div className="truncate text-xs text-ink-soft">{b.hostUnit}</div></div>
               <span className="fig text-lg" style={{ color: b.accentColor }}>{b.points}</span>
             </div>
-            <div className="mt-1 text-xs text-ink-soft">{b.location} · {ZONE_LABEL[b.zone]} · {b.activeDays.length}/{eventDays.length} days{b.isPrizeDesk ? ' · prize desk' : ''}{b.active ? '' : ' · inactive'}</div>
+            <div className="mt-1 text-xs text-ink-soft">{b.location} · {ZONE_LABEL[b.zone]} · {t('booths.days', { done: b.activeDays.length, total: eventDays.length })}{b.isPrizeDesk ? ` · ${t('booths.prizeDesk')}` : ''}{b.active ? '' : ` · ${t('booths.inactive')}`}</div>
             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
               {stale ? (
                 <>
-                  <button className="btn-ghost btn-sm" disabled={busy} onClick={() => keep(b)}>Keep for this event</button>
-                  <button className="btn-danger-soft btn-sm" disabled={busy} onClick={() => remove(b)}>Delete</button>
+                  <button className="btn-ghost btn-sm" disabled={busy} onClick={() => keep(b)}>{t('booths.keep')}</button>
+                  <button className="btn-danger-soft btn-sm" disabled={busy} onClick={() => remove(b)}>{t('booths.delete')}</button>
                 </>
               ) : (
                 <>
-                  <button className="btn-ghost btn-sm" disabled={busy} onClick={() => startEdit(b)}>Edit</button>
-                  <Link className="btn-ghost btn-sm" to={`/booth?boothId=${b.id}`} target="_blank" rel="noopener">Open screen</Link>
-                  <Link className="btn-quiet btn-sm" to={`/booth/stats?boothId=${b.id}`}>Stats</Link>
+                  <button className="btn-ghost btn-sm" disabled={busy} onClick={() => startEdit(b)}>{t('booths.edit')}</button>
+                  <Link className="btn-ghost btn-sm" to={`/booth?boothId=${b.id}`} target="_blank" rel="noopener">{t('booths.openScreen')}</Link>
+                  <Link className="btn-quiet btn-sm" to={`/booth/stats?boothId=${b.id}`}>{t('booths.stats')}</Link>
                   {/* Artwork and the two dangerous actions live under one menu, so nine underlined words no longer compete. */}
                   <details className="relative">
-                    <summary className="btn-quiet btn-sm list-none" aria-label={`More actions for ${b.nameEn}`}>More ▾</summary>
+                    <summary className="btn-quiet btn-sm list-none" aria-label={t('booths.moreActions', { name: b.nameEn })}>{t('booths.more')}</summary>
                     <div className="pop absolute left-0 z-10 mt-1 flex w-52 flex-col rounded-xl bg-white p-1.5 text-sm shadow-lg ring-1 ring-black/10">
-                      <label className="menu-item">{b.badgeUrl ? 'Replace badge…' : 'Upload badge…'}
+                      <label className="menu-item">{t(b.badgeUrl ? 'booths.replaceBadge' : 'booths.uploadBadge')}
                         <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; closeMenu(e); if (f) void upload(b, 'badge', f) }} /></label>
-                      {b.badgeUrl && <button className="menu-item" disabled={busy} onClick={(e) => { closeMenu(e); void removeImage(b, 'badge') }}>Remove badge</button>}
-                      <label className="menu-item">{b.photoUrl ? 'Replace photo…' : 'Upload photo…'}
+                      {b.badgeUrl && <button className="menu-item" disabled={busy} onClick={(e) => { closeMenu(e); void removeImage(b, 'badge') }}>{t('booths.removeBadge')}</button>}
+                      <label className="menu-item">{t(b.photoUrl ? 'booths.replacePhoto' : 'booths.uploadPhoto')}
                         <input type="file" accept="image/*" className="sr-only" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; closeMenu(e); if (f) void upload(b, 'photo', f) }} /></label>
-                      {b.photoUrl && <button className="menu-item" disabled={busy} onClick={(e) => { closeMenu(e); void removeImage(b, 'photo') }}>Remove photo</button>}
+                      {b.photoUrl && <button className="menu-item" disabled={busy} onClick={(e) => { closeMenu(e); void removeImage(b, 'photo') }}>{t('booths.removePhoto')}</button>}
                       <div className="my-1 border-t rule" />
-                      <button className="menu-item text-[#8a4a12] hover:bg-warn/10" disabled={busy} onClick={(e) => { closeMenu(e); void rotate(b) }}>Rotate secret…</button>
-                      <button className="menu-item text-[#8f2a1c] hover:bg-danger/10" disabled={busy} onClick={(e) => { closeMenu(e); void remove(b) }}>Delete booth…</button>
+                      <button className="menu-item text-[#8a4a12] hover:bg-warn/10" disabled={busy} onClick={(e) => { closeMenu(e); void rotate(b) }}>{t('booths.rotateSecret')}</button>
+                      <button className="menu-item text-[#8f2a1c] hover:bg-danger/10" disabled={busy} onClick={(e) => { closeMenu(e); void remove(b) }}>{t('booths.deleteBooth')}</button>
                     </div>
                   </details>
                 </>
@@ -182,54 +185,54 @@ export default function Booths() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="stamp-text text-ink-soft">{event.nameEn} · {current.filter((b) => b.active).length} active booths · {totalPoints} points on the floor</div>
-          <h1 className="text-2xl font-bold">Booths</h1>
+          <h1 className="text-2xl font-bold">{t('booths.title')}</h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          {current.some((b) => b.active) && <Link to="/admin/booth-cards" target="_blank" rel="noopener" className="btn-ghost">Print all cards</Link>}
-          <button className="btn-primary" onClick={() => startEdit()}>New booth</button>
+          {current.some((b) => b.active) && <Link to="/admin/booth-cards" target="_blank" rel="noopener" className="btn-ghost">{t('booths.printAll')}</Link>}
+          <button className="btn-primary" onClick={() => startEdit()}>{t('booths.new')}</button>
         </div>
       </header>
       {missingArt > 0 && <div className="mt-3"><Notice tone="amber">{missingArt} booth{missingArt > 1 ? 's' : ''} still use the generated stamp. That is fine — uploading a badge is optional.</Notice></div>}
 
       {editing && (
         <section ref={editorRef} className="card mt-4 grid gap-3 scroll-mt-4 md:grid-cols-2" aria-labelledby="booth-editor-title">
-          <h2 id="booth-editor-title" className="stamp-text text-ink-soft md:col-span-2">{editName ? `Edit · ${editName}` : 'New booth'}</h2>
-          <label>Name (English)<input className="field mt-1" value={editing.nameEn} onChange={(e) => setEditing({ ...editing, nameEn: e.target.value })} autoFocus /></label>
-          <label>Name (Thai, optional)<input className="field mt-1" value={editing.nameTh ?? ''} onChange={(e) => setEditing({ ...editing, nameTh: e.target.value })} /></label>
-          <label>Short name on stamp<input className="field mt-1" maxLength={6} value={editing.shortName ?? ''} onChange={(e) => setEditing({ ...editing, shortName: e.target.value.toUpperCase() })} /></label>
-          <label>Host unit<input className="field mt-1" value={editing.hostUnit ?? ''} onChange={(e) => setEditing({ ...editing, hostUnit: e.target.value })} /></label>
-          <label>Location<input className="field mt-1" value={editing.location ?? ''} onChange={(e) => setEditing({ ...editing, location: e.target.value })} /></label>
+          <h2 id="booth-editor-title" className="stamp-text text-ink-soft md:col-span-2">{editName ? t('booths.editTitle', { name: editName }) : t('booths.new')}</h2>
+          <label>{t('booths.nameEn')}<input className="field mt-1" value={editing.nameEn} onChange={(e) => setEditing({ ...editing, nameEn: e.target.value })} autoFocus /></label>
+          <label>{t('booths.nameTh')}<input className="field mt-1" value={editing.nameTh ?? ''} onChange={(e) => setEditing({ ...editing, nameTh: e.target.value })} /></label>
+          <label>{t('booths.shortName')}<input className="field mt-1" maxLength={6} value={editing.shortName ?? ''} onChange={(e) => setEditing({ ...editing, shortName: e.target.value.toUpperCase() })} /></label>
+          <label>{t('booths.hostUnit')}<input className="field mt-1" value={editing.hostUnit ?? ''} onChange={(e) => setEditing({ ...editing, hostUnit: e.target.value })} /></label>
+          <label>{t('booths.location')}<input className="field mt-1" value={editing.location ?? ''} onChange={(e) => setEditing({ ...editing, location: e.target.value })} /></label>
           <div>Zone → default points
-            <div className="mt-1"><Select ariaLabel="Zone" value={editing.zone} onChange={(v) => { const z = v as Zone; setEditing({ ...editing, zone: z, points: zonePoints[z] }) }}
+            <div className="mt-1"><Select ariaLabel={t('booths.zone')} value={editing.zone} onChange={(v) => { const z = v as Zone; setEditing({ ...editing, zone: z, points: zonePoints[z] }) }}
               options={(['entrance', 'middle', 'far'] as Zone[]).map((z) => ({ value: z, label: ZONE_LABEL[z], hint: `${zonePoints[z]} pts` }))} /></div>
           </div>
           <label>Points (override)
             <input className={`field mt-1 ${pointsOk ? '' : 'border-danger'}`} type="number" min={1} max={100} value={Number.isFinite(editing.points) ? editing.points : ''} onChange={(e) => setEditing({ ...editing, points: e.target.value === '' ? NaN : Number(e.target.value) })} />
             {!pointsOk && <span className="text-xs text-danger-text">1 to 100</span>}
           </label>
-          <label>Order in the grid<input className="field mt-1" type="number" min={1} placeholder="next free" value={editing.sortOrder ?? ''} onChange={(e) => setEditing({ ...editing, sortOrder: numOpt(e.target.value, { min: 1 }) })} /></label>
+          <label>{t('booths.order')}<input className="field mt-1" type="number" min={1} placeholder={t('booths.orderPlaceholder')} value={editing.sortOrder ?? ''} onChange={(e) => setEditing({ ...editing, sortOrder: numOpt(e.target.value, { min: 1 }) })} /></label>
           <div className="flex items-start gap-4 md:col-span-2">
             <div className="min-w-0 flex-1">
-              <div>Accent</div>
-              <div className="mt-1 flex flex-wrap gap-2">{ACCENTS.map((c) => <button key={c} type="button" onClick={() => setEditing({ ...editing, accentColor: c })} className={`h-8 w-8 cursor-pointer rounded-full transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action/45 focus-visible:ring-offset-2 ${editing.accentColor === c ? 'ring-2 ring-offset-2 ring-ink' : ''}`} style={{ background: c }} aria-label={`Accent ${c}`} aria-pressed={editing.accentColor === c} />)}</div>
+              <div>{t('booths.accent')}</div>
+              <div className="mt-1 flex flex-wrap gap-2">{ACCENTS.map((c) => <button key={c} type="button" onClick={() => setEditing({ ...editing, accentColor: c })} className={`h-8 w-8 cursor-pointer rounded-full transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action/45 focus-visible:ring-offset-2 ${editing.accentColor === c ? 'ring-2 ring-offset-2 ring-ink' : ''}`} style={{ background: c }} aria-label={t('booths.accentAria', { colour: c })} aria-pressed={editing.accentColor === c} />)}</div>
             </div>
             {/* What the visitor's stamp will look like, as the fields change. */}
             <div className="shrink-0 text-center text-xs text-ink-soft">
               <Stamp booth={{ shortName: editing.shortName || editing.nameEn.replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase() || 'NEW', accentColor: editing.accentColor ?? ACCENTS[0], nameEn: editing.nameEn || 'New booth', badgeUrl: editRow?.badgeUrl ?? null, badgeThumbUrl: editRow?.badgeThumbUrl ?? null }} collected size={80} {...marks} />
-              <div className="mt-1">Stamp preview</div>
+              <div className="mt-1">{t('booths.stampPreview')}</div>
             </div>
           </div>
-          <label className="md:col-span-2">Description<textarea className="field mt-1" rows={2} value={editing.descriptionEn ?? ''} onChange={(e) => setEditing({ ...editing, descriptionEn: e.target.value })} /></label>
-          <fieldset><legend>Present on</legend>
+          <label className="md:col-span-2">{t('booths.description')}<textarea className="field mt-1" rows={2} value={editing.descriptionEn ?? ''} onChange={(e) => setEditing({ ...editing, descriptionEn: e.target.value })} /></label>
+          <fieldset><legend>{t('booths.presentOn')}</legend>
             <div className="mt-1 flex flex-wrap gap-3 text-sm">{eventDays.map((d, i) => <label key={d} className="flex items-center gap-1"><input type="checkbox" checked={editing.activeDays?.includes(d)} onChange={(e) => setEditing({ ...editing, activeDays: e.target.checked ? [...(editing.activeDays ?? []), d] : (editing.activeDays ?? []).filter((x) => x !== d) })} />Day {i + 1}</label>)}</div>
           </fieldset>
           <div className="flex flex-col gap-1 text-sm">
-            <label className="flex items-center gap-2"><input type="checkbox" checked={!!editing.isPrizeDesk} onChange={(e) => setEditing({ ...editing, isPrizeDesk: e.target.checked })} />This booth is a prize desk</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={editing.active !== false} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} />Active</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={!!editing.isPrizeDesk} onChange={(e) => setEditing({ ...editing, isPrizeDesk: e.target.checked })} />{t('booths.isPrizeDesk')}</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={editing.active !== false} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} />{t('booths.active')}</label>
           </div>
           <div className="flex gap-2 md:col-span-2">
-            <button className="btn-primary" disabled={busyId !== null || !editing.nameEn.trim() || !pointsOk} onClick={save}>{busyId === (editId ?? 'new') ? 'Saving…' : editId ? 'Save' : 'Create booth'}</button>
-            <button className="btn-ghost" onClick={() => { setEditing(null); setEditId(null) }}>Cancel</button>
+            <button className="btn-primary" disabled={busyId !== null || !editing.nameEn.trim() || !pointsOk} onClick={save}>{t(busyId === (editId ?? 'new') ? 'common.saving' : editId ? 'common.save' : 'booths.create')}</button>
+            <button className="btn-ghost" onClick={() => { setEditing(null); setEditId(null) }}>{t('booths.cancel')}</button>
           </div>
         </section>
       )}
@@ -238,16 +241,16 @@ export default function Booths() {
 
       {current.length >= FILTER_FROM && (
         <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-          <input className="field w-64" placeholder="Filter by name, host, location, zone" aria-label="Filter booths" value={filter} onChange={(e) => setFilter(e.target.value)} />
-          <label className="flex items-center gap-2"><input type="checkbox" checked={unstaffedOnly} onChange={(e) => setUnstaffedOnly(e.target.checked)} />Without an organizer only</label>
-          {(needle || unstaffedOnly) && <span className="text-xs text-ink-soft">{shown.length} of {current.length}</span>}
+          <input className="field w-64" placeholder={t('booths.filter')} aria-label={t('booths.filterAria')} value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <label className="flex items-center gap-2"><input type="checkbox" checked={unstaffedOnly} onChange={(e) => setUnstaffedOnly(e.target.checked)} />{t('booths.unstaffedOnly')}</label>
+          {(needle || unstaffedOnly) && <span className="text-xs text-ink-soft">{t('booths.shownOf', { shown: shown.length, total: current.length })}</span>}
         </div>
       )}
 
       <ul className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {shown.map((b) => card(b))}
-        {current.length === 0 && <li className="text-sm text-ink-soft">No booths yet — press New booth.</li>}
-        {current.length > 0 && shown.length === 0 && <li className="text-sm text-ink-soft">No booth matches.</li>}
+        {current.length === 0 && <li className="text-sm text-ink-soft">{t('booths.none')}</li>}
+        {current.length > 0 && shown.length === 0 && <li className="text-sm text-ink-soft">{t('booths.noMatch')}</li>}
       </ul>
 
       {previous.length > 0 && (
@@ -267,6 +270,7 @@ const ZONES: Zone[] = ['entrance', 'middle', 'far']
 
 /** Stand up a floor plan from a pasted list — one booth per line, `name, host unit, location, zone[, points]`. */
 function BulkImport({ zonePoints, onDone }: { zonePoints: Record<Zone, number>; onDone: (m: Msg) => void }) {
+  const { t } = useLocale()
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState<string | null>(null)
@@ -285,27 +289,27 @@ function BulkImport({ zonePoints, onDone }: { zonePoints: Record<Zone, number>; 
     const failed: string[] = []
     // One at a time: the server numbers booth ids from the current count.
     for (const [i, r] of rows.entries()) {
-      setProgress(`Creating ${i + 1} of ${rows.length}…`)
+      setProgress(t('booths.bulkProgress', { n: i + 1, total: rows.length }))
       try { await api.createBooth({ nameEn: r.nameEn, hostUnit: r.hostUnit, location: r.location, zone: r.zone, points: r.points }); made++ }
       catch (e) { failed.push(`${r.nameEn}: ${errorMessage(e)}`) }
     }
     setBusy(false); setProgress(null)
-    if (failed.length) onDone({ tone: 'amber', text: `${made} created, ${failed.length} failed — ${failed.join('; ')}` })
-    else { onDone({ tone: 'green', text: `${made} booth${made === 1 ? '' : 's'} created.` }); setText('') }
+    if (failed.length) onDone({ tone: 'amber', text: t('booths.bulkFailed', { made, failed: failed.length, detail: failed.join('; ') }) })
+    else { onDone({ tone: 'green', text: t('booths.bulkDone', { count: made }) }); setText('') }
   }
 
   return (
     <details className="reveal-host card mt-4">
-      <summary className="cursor-pointer rounded-lg transition hover:text-ink"><span className="stamp-text text-ink-soft">Bulk: paste a list of booths</span></summary>
+      <summary className="cursor-pointer rounded-lg transition hover:text-ink"><span className="stamp-text text-ink-soft">{t('booths.bulk')}</span></summary>
       <p className="mt-2 text-xs text-ink-soft">
-        One booth per line: <code>name, host unit, location, zone</code>, with an optional fifth column for points.
-        Zone is <code>entrance</code>, <code>middle</code> or <code>far</code> ({zonePoints.entrance} / {zonePoints.middle} / {zonePoints.far} points by default). Badges, days and the prize-desk flag are set on the cards afterwards.
+        {t('booths.bulkLine')} <code>name, host unit, location, zone</code>{t('booths.bulkCols')}
+        {t('booths.bulkZone')} <code>entrance</code>, <code>middle</code>, <code>far</code> {t('booths.bulkZoneAfter', { entrance: zonePoints.entrance, middle: zonePoints.middle, far: zonePoints.far })}
       </p>
-      <textarea className="field mt-2 font-mono text-xs" rows={5} value={text} onChange={(e) => setText(e.target.value)} disabled={busy} aria-label="Booth list"
+      <textarea className="field mt-2 font-mono text-xs" rows={5} value={text} onChange={(e) => setText(e.target.value)} disabled={busy} aria-label={t('booths.bulkAria')}
         placeholder={'School of Law, School of Law, Hall A · Row 1, entrance\nOffice of International Affairs, OIA, Hall B · Stage, far, 25'} />
       <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
-        <button className="btn-primary" disabled={busy || rows.length === 0 || bad.length > 0} onClick={run}>{busy ? progress : `Create ${rows.length} booth${rows.length === 1 ? '' : 's'}`}</button>
-        {bad.length > 0 && <span className="text-xs text-danger-text">{bad.length} line{bad.length === 1 ? '' : 's'} need a name and a zone of entrance / middle / far: {bad.slice(0, 2).map((r) => `“${r.line}”`).join(', ')}</span>}
+        <button className="btn-primary" disabled={busy || rows.length === 0 || bad.length > 0} onClick={run}>{busy ? progress : t('booths.bulkCreate', { count: rows.length })}</button>
+        {bad.length > 0 && <span className="text-xs text-danger-text">{t('booths.bulkBad', { count: bad.length, lines: bad.slice(0, 2).map((r) => `“${r.line}”`).join(', ') })}</span>}
       </div>
     </details>
   )
@@ -318,6 +322,7 @@ function BulkImport({ zonePoints, onDone }: { zonePoints: Record<Zone, number>; 
 function OrganizerPanel({ booth, organizer, pending, onMsg }: {
   booth: Row; organizer: (UserDoc & { id: string }) | null; pending: (InviteDoc & { id: string }) | null; onMsg: (m: Msg) => void
 }) {
+  const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -332,7 +337,7 @@ function OrganizerPanel({ booth, organizer, pending, onMsg }: {
       const r = await api.inviteOrganizer({ invites: [{ name: name.trim(), email: email.trim(), boothId: booth.id }] })
       const res = r.results[0]
       setLink(res.link ?? null)
-      onMsg(res.mailed ? { tone: 'green', text: `Invitation emailed to ${res.email}.` } : { tone: 'amber', text: `Email is not configured — copy the link under ${booth.nameEn} and send it yourself.` })
+      onMsg(res.mailed ? { tone: 'green', text: t('booths.mailed', { email: res.email }) } : { tone: 'amber', text: t('booths.mailOff', { name: booth.nameEn }) })
       setOpen(false); setName(''); setEmail('')
     } catch (err) { onMsg({ tone: 'red', text: errorMessage(err) }) } finally { setBusy(false) }
   }
@@ -343,7 +348,7 @@ function OrganizerPanel({ booth, organizer, pending, onMsg }: {
     try {
       const r = await api.resendInvite({ inviteId: pending.id })
       setLink(r.link ?? null)
-      onMsg(r.mailed ? { tone: 'green', text: `Re-sent to ${pending.email}.` } : { tone: 'amber', text: `New link ready under ${booth.nameEn} — copy it. The old link no longer works.` })
+      onMsg(r.mailed ? { tone: 'green', text: t('booths.resent', { email: pending.email }) } : { tone: 'amber', text: t('booths.resentLink', { name: booth.nameEn }) })
     } catch (err) { onMsg({ tone: 'red', text: errorMessage(err) }) } finally { setBusy(false) }
   }
 
@@ -353,31 +358,31 @@ function OrganizerPanel({ booth, organizer, pending, onMsg }: {
         <div className="flex items-center gap-2">
           <span className="inline-block h-2 w-2 rounded-full bg-success" aria-hidden />
           <span className="truncate"><b>{organizer.displayName}</b>{organizer.contact ? ` · ${organizer.contact}` : ''}</span>
-          <span className="ml-auto text-ink-soft">organizer</span>
+          <span className="ml-auto text-ink-soft">{t('booths.organizer')}</span>
         </div>
       ) : pending ? (
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-block h-2 w-2 rounded-full bg-warn" aria-hidden />
-          <span className="truncate">Invited <b>{pending.displayName}</b> · {pending.email} · {pending.status}</span>
-          <button className="btn-quiet btn-sm ml-auto" disabled={busy} onClick={resend}>Resend</button>
+          <span className="truncate">{t('booths.invited')} <b>{pending.displayName}</b> · {pending.email} · {pending.status}</span>
+          <button className="btn-quiet btn-sm ml-auto" disabled={busy} onClick={resend}>{t('booths.resend')}</button>
         </div>
       ) : open ? (
         <form onSubmit={invite} className="flex flex-wrap items-center gap-2">
-          <input className="field w-36 py-1.5" placeholder="Name" aria-label="Organizer name" required value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-          <input className="field flex-1 py-1.5" placeholder="Email" aria-label="Organizer email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          <button className="btn-primary py-1.5" disabled={busy}>{busy ? 'Sending…' : 'Send'}</button>
-          <button type="button" className="btn-ghost py-1.5" onClick={() => setOpen(false)}>Cancel</button>
+          <input className="field w-36 py-1.5" placeholder={t('booths.name')} aria-label={t('booths.organizerName')} required value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          <input className="field flex-1 py-1.5" placeholder={t('booths.email')} aria-label={t('booths.organizerEmail')} type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <button className="btn-primary py-1.5" disabled={busy}>{t(busy ? 'booths.sending' : 'booths.send')}</button>
+          <button type="button" className="btn-ghost py-1.5" onClick={() => setOpen(false)}>{t('booths.cancel')}</button>
         </form>
       ) : (
         <div className="flex items-center gap-2">
           <span className="inline-block h-2 w-2 rounded-full bg-ink/30" aria-hidden />
-          <span className="text-ink-soft">No organizer yet</span>
-          <button className="btn-quiet btn-sm ml-auto" onClick={() => setOpen(true)}>Invite organizer</button>
+          <span className="text-ink-soft">{t('booths.noOrganizer')}</span>
+          <button className="btn-quiet btn-sm ml-auto" onClick={() => setOpen(true)}>{t('booths.inviteOrganizer')}</button>
         </div>
       )}
       {link && (
         <div className="mt-2 flex items-center gap-2">
-          <input ref={ref} readOnly className="field flex-1 py-1 font-mono text-[11px]" value={link} onFocus={(e) => e.currentTarget.select()} aria-label="Invitation link" />
+          <input ref={ref} readOnly className="field flex-1 py-1 font-mono text-[11px]" value={link} onFocus={(e) => e.currentTarget.select()} aria-label={t('booths.inviteLink')} />
           <CopyButton text={link} inputRef={ref} />
         </div>
       )}

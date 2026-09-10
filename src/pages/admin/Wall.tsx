@@ -7,6 +7,7 @@ import { ms, useBooths, useBoothStats, useBuckets, useCollection, useEvent, useE
 import { Crest, DataErrors, Icon, fmt } from '../../components/ui'
 import { fullscreenElement, isStandalone, onFullscreenChange, requestFullscreen } from '../../lib/fullscreen'
 import { StageGround } from '../../components/OrganizerPage'
+import { useLocale } from '../../lib/locale'
 import type { DrawName } from './Draw'
 
 /** How long the draw holds the screen before the live stats come back. */
@@ -16,6 +17,7 @@ const SUSPENSE_MS = 1600
 
 /** §6.1 — presentation mode for a hall screen: dark navy, oversized figures, auto-rotating. */
 export default function Wall() {
+  const { t } = useLocale()
   const ev = useEventStats()
   const event = useEvent()
   const booths = useBooths()
@@ -61,17 +63,18 @@ export default function Wall() {
   // Full screen is an explicit button (and the F key), not a click anywhere: the old page-wide
   // handler gave no hint it existed and threw an unhandled rejection when the browser refused.
   // Same story as the booth screen: an iPad shown the hall screen has no Fullscreen API on iOS
-  // before iPadOS 13, and an iPhone never does. Admin-only, so these stay English.
+  // before iPadOS 13, and an iPhone never does. Two of the three hints are the booth screen's
+  // own, reused rather than reworded.
   const [fs, setFs] = useState(() => !!fullscreenElement() || isStandalone())
   const [hint, setHint] = useState<string | null>(null)
   useEffect(() => onFullscreenChange(() => setFs(!!fullscreenElement() || isStandalone())), [])
   const goFull = useCallback(async () => {
     const failure = await requestFullscreen()
     setHint(failure === null ? null
-      : failure === 'ios' ? 'iPhone and iPad cannot go full screen from inside Safari. Tap Share, then “Add to Home Screen”, and open the hall screen from that icon.'
-      : failure === 'unsupported' ? 'Full screen is not available in this browser — press F11.'
-      : 'Full screen was blocked — press F11 (⌃⌘F on a Mac).')
-  }, [])
+      : failure === 'ios' ? t('wall.fsIos')
+      : failure === 'unsupported' ? t('booth.fsUnavailable')
+      : t('booth.fsBlocked'))
+  }, [t])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey) goFull() }
     window.addEventListener('keydown', onKey)
@@ -98,7 +101,7 @@ export default function Wall() {
             first and utility goes last. */}
         <div>
           <img src="/brand/logo-festival.webp" alt={event.nameEn} className="h-[9vh] w-auto" />
-          <h1 className="mt-[1.5vh] text-[3vw] font-bold leading-none">Passport live</h1>
+          <h1 className="mt-[1.5vh] text-[3vw] font-bold leading-none">{t('wall.title')}</h1>
         </div>
         {/*
          * Both controls disappear in full screen, which is the state this screen spends the
@@ -116,7 +119,7 @@ export default function Wall() {
           {!fs && (
             <div className="flex items-center gap-[0.8vw]">
               <Link to="/admin" className="btn-quiet inline-flex items-center gap-[0.5vw] px-[1.2vw] py-[0.7vh] text-[1.1vw]">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-[1.1vw] w-[1.1vw]"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>Admin console
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-[1.1vw] w-[1.1vw]"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>{t('wall.adminConsole')}
               </Link>
               <button className="btn-quiet inline-flex items-center gap-[0.5vw] px-[1.2vw] py-[0.7vh] text-[1.1vw]" onClick={goFull}>
                 {Icon.fullscreen}Full screen
@@ -129,12 +132,12 @@ export default function Wall() {
       {reveal ? (
         <section className="flex flex-1 flex-col items-center justify-center text-center">
           <div className="stamp-text text-[1.4vw] text-action">
-            {suspense ? 'Drawing' : reveal.names.length === 1 ? 'Winner' : 'Winners'}
+            {t(suspense ? 'wall.drawing' : reveal.names.length === 1 ? 'wall.winner' : 'wall.winners')}
           </div>
           {suspense ? (
             <Crest className="mt-[5vh] h-[16vw] w-[16vw] animate-pulse text-action" />
           ) : reveal.names.length === 0 ? (
-            <p className="mt-[6vh] text-[3vw] text-ink-soft">Nobody was eligible.</p>
+            <p className="mt-[6vh] text-[3vw] text-ink-soft">{t('wall.nobodyEligible')}</p>
           ) : (
             <>
               <ol className="mt-[4vh] flex flex-col gap-[3vh]">
@@ -153,7 +156,7 @@ export default function Wall() {
       ) : (
       <>
       <section className="mt-[3vh] grid shrink-0 grid-cols-3 gap-[2vw]">
-        {[['Visitors', ev.totals.visitors], ['Stamps', ev.totals.stamps], ['Prizes', ev.totals.redeemed]].map(([l, v]) => (
+        {[[t('wall.visitors'), ev.totals.visitors], [t('wall.stamps'), ev.totals.stamps], [t('wall.prizes'), ev.totals.redeemed]].map(([l, v]) => (
           <div key={l as string} className="glass p-[2vw]"><div className="fig text-[7vw] leading-none text-action">{fmt(v as number)}</div><div className="stamp-text mt-[1vh] text-[1.2vw] text-ink-soft">{l as string}</div></div>
         ))}
       </section>
@@ -186,8 +189,8 @@ export default function Wall() {
       </>
       )}
       <footer className="stamp-text mt-[2vh] flex shrink-0 items-center justify-between gap-4 text-[1vw] text-ink-soft">
-        <span>Scan the QR at the welcome sign to start your passport · mfupassport.web.app</span>
-        <span>{hint ?? (fs ? 'Esc leaves full screen' : 'Press F for full screen')}</span>
+        <span>{t('wall.footerScan')}</span>
+        <span>{hint ?? t(fs ? 'wall.escLeaves' : 'wall.pressF')}</span>
       </footer>
     </main>
     </>

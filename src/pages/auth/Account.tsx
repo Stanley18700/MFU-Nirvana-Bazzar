@@ -9,7 +9,7 @@ import { ms, useDoc } from '../../lib/data'
 import { BackLink, Notice, Spinner } from '../../components/ui'
 import { FestivalBackdrop } from './parts'
 import { useLocale } from '../../lib/locale'
-import { ROLE_LABEL } from '../../lib/labels'
+import { useLabels } from '../../lib/labels'
 
 const MIN_PASSWORD = 8
 
@@ -128,6 +128,7 @@ function Identity({ name, passportNo, role, email, className = '' }: {
   email: string | null
   className?: string
 }) {
+  const { ROLE_LABEL } = useLabels()
   const body = (
     <>
       <div className="stamp-text text-sky-100">Mae Fah Luang University</div>

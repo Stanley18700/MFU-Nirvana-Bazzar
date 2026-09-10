@@ -8,6 +8,7 @@ import { Notice, Toast, fmt, type Msg } from '../../components/ui'
 import { ts } from '../../lib/eventText'
 import { Select } from '../../components/Select'
 import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
+import { useLocale } from '../../lib/locale'
 
 /**
  * A field's label. Sentence case, not the uppercase eyebrow it used to be: `stamp-text` is 10px at
@@ -21,6 +22,7 @@ function L({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string 
 
 /** §6.5 / §6.7 — policy is data; stock is only ever adjusted with a reason. */
 export default function Prizes() {
+  const { t } = useLocale()
   const tiers = useTiers()
   /*
    * The listener's own state, not just its rows. An empty booth list means "still arriving" on the
@@ -56,16 +58,19 @@ export default function Prizes() {
 
   useEffect(() => {
     if (!tiers.length) return
-    const fresh = tiers.map((t) => ({ id: t.id, name: t.name, thresholdPoints: t.thresholdPoints, reward: t.reward, grantsDrawEntry: t.grantsDrawEntry, active: t.active, outOfStockNoteEn: t.outOfStockNoteEn ?? '' }))
+    const fresh = tiers.map((x) => ({ id: x.id, name: x.name, thresholdPoints: x.thresholdPoints, reward: x.reward, grantsDrawEntry: x.grantsDrawEntry, active: x.active, outOfStockNoteEn: x.outOfStockNoteEn ?? '' }))
     const key = JSON.stringify(fresh)
     if (!dirty) { setRows(fresh); seeded.current = key; setRemoteChanged(false) }
     else if (seeded.current && key !== seeded.current) setRemoteChanged(true)
   }, [tiers, dirty])
 
   const set = (i: number, patch: Partial<TierInput>) => { setDirty(true); setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r))) }
-  const removed = tiers.filter((t) => t.active && !rows.some((r) => r.id === t.id))
+  const removed = tiers.filter((x) => x.active && !rows.some((r) => r.id === x.id))
   // An emptied number field used to save as 0. Every row must have a name and a threshold of at least 1.
-  const rowProblems = rows.map((r) => !r.name.trim() ? 'needs a name' : !(r.thresholdPoints >= 1) ? 'needs a threshold of at least 1' : (!floorLoading && r.thresholdPoints > available) ? `needs ${r.thresholdPoints} points but only ${available} are on the floor` : null)
+  const rowProblems = rows.map((r) => !r.name.trim() ? t('prizes.needsName')
+    : !(r.thresholdPoints >= 1) ? t('prizes.needsThreshold')
+    : (!floorLoading && r.thresholdPoints > available) ? t('prizes.tooHigh', { points: r.thresholdPoints, available })
+    : null)
   const valid = rows.length > 0 && rowProblems.every((p) => !p)
 
   async function save(dryRun: boolean) {
@@ -73,8 +78,8 @@ export default function Prizes() {
     try {
       const r = await api.savePrizePolicy({ tiers: rows, dryRun })
       setPreview(r.preview)
-      if (!dryRun) { setDirty(false); setMsg({ tone: 'green', text: 'Policy saved. Lowered thresholds unlocked immediately; raised ones revoked nothing.' }) }
-      else setMsg({ tone: 'amber', text: 'Preview only — nothing saved. The effect is shown under each tier.' })
+      if (!dryRun) { setDirty(false); setMsg({ tone: 'green', text: t('prizes.saved') }) }
+      else setMsg({ tone: 'amber', text: t('prizes.previewOnly') })
     } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(null) }
   }
 
@@ -87,39 +92,39 @@ export default function Prizes() {
     try {
       await api.adjustStock({ tierId: adjust.tierId, delta: deltaNum, reason: adjust.reason.trim(), kind: adjust.kind })
       setAdjust({ tierId: '', delta: '', reason: '', kind: 'restock' })
-      setMsg({ tone: 'green', text: `Stock adjusted by ${deltaNum > 0 ? '+' : ''}${deltaNum} and logged.` })
+      setMsg({ tone: 'green', text: t('prizes.adjusted', { delta: `${deltaNum > 0 ? '+' : ''}${deltaNum}` }) })
     } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(null) }
   }
 
   async function doVoid() {
-    const tier = tiers.find((t) => t.id === voidForm.tierId)
-    if (!window.confirm(`Void ${tier?.name ?? 'this tier'} for visitor ${voidForm.visitorId.trim()}? The item returns to stock and the visitor can collect again.`)) return
+    const tier = tiers.find((x) => x.id === voidForm.tierId)
+    if (!window.confirm(t('prizes.voidConfirm', { tier: tier?.name ?? t('prizes.voidThisTier'), uid: voidForm.visitorId.trim() }))) return
     setMsg(null); setBusy('void')
-    try { await api.voidRedemption({ ...voidForm, visitorId: voidForm.visitorId.trim(), reason: voidForm.reason.trim() }); setVoidForm({ visitorId: '', tierId: '', reason: '' }); setMsg({ tone: 'green', text: 'Redemption voided; item returned to stock.' }) } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(null) }
+    try { await api.voidRedemption({ ...voidForm, visitorId: voidForm.visitorId.trim(), reason: voidForm.reason.trim() }); setVoidForm({ visitorId: '', tierId: '', reason: '' }); setMsg({ tone: 'green', text: t('prizes.voided') }) } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(null) }
   }
 
   return (
     <div className="page-in">
       <Toast msg={msg} onClose={() => setMsg(null)} />
-      <h1 className="text-2xl font-bold">Prizes & stock</h1>
-      <p className="mt-1 text-sm text-ink-soft">{floorLoading ? 'Counting the points on the floor…' : <>{available} points are on the floor across {booths.length} active booths. A threshold above that is refused, and one within 10 of it is flagged.</>}</p>
+      <h1 className="text-2xl font-bold">{t('prizes.title')}</h1>
+      <p className="mt-1 text-sm text-ink-soft">{floorLoading ? t('prizes.counting') : t('prizes.floor', { points: available, booths: booths.length })}</p>
       {remoteChanged && (
         <div className="mt-3">
           <Notice tone="amber">
-            Another admin changed the prize policy while you were editing.{' '}
-            <button className="btn-quiet btn-sm mx-1" onClick={() => setDirty(false)}>Discard my edits</button> to load theirs, or save to overwrite.
+            {t('prizes.remoteChanged')}{' '}
+            <button className="btn-quiet btn-sm mx-1" onClick={() => setDirty(false)}>{t('prizes.discardMine')}</button> {t('prizes.thenLoad')}
           </Notice>
         </div>
       )}
 
       <section className="card mt-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="stamp-text text-ink-soft">Tiers</h2>
-          {dirty && <span className="text-xs text-warn-text">Unsaved changes</span>}
+          <h2 className="stamp-text text-ink-soft">{t('prizes.tiers')}</h2>
+          {dirty && <span className="text-xs text-warn-text">{t('prizes.unsaved')}</span>}
         </div>
         <div className="mt-4">
           {rows.map((r, i) => {
-            const t = tiers.find((x) => x.id === r.id)
+            const live = tiers.find((x) => x.id === r.id)
             const warn = !floorLoading && r.thresholdPoints > available - 10
             const problem = rowProblems[i]
             const key = String(r.id ?? i)
@@ -148,53 +153,53 @@ export default function Prizes() {
                     button inside it: Remove lives in the body, where a destructive action belongs
                     rather than one slip away from a row you only meant to open. */}
                 <summary className="press-row -mx-2 flex cursor-pointer list-none flex-wrap items-baseline gap-x-4 gap-y-1 rounded-xl px-2 py-1.5 hover:bg-ink/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700/40">
-                  <h3 className="min-w-0 flex-1 truncate text-base font-semibold">{r.name.trim() || <span className="text-ink-soft">New tier</span>}</h3>
-                  {Number.isFinite(r.thresholdPoints) && <span className="text-sm tabular-nums text-ink-soft">{r.thresholdPoints} points</span>}
-                  {r.grantsDrawEntry && <span className="rounded-full bg-foil/25 px-2 py-0.5 text-[11px] font-medium">Draw entry</span>}
-                  {t && <span className="text-sm"><span className="fig text-lg">{fmt(t.stockRemaining)}</span> <span className="text-ink-soft">of {fmt(t.stockTotal)} left</span></span>}
+                  <h3 className="min-w-0 flex-1 truncate text-base font-semibold">{r.name.trim() || <span className="text-ink-soft">{t('prizes.newTier')}</span>}</h3>
+                  {Number.isFinite(r.thresholdPoints) && <span className="text-sm tabular-nums text-ink-soft">{t('prizes.nPoints', { n: r.thresholdPoints })}</span>}
+                  {r.grantsDrawEntry && <span className="rounded-full bg-foil/25 px-2 py-0.5 text-[11px] font-medium">{t('prizes.drawEntry')}</span>}
+                  {live && <span className="text-sm"><span className="fig text-lg">{fmt(live.stockRemaining)}</span> <span className="text-ink-soft">{t('prizes.ofLeft', { total: fmt(live.stockTotal) })}</span></span>}
                   <span aria-hidden className="w-4 shrink-0 text-right text-[10px] text-ink-soft transition-transform duration-150 [[open]_&]:rotate-180">▾</span>
                 </summary>
 
                 <div className="pt-3">
                   <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1.6fr)]">
-                    <div><L htmlFor={`${id}-name`}>Name</L><input id={`${id}-name`} className="field" value={r.name} onChange={(e) => set(i, { name: e.target.value })} placeholder="Explorer" /></div>
+                    <div><L htmlFor={`${id}-name`}>{t('prizes.name')}</L><input id={`${id}-name`} className="field" value={r.name} onChange={(e) => set(i, { name: e.target.value })} placeholder={t('prizes.namePlaceholder')} /></div>
                     <div>
-                      <L htmlFor={`${id}-pts`}>Unlocks at</L>
+                      <L htmlFor={`${id}-pts`}>{t('prizes.unlocksAt')}</L>
                       <div className="flex items-center gap-2">
                         <input id={`${id}-pts`} className={`field w-24 ${warn || problem ? 'border-warn' : ''}`} type="number" min={1} value={Number.isFinite(r.thresholdPoints) ? r.thresholdPoints : ''} onChange={(e) => set(i, { thresholdPoints: e.target.value === '' ? NaN : Number(e.target.value) })} />
-                        <span className="text-sm text-ink-soft">points</span>
+                        <span className="text-sm text-ink-soft">{t('prizes.points')}</span>
                       </div>
                       {/* A warn-coloured border and nothing else leaves the reason to colour alone. */}
-                      {warn && !problem && <div className="mt-1 text-xs text-warn-text">Within 10 of the {available} on the floor.</div>}
-                      {preview && r.id && preview[r.id] > 0 && <div className="mt-1 text-xs text-warn-text">Unlocks for {preview[r.id]} visitors.</div>}
+                      {warn && !problem && <div className="mt-1 text-xs text-warn-text">{t('prizes.within10', { points: available })}</div>}
+                      {preview && r.id && preview[r.id] > 0 && <div className="mt-1 text-xs text-warn-text">{t('prizes.unlocksFor', { count: preview[r.id] })}</div>}
                     </div>
-                    <div className="sm:col-span-2 lg:col-span-1"><L htmlFor={`${id}-reward`}>Reward</L><input id={`${id}-reward`} className="field" value={r.reward} onChange={(e) => set(i, { reward: e.target.value })} placeholder="Tote bag" /></div>
+                    <div className="sm:col-span-2 lg:col-span-1"><L htmlFor={`${id}-reward`}>{t('prizes.reward')}</L><input id={`${id}-reward`} className="field" value={r.reward} onChange={(e) => set(i, { reward: e.target.value })} placeholder={t('prizes.rewardPlaceholder')} /></div>
                   </div>
 
-                  {!t && (
-                    <div className="mt-3"><L htmlFor={`${id}-stock`}>Initial stock</L>
+                  {!live && (
+                    <div className="mt-3"><L htmlFor={`${id}-stock`}>{t('prizes.initialStock')}</L>
                       <input id={`${id}-stock`} className="field w-32" type="number" min={0} value={r.stockTotal ?? ''} onChange={(e) => set(i, { stockTotal: e.target.value === '' ? undefined : Math.max(0, Number(e.target.value)) })} />
                     </div>
                   )}
 
                   <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-                    <label className="flex items-center gap-2"><input type="checkbox" checked={!!r.grantsDrawEntry} onChange={(e) => set(i, { grantsDrawEntry: e.target.checked })} />Stage draw entry</label>
-                    {!showNote && <button type="button" className="btn-quiet btn-sm" onClick={() => setNoteOpen({ ...noteOpen, [key]: true })}>Add a sold-out message</button>}
+                    <label className="flex items-center gap-2"><input type="checkbox" checked={!!r.grantsDrawEntry} onChange={(e) => set(i, { grantsDrawEntry: e.target.checked })} />{t('prizes.stageDrawEntry')}</label>
+                    {!showNote && <button type="button" className="btn-quiet btn-sm" onClick={() => setNoteOpen({ ...noteOpen, [key]: true })}>{t('prizes.addNote')}</button>}
                   </div>
 
                   {showNote && (
                     <div className="mt-3">
-                      <L htmlFor={`${id}-note`}>Shown to visitors once it runs out</L>
-                      <input id={`${id}-note`} className="field" value={r.outOfStockNoteEn ?? ''} onChange={(e) => set(i, { outOfStockNoteEn: e.target.value })} placeholder="e.g. Collect from the information desk after 15:00" />
+                      <L htmlFor={`${id}-note`}>{t('prizes.noteLabel')}</L>
+                      <input id={`${id}-note`} className="field" value={r.outOfStockNoteEn ?? ''} onChange={(e) => set(i, { outOfStockNoteEn: e.target.value })} placeholder={t('prizes.notePlaceholder')} />
                     </div>
                   )}
 
-                  {problem && <div className="mt-2 text-xs text-danger-text">{r.name || 'This tier'} {problem}.</div>}
+                  {problem && <div className="mt-2 text-xs text-danger-text">{r.name || t('prizes.thisTier')} {problem}.</div>}
 
                   <div className="mt-4 flex justify-end">
                     {/* Dropping a row deactivates the tier on save (§6.7) — unlock history is never deleted. */}
                     <button type="button" className="btn-danger-soft btn-sm" onClick={() => { setDirty(true); setRows(rows.filter((_, j) => j !== i)) }}>
-                      Remove{t ? ' on save' : ''}
+                      {t(live ? 'prizes.removeOnSave' : 'prizes.remove')}
                     </button>
                   </div>
                 </div>
@@ -204,59 +209,59 @@ export default function Prizes() {
           {/* The rows no longer sit in a flex gap, so this needs its own clearance. */}
           {removed.length > 0 && (
             <div className="mt-5"><Notice tone="amber">
-              {removed.map((t) => t.name).join(', ')} will be deactivated when you save. Visitors who already unlocked {removed.length === 1 ? 'it' : 'them'} keep the unlock.{' '}
-              <button className="btn-quiet btn-sm ml-1" onClick={() => setDirty(false)}>Discard changes</button>
+              {t(removed.length === 1 ? 'prizes.willDeactivateOne' : 'prizes.willDeactivateMany', { names: removed.map((x) => x.name).join(', ') })}{' '}
+              <button className="btn-quiet btn-sm ml-1" onClick={() => setDirty(false)}>{t('common.discardChanges')}</button>
             </Notice></div>
           )}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button className="btn-ghost" onClick={() => { setDirty(true); setRows([...rows, { name: '', thresholdPoints: available, reward: '', stockTotal: 0 }]) }}>Add tier</button>
-          <button className="btn-ghost" disabled={!valid || busy !== null} onClick={() => save(true)}>{busy === 'preview' ? 'Checking…' : 'Preview effect'}</button>
-          <button className="btn-primary" disabled={!valid || busy !== null || !dirty} onClick={() => save(false)}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
-          {dirty && <button className="btn-ghost" disabled={busy !== null} onClick={() => setDirty(false)}>Discard changes</button>}
+          <button className="btn-ghost" onClick={() => { setDirty(true); setRows([...rows, { name: '', thresholdPoints: available, reward: '', stockTotal: 0 }]) }}>{t('prizes.addTier')}</button>
+          <button className="btn-ghost" disabled={!valid || busy !== null} onClick={() => save(true)}>{t(busy === 'preview' ? 'prizes.checking' : 'prizes.previewEffect')}</button>
+          <button className="btn-primary" disabled={!valid || busy !== null || !dirty} onClick={() => save(false)}>{t(busy === 'save' ? 'common.saving' : 'common.save')}</button>
+          {dirty && <button className="btn-ghost" disabled={busy !== null} onClick={() => setDirty(false)}>{t('common.discardChanges')}</button>}
         </div>
       </section>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <section className="card">
-          <h2 className="stamp-text text-ink-soft">Adjust stock</h2>
-          <p className="mt-1 text-sm text-ink-soft">Counts are never typed over. Every change is a signed adjustment with a reason, so the closing figures reconcile with what was loaded in.</p>
+          <h2 className="stamp-text text-ink-soft">{t('prizes.adjust')}</h2>
+          <p className="mt-1 text-sm text-ink-soft">{t('prizes.adjustLead')}</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <div><L htmlFor="adj-tier">Tier</L><Select id="adj-tier" ariaLabel="Tier" value={adjust.tierId} onChange={(v) => setAdjust({ ...adjust, tierId: v })} placeholder="— tier —" options={tiers.map((t) => ({ value: t.id, label: t.name }))} /></div>
-            <div><L htmlFor="adj-kind">Kind</L><Select id="adj-kind" ariaLabel="Kind" value={adjust.kind} onChange={(v) => setAdjust({ ...adjust, kind: v as 'restock' | 'correction' })} options={[{ value: 'restock', label: 'Restock (+)' }, { value: 'correction', label: 'Correction (±)' }]} /></div>
-            <div><L htmlFor="adj-delta">Change (whole number, e.g. 50 or -3)</L><input id="adj-delta" className="field" type="number" step={1} value={adjust.delta} onChange={(e) => setAdjust({ ...adjust, delta: e.target.value })} /></div>
-            <div><L htmlFor="adj-reason">Reason (kept in the ledger)</L><input id="adj-reason" className="field" value={adjust.reason} onChange={(e) => setAdjust({ ...adjust, reason: e.target.value })} /></div>
+            <div><L htmlFor="adj-tier">{t('prizes.tier')}</L><Select id="adj-tier" ariaLabel={t('prizes.tier')} value={adjust.tierId} onChange={(v) => setAdjust({ ...adjust, tierId: v })} placeholder={t('prizes.tierPlaceholder')} options={tiers.map((x) => ({ value: x.id, label: x.name }))} /></div>
+            <div><L htmlFor="adj-kind">{t('prizes.kind')}</L><Select id="adj-kind" ariaLabel={t('prizes.kind')} value={adjust.kind} onChange={(v) => setAdjust({ ...adjust, kind: v as 'restock' | 'correction' })} options={[{ value: 'restock', label: t('prizes.restock') }, { value: 'correction', label: t('prizes.correction') }]} /></div>
+            <div><L htmlFor="adj-delta">{t('prizes.delta')}</L><input id="adj-delta" className="field" type="number" step={1} value={adjust.delta} onChange={(e) => setAdjust({ ...adjust, delta: e.target.value })} /></div>
+            <div><L htmlFor="adj-reason">{t('prizes.reasonLedger')}</L><input id="adj-reason" className="field" value={adjust.reason} onChange={(e) => setAdjust({ ...adjust, reason: e.target.value })} /></div>
           </div>
-          <button className="btn-primary mt-3" disabled={!adjustOk || busy !== null} onClick={doAdjust}>{busy === 'adjust' ? 'Applying…' : 'Apply adjustment'}</button>
+          <button className="btn-primary mt-3" disabled={!adjustOk || busy !== null} onClick={doAdjust}>{t(busy === 'adjust' ? 'prizes.applying' : 'prizes.apply')}</button>
           {/* Columns, not `justify-between`: three free-width spans collided, so a long reason ate
               the amount and every row's figures landed somewhere different. */}
-          <h3 className="mt-6 text-xs font-medium text-ink-soft">Recent adjustments</h3>
+          <h3 className="mt-6 text-xs font-medium text-ink-soft">{t('prizes.recent')}</h3>
           <ul className="mt-2 flex flex-col gap-1.5 text-xs">
             {adjustments.map((a) => (
               <li key={a.id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-x-4 border-t rule pt-1.5 first:border-0 first:pt-0">
                 <span className="truncate">
-                  <span className="font-medium">{tiers.find((t) => t.id === a.tierId)?.name ?? a.tierId}</span>
+                  <span className="font-medium">{tiers.find((x) => x.id === a.tierId)?.name ?? a.tierId}</span>
                   <span className="text-ink-soft"> · {a.reason}</span>
                 </span>
                 <span className={`fig tabular-nums ${a.delta < 0 ? 'text-danger-text' : 'text-success-text'}`} title={a.kind}>{a.delta > 0 ? '+' : ''}{a.delta}</span>
                 <span className="whitespace-nowrap tabular-nums text-ink-soft">{ts(a.createdAt)}</span>
               </li>
             ))}
-            {adjustments.length === 0 && <li className="text-ink-soft">No adjustments yet. Stock stands at what the seed loaded in.</li>}
+            {adjustments.length === 0 && <li className="text-ink-soft">{t('prizes.noAdjustments')}</li>}
           </ul>
         </section>
 
         <section className="card">
-          <h2 className="stamp-text text-ink-soft">Void a redemption</h2>
+          <h2 className="stamp-text text-ink-soft">{t('prizes.void')}</h2>
           <p className="mt-1 text-sm text-ink-soft">
-            Returns the item to stock and lets that visitor collect again. Easier from <Link to="/admin/users" className="link">Users</Link>: open the visitor and press <b>Void</b> beside the prize. This form needs the user ID shown there.
+            {t('prizes.voidLeadBefore')} <Link to="/admin/users" className="link">{t('prizes.users')}</Link>{t('prizes.voidLeadAfter')} <b>{t('prizes.voidWord')}</b> {t('prizes.voidLeadEnd')}
           </p>
           <div className="mt-3 grid gap-2">
-            <div><L htmlFor="void-uid">User ID</L><input id="void-uid" className="field font-mono text-xs" value={voidForm.visitorId} onChange={(e) => setVoidForm({ ...voidForm, visitorId: e.target.value })} /></div>
-            <div><L htmlFor="void-tier">Tier</L><Select id="void-tier" ariaLabel="Tier" value={voidForm.tierId} onChange={(v) => setVoidForm({ ...voidForm, tierId: v })} placeholder="— tier —" options={tiers.map((t) => ({ value: t.id, label: t.name }))} /></div>
-            <div><L htmlFor="void-reason">Reason (kept in the audit log)</L><input id="void-reason" className="field" value={voidForm.reason} onChange={(e) => setVoidForm({ ...voidForm, reason: e.target.value })} /></div>
+            <div><L htmlFor="void-uid">{t('prizes.userId')}</L><input id="void-uid" className="field font-mono text-xs" value={voidForm.visitorId} onChange={(e) => setVoidForm({ ...voidForm, visitorId: e.target.value })} /></div>
+            <div><L htmlFor="void-tier">{t('prizes.tier')}</L><Select id="void-tier" ariaLabel={t('prizes.tier')} value={voidForm.tierId} onChange={(v) => setVoidForm({ ...voidForm, tierId: v })} placeholder={t('prizes.tierPlaceholder')} options={tiers.map((x) => ({ value: x.id, label: x.name }))} /></div>
+            <div><L htmlFor="void-reason">{t('prizes.reasonAudit')}</L><input id="void-reason" className="field" value={voidForm.reason} onChange={(e) => setVoidForm({ ...voidForm, reason: e.target.value })} /></div>
           </div>
-          <button className="btn-danger mt-3" disabled={!voidForm.visitorId.trim() || !voidForm.tierId || !voidForm.reason.trim() || busy !== null} onClick={doVoid}>{busy === 'void' ? 'Voiding…' : 'Void redemption…'}</button>
+          <button className="btn-danger mt-3" disabled={!voidForm.visitorId.trim() || !voidForm.tierId || !voidForm.reason.trim() || busy !== null} onClick={doVoid}>{t(busy === 'void' ? 'prizes.voiding' : 'prizes.voidBtn')}</button>
         </section>
       </div>
     </div>

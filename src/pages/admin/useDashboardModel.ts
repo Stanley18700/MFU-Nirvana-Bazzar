@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useBooths, useBoothStats, useBuckets, useEvent, useEventStats, useTiers } from '../../lib/data'
 import { countryName } from '../../lib/countries'
 import type { CsvRow } from '../../lib/csv'
+import type { StringKey } from '../../lib/strings'
 
 /** `'all'` or one of the event's `YYYY-MM-DD` days. */
 export type DaySel = string
@@ -44,9 +45,16 @@ export function useDashboardModel(day: DaySel) {
   const institutions = useMemo(() => Object.entries(ev.totals.byInstitution).sort((a, b) => b[1] - a[1]).slice(0, 10), [ev.totals.byInstitution])
   const schools = useMemo(() => Object.entries(ev.totals.bySchool).sort((a, b) => b[1] - a[1]).slice(0, 10), [ev.totals.bySchool])
   const visitorTypes = VISITOR_TYPES.map((k) => [k, ev.totals.byVisitorType[k] ?? 0] as [string, number])
-  const funnel: Array<[string, number]> = [
-    ['Registered', ev.totals.visitors], ['1+ stamp', ev.totals.visitorsWithStamps],
-    ['Tier reached', ev.totals.tierReached], ['Redeemed', ev.totals.redeemed],
+  /**
+   * A key for the screen and the English for the CSV. The exports are the raw material for the
+   * project report and get opened in Excel next to last year's, so their field values stay
+   * English whatever the console is set to; only what is on screen follows the toggle.
+   */
+  const funnel: Array<{ key: StringKey; en: string; value: number }> = [
+    { key: 'funnel.registered', en: 'Registered', value: ev.totals.visitors },
+    { key: 'funnel.oneStamp', en: '1+ stamp', value: ev.totals.visitorsWithStamps },
+    { key: 'funnel.tierReached', en: 'Tier reached', value: ev.totals.tierReached },
+    { key: 'funnel.redeemed', en: 'Redeemed', value: ev.totals.redeemed },
   ]
 
   // §4.1 — small-count suppression: groups under 5 fold into Other, and the whole panel stays
@@ -72,7 +80,7 @@ export function useDashboardModel(day: DaySel) {
     participation: [
       { metric: 'Thai', value: thai }, { metric: 'International', value: intl },
       ...visitorTypes.map(([k, v]) => ({ metric: k, value: v })),
-      ...funnel.map(([k, v]) => ({ metric: `funnel: ${k}`, value: v })),
+      ...funnel.map((f) => ({ metric: `funnel: ${f.en}`, value: f.value })),
     ] as CsvRow[],
     countries: countries.map(([c, n]) => ({ code: c, country: countryName(c), visitors: n })) as CsvRow[],
     institutions: [

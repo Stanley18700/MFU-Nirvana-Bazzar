@@ -5,6 +5,7 @@ import { useCollection } from '../../lib/data'
 import { CsvButton, fmt } from '../../components/ui'
 import { Select } from '../../components/Select'
 import { ts } from '../../lib/eventText'
+import { useLocale } from '../../lib/locale'
 import type { UserDoc } from '../../../shared/model'
 
 type Row = { actorUid: string; action: string; targetType: string; targetId: string; before: unknown; after: unknown; createdAt: unknown }
@@ -12,6 +13,7 @@ const PAGE = 200
 
 /** §6.2 — every admin mutation, with actor and timestamp. */
 export default function Audit() {
+  const { t } = useLocale()
   const [pageSize, setPageSize] = useState(PAGE)
   const [action, setAction] = useState('')
   const [q, setQ] = useState('')
@@ -35,8 +37,10 @@ export default function Audit() {
   return (
     <div className="page-in">
       <header>
-        <h1 className="text-2xl font-bold">Audit log</h1>
-        <p className="mt-1 text-sm text-ink-soft">Every admin action, newest first. Showing {filtered.length === rows.length ? fmt(rows.length) : `${fmt(filtered.length)} of ${fmt(rows.length)}`}.</p>
+        <h1 className="text-2xl font-bold">{t('audit.title')}</h1>
+        <p className="mt-1 text-sm text-ink-soft">{t('audit.lead', {
+          shown: filtered.length === rows.length ? fmt(rows.length) : t('audit.ofTotal', { shown: fmt(filtered.length), total: fmt(rows.length) }),
+        })}</p>
       </header>
 
       {/*
@@ -46,11 +50,11 @@ export default function Audit() {
         * heading. Width now belongs to the wrapper, which is not a `.field`.
         */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Select className="w-52" ariaLabel="Filter by action" value={action} onChange={setAction}
-          options={[{ value: '', label: 'All actions' }, ...actions.map((a) => ({ value: a, label: a }))]} />
-        <input className="field w-56" placeholder="Search target, actor…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" />
-        <CsvButton className="ml-auto" rows={csvRows} name="audit-log" label="CSV (contains personal data)"
-          confirm="This export includes before/after values from user edits, which contain contact details. Continue?" />
+        <Select className="w-52" ariaLabel={t('audit.filterAction')} value={action} onChange={setAction}
+          options={[{ value: '', label: t('audit.allActions') }, ...actions.map((a) => ({ value: a, label: a }))]} />
+        <input className="field w-56" placeholder={t('audit.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('audit.searchLabel')} />
+        <CsvButton className="ml-auto" rows={csvRows} name="audit-log" label={t('audit.csv')}
+          confirm={t('audit.csvConfirm')} />
       </div>
 
       <div className="card mt-4 overflow-x-auto">
@@ -59,11 +63,11 @@ export default function Audit() {
         <table className="w-full min-w-[54rem] border-separate border-spacing-0 text-sm">
           <thead>
             <tr className="stamp-text text-left text-[10px] text-ink-soft">
-              <th className="px-3 pb-2 font-medium">When</th>
-              <th className="px-3 pb-2 font-medium">Action</th>
-              <th className="px-3 pb-2 font-medium">Target</th>
-              <th className="px-3 pb-2 font-medium">Actor</th>
-              <th className="px-3 pb-2 text-right font-medium">Change</th>
+              <th className="px-3 pb-2 font-medium">{t('audit.when')}</th>
+              <th className="px-3 pb-2 font-medium">{t('audit.action')}</th>
+              <th className="px-3 pb-2 font-medium">{t('audit.target')}</th>
+              <th className="px-3 pb-2 font-medium">{t('audit.actor')}</th>
+              <th className="px-3 pb-2 text-right font-medium">{t('audit.change')}</th>
             </tr>
           </thead>
           <tbody>
@@ -81,18 +85,18 @@ export default function Audit() {
                 </td>
                 <td className="border-t rule px-3 py-3 text-right">
                   <details className="reveal-host text-xs">
-                    <summary className="btn-quiet btn-sm inline-flex list-none">diff</summary>
+                    <summary className="btn-quiet btn-sm inline-flex list-none">{t('audit.diff')}</summary>
                     <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-ink/4 p-2 text-left">{JSON.stringify({ before: r.before, after: r.after }, null, 1)}</pre>
                   </details>
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={5} className="border-t rule py-8 text-center text-ink-soft">{rows.length ? 'Nothing matches' : 'Nothing yet'}</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={5} className="border-t rule py-8 text-center text-ink-soft">{t(rows.length ? 'audit.noMatch' : 'audit.none')}</td></tr>}
           </tbody>
         </table>
         {rows.length >= pageSize && (
           <div className="mt-3 text-center">
-            <button className="btn-ghost" onClick={() => setPageSize(pageSize + PAGE)}>Load {PAGE} more</button>
+            <button className="btn-ghost" onClick={() => setPageSize(pageSize + PAGE)}>{t('audit.loadMore', { count: PAGE })}</button>
           </div>
         )}
       </div>

@@ -4,6 +4,7 @@ import { useAuth, useSignOut } from '../lib/auth'
 import { useDismissable } from '../lib/useDismissable'
 import { useLocale } from '../lib/locale'
 import { LangToggle } from './ui'
+import { useLabels } from '../lib/labels'
 
 /** Two letters from a display name, or one from the address — never an image we do not have. */
 function initials(name: string | null | undefined, email: string | null | undefined): string {
@@ -13,7 +14,6 @@ function initials(name: string | null | undefined, email: string | null | undefi
   return (email ?? '?').slice(0, 1).toUpperCase()
 }
 
-const ROLE_LABEL: Record<string, string> = { admin: 'Admin', organizer: 'Booth organizer', visitor: 'Visitor' }
 
 /**
  * Who you are and the way out, in one place, for every role that has a shell to hang it on.
@@ -28,6 +28,7 @@ const ROLE_LABEL: Record<string, string> = { admin: 'Admin', organizer: 'Booth o
 export function AccountMenu({ dark = false, up = false, rail }: { dark?: boolean; up?: boolean; rail?: 'full' | 'icon' }) {
   const { user, profile, role } = useAuth()
   const { t } = useLocale()
+  const { ROLE_LABEL } = useLabels()
   const loc = useLocation()
   const signOut = useSignOut()
   const ref = useRef<HTMLDetailsElement>(null)

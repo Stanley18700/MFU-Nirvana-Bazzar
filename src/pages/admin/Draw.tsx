@@ -5,6 +5,7 @@ import { api, errorMessage } from '../../lib/api'
 import { useCollection, useTiers } from '../../lib/data'
 import { Notice, fmt } from '../../components/ui'
 import { ts } from '../../lib/eventText'
+import { useLocale } from '../../lib/locale'
 import type { TierUnlockDoc } from '../../../shared/model'
 
 export type DrawName = { uid: string; displayName: string; passportNo: string }
@@ -21,6 +22,7 @@ type DrawDoc = { names: DrawName[]; poolSize: number; createdAt: unknown }
  * before the button is pressed and it moves as visitors qualify during the day.
  */
 export default function Draw() {
+  const { t } = useLocale()
   const [count, setCount] = useState<number>(1)
   const countOk = Number.isInteger(count) && count >= 1 && count <= 20
   const [busy, setBusy] = useState(false)
@@ -43,22 +45,20 @@ export default function Draw() {
 
   async function run() {
     if (!countOk) return
-    if (history.length > 0 && !window.confirm(`Draw ${count} more winner${count === 1 ? '' : 's'}? Everyone already drawn stays out, and this is logged as a separate draw.`)) return
+    if (history.length > 0 && !window.confirm(t('draw.confirm', { count }))) return
     setBusy(true); setErr(null)
     try { await api.runDraw({ count }) } catch (e) { setErr(errorMessage(e)) } finally { setBusy(false) }
   }
 
   return (
     <div className="page-in">
-      <h1 className="text-2xl font-bold">Stage draw</h1>
-      <p className="mt-1 text-sm text-ink-soft">
-        Picks at random from visitors holding a tier that grants a draw entry. Everyone already drawn is excluded, and every draw is logged.
-      </p>
+      <h1 className="text-2xl font-bold">{t('draw.title')}</h1>
+      <p className="mt-1 text-sm text-ink-soft">{t('draw.lead')}</p>
 
       {drawTiers.length === 0 ? (
         <div className="mt-4">
           <Notice tone="amber">
-            No tier grants a draw entry yet, so there is nobody to draw from. Tick <b>Stage draw entry</b> on a tier in Prizes &amp; stock.
+            {t('draw.noTierBefore')} <b>{t('draw.noTierTick')}</b> {t('draw.noTierAfter')}
           </Notice>
         </div>
       ) : (
@@ -67,34 +67,34 @@ export default function Draw() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
               <div className="fig text-4xl text-action">{fmt(pool)}</div>
-              <div className="mt-1 text-xs text-ink-soft">in the hat</div>
+              <div className="mt-1 text-xs text-ink-soft">{t('draw.inHat')}</div>
             </div>
             <div>
               <div className="fig text-4xl">{fmt(won.size)}</div>
-              <div className="mt-1 text-xs text-ink-soft">already drawn, excluded</div>
+              <div className="mt-1 text-xs text-ink-soft">{t('draw.alreadyDrawn')}</div>
             </div>
             <div>
               <div className="text-lg font-semibold">{drawTiers.map((t) => t.name).join(', ')}</div>
-              <div className="mt-1 text-xs text-ink-soft">grants the entry</div>
+              <div className="mt-1 text-xs text-ink-soft">{t('draw.grantsEntry')}</div>
             </div>
           </div>
 
           <div className="mt-6 flex flex-wrap items-end gap-3 border-t rule pt-5">
             <label className="text-sm">
-              <span className="mb-1 block text-xs font-medium text-ink-soft">Winners</span>
+              <span className="mb-1 block text-xs font-medium text-ink-soft">{t('draw.winners')}</span>
               <input type="number" min={1} max={20} className={`field w-24 ${countOk ? '' : 'border-danger'}`}
                 value={Number.isFinite(count) ? count : ''} onChange={(e) => setCount(e.target.value === '' ? NaN : Number(e.target.value))} />
             </label>
             <button className="btn-gold px-8 py-3 text-lg" onClick={run} disabled={busy || !countOk || pool === 0}>
-              {busy ? 'Drawing…' : 'Draw'}
+              {t(busy ? 'draw.drawing' : 'draw.draw')}
             </button>
             <p className="flex-1 text-xs text-ink-soft">
-              The reveal plays on the{' '}
-              <a href="/admin/wall" target="_blank" rel="noreferrer" className="link">hall screen ↗</a>, which takes over from the live stats for a minute and then returns to them.
+              {t('draw.revealBefore')}{' '}
+              <a href="/admin/wall" target="_blank" rel="noreferrer" className="link">{t('draw.revealLink')}</a>{t('draw.revealAfter')}
             </p>
           </div>
-          {!countOk && <p className="mt-2 text-xs text-warn-text">Choose between 1 and 20 winners.</p>}
-          {pool === 0 && <p className="mt-2 text-xs text-warn-text">Nobody is eligible right now. {won.size > 0 ? 'Everyone who qualified has already been drawn.' : 'No visitor has reached a tier that grants an entry yet.'}</p>}
+          {!countOk && <p className="mt-2 text-xs text-warn-text">{t('draw.range')}</p>}
+          {pool === 0 && <p className="mt-2 text-xs text-warn-text">{t('draw.noneEligible')} {t(won.size > 0 ? 'draw.allDrawn' : 'draw.noneQualified')}</p>}
           {err && <div className="mt-4"><Notice tone="red">{err}</Notice></div>}
         </section>
       )}
@@ -102,7 +102,7 @@ export default function Draw() {
       {/* What the hall is showing, repeated here so the name can be read out from the console. */}
       {last && (
         <section className="card mt-4">
-          <h2 className="stamp-text text-ink-soft">On the hall screen now</h2>
+          <h2 className="stamp-text text-ink-soft">{t('draw.onScreenNow')}</h2>
           <ul className="mt-3 flex flex-col gap-2">
             {last.names.map((n) => (
               <li key={n.uid} className="flex flex-wrap items-baseline justify-between gap-x-4 border-t rule pt-2 first:border-0 first:pt-0">
@@ -110,24 +110,24 @@ export default function Draw() {
                 <span className="font-mono text-sm text-ink-soft">{n.passportNo}</span>
               </li>
             ))}
-            {last.names.length === 0 && <li className="text-sm text-ink-soft">That draw found nobody eligible.</li>}
+            {last.names.length === 0 && <li className="text-sm text-ink-soft">{t('draw.foundNobody')}</li>}
           </ul>
-          <p className="mt-3 text-xs text-ink-soft">Drawn from {fmt(last.poolSize)} entries at {ts(last.createdAt)}.</p>
+          <p className="mt-3 text-xs text-ink-soft">{t('draw.drawnFrom', { count: fmt(last.poolSize), when: ts(last.createdAt) })}</p>
         </section>
       )}
 
       {history.length > 1 && (
         <section className="card mt-4">
-          <h2 className="stamp-text text-ink-soft">Every draw</h2>
+          <h2 className="stamp-text text-ink-soft">{t('draw.everyDraw')}</h2>
           {/* A table, not the comma-joined run-on line this used to be: at a ceremony the question
               is "has this person already won", and that needs one name per row. */}
           <table className="mt-3 w-full text-sm">
             <thead>
               <tr className="stamp-text text-left text-[10px] text-ink-soft">
-                <th className="pb-2 font-medium">When</th>
-                <th className="pb-2 font-medium">Winner</th>
-                <th className="pb-2 font-medium">Passport</th>
-                <th className="pb-2 text-right font-medium">Pool</th>
+                <th className="pb-2 font-medium">{t('audit.when')}</th>
+                <th className="pb-2 font-medium">{t('draw.thWinner')}</th>
+                <th className="pb-2 font-medium">{t('draw.thPassport')}</th>
+                <th className="pb-2 text-right font-medium">{t('draw.thPool')}</th>
               </tr>
             </thead>
             <tbody>
