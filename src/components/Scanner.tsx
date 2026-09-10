@@ -4,7 +4,11 @@ interface Props {
   onResult: (text: string) => void
   paused?: boolean
   className?: string
+  /** What to do instead when there is no camera. The default is the visitor's flow; the prize desk passes its own. */
+  fallback?: string
 }
+
+const VISITOR_FALLBACK = "Type the 6-character code shown under the booth's QR instead."
 
 type Detector = { detect(source: ImageBitmapSource): Promise<Array<{ rawValue: string }>> }
 declare global {
@@ -15,7 +19,7 @@ declare global {
  * §4.3 — camera via BarcodeDetector where available, zxing-wasm otherwise.
  * Reports `permissionDenied` so the parent can show the manual-entry field.
  */
-export function Scanner({ onResult, paused = false, className = '' }: Props) {
+export function Scanner({ onResult, paused = false, className = '', fallback = VISITOR_FALLBACK }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [state, setState] = useState<'starting' | 'live' | 'denied' | 'unavailable'>('starting')
   const lastRef = useRef<{ text: string; at: number }>({ text: '', at: 0 })
@@ -103,12 +107,12 @@ export function Scanner({ onResult, paused = false, className = '' }: Props) {
       {state === 'starting' && <p className="absolute inset-0 grid place-items-center text-sm text-white/80">Starting camera…</p>}
       {state === 'denied' && (
         <p className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-white/90">
-          Camera permission was denied. Type the 6-character code shown under the booth's QR instead.
+          Camera permission was denied. {fallback}
         </p>
       )}
       {state === 'unavailable' && (
         <p className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-white/90">
-          No camera on this device. Type the 6-character code shown under the booth's QR instead.
+          No camera on this device. {fallback}
         </p>
       )}
     </div>

@@ -204,21 +204,28 @@ export default function Survey() {
 
       {/* On glass: this row is at the foot of the page, which is where the campus is brightest, and
           two of its five controls are quiet ones that vanish over a lawn. */}
-      <div className="glass mt-5 flex flex-wrap items-center gap-2 p-3">
-        <button className="btn-primary" onClick={() => save()} disabled={!!busy || !dirty}>
-          {busy === 'save' ? 'Saving…' : 'Save'}
-        </button>
-        <button className="btn-ghost" disabled={!!busy || !dirty}
-          onClick={() => { setLoaded(false); setMsg(null) }}>Discard changes</button>
-        {!published
-          ? <button className="btn-gold" onClick={() => save(true)} disabled={!!busy || problems.length > 0}>Save and publish</button>
-          : <button className="btn-quiet" onClick={togglePublished} disabled={!!busy}>Take it down</button>}
-        <button className="btn-quiet ml-auto" onClick={() => setPreview((p) => !p)} disabled={questions.length === 0}>
-          {preview ? 'Hide preview' : 'Preview'}
-        </button>
-        <button className="btn-danger" onClick={clearAll} disabled={!!busy || (!saved.data && questions.length === 0)}>
-          Remove all questions
-        </button>
+      {/*
+        * Two fixed rows on a phone — the two saves, then the two quiet ones — and one row from
+        * `sm` up (`sm:contents` dissolves the pairs). Five pills left to wrap at 390px landed
+        * in a different order on every survey, with Remove all beside Save; that one now lives
+        * on its own at the foot of the page.
+        */}
+      <div className="glass mt-5 flex flex-col gap-2 p-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex gap-2 sm:contents">
+          <button className="btn-primary flex-1 sm:flex-none" onClick={() => save()} disabled={!!busy || !dirty}>
+            {busy === 'save' ? 'Saving…' : 'Save'}
+          </button>
+          {!published
+            ? <button className="btn-gold flex-1 sm:flex-none" onClick={() => save(true)} disabled={!!busy || problems.length > 0}>Save and publish</button>
+            : <button className="btn-quiet flex-1 sm:flex-none" onClick={togglePublished} disabled={!!busy}>Take it down</button>}
+        </div>
+        <div className="flex gap-2 sm:contents">
+          <button className="btn-ghost flex-1 sm:flex-none" disabled={!!busy || !dirty}
+            onClick={() => { setLoaded(false); setMsg(null) }}>Discard changes</button>
+          <button className="btn-quiet flex-1 sm:ml-auto sm:flex-none" onClick={() => setPreview((p) => !p)} disabled={questions.length === 0}>
+            {preview ? 'Hide preview' : 'Preview'}
+          </button>
+        </div>
       </div>
 
       {preview && questions.length > 0 && (
@@ -230,6 +237,13 @@ export default function Survey() {
           </div>
         </section>
       )}
+
+      {/* Destructive and rare, so last and alone — never a thumb-width from Save. */}
+      <div className="mt-5 flex justify-end">
+        <button className="btn-danger-soft" onClick={clearAll} disabled={!!busy || (!saved.data && questions.length === 0)}>
+          Remove all questions
+        </button>
+      </div>
     </>,
   )
 }
@@ -256,16 +270,18 @@ function QuestionCard({ q, index, count, boothId, onPatch, onRetype, onMove, onD
         <select className="field w-auto" value={q.kind} onChange={(e) => onRetype(e.target.value as QuestionKind)}>
           {QUESTION_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
         </select>
-        <label className="flex items-center gap-1.5 text-sm">
-          <input type="checkbox" checked={q.required} onChange={(e) => onPatch({ required: e.target.checked })} />
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input type="checkbox" className="h-5 w-5" checked={q.required} onChange={(e) => onPatch({ required: e.target.checked })} />
           Required
         </label>
-        {/* Buttons rather than drag: these screens are used on a tablet, one-handed, standing up. */}
-        <div className="ml-auto flex items-center gap-1">
-          <button className="btn-quiet btn-sm" onClick={() => onMove(-1)} disabled={index === 0} aria-label="Move up">↑</button>
-          <button className="btn-quiet btn-sm" onClick={() => onMove(1)} disabled={index === count - 1} aria-label="Move down">↓</button>
+        {/* Buttons rather than drag: these screens are used on a tablet, one-handed, standing up.
+            On a phone the four take a row of their own (`basis-full`) rather than wrapping one
+            at a time; the arrows are icon buttons so the touch bump reaches them. */}
+        <div className="flex basis-full items-center justify-end gap-1 sm:ml-auto sm:basis-auto">
+          <button className="btn-quiet btn-sm btn-icon-sm" onClick={() => onMove(-1)} disabled={index === 0} aria-label="Move up">↑</button>
+          <button className="btn-quiet btn-sm btn-icon-sm" onClick={() => onMove(1)} disabled={index === count - 1} aria-label="Move down">↓</button>
           <button className="btn-quiet btn-sm" onClick={onDuplicate}>Duplicate</button>
-          <button className="btn-sm text-danger-text underline" onClick={onRemove}>Remove</button>
+          <button className="btn-danger-soft btn-sm" onClick={onRemove}>Remove</button>
         </div>
       </div>
 
@@ -286,7 +302,7 @@ function QuestionCard({ q, index, count, boothId, onPatch, onRetype, onMove, onD
                 <span className="w-5 text-xs text-ink-soft tabular-nums">{i + 1}</span>
                 <input className="field" maxLength={200} value={o}
                   onChange={(e) => onPatch({ options: options.map((x, j) => (j === i ? e.target.value : x)) })} />
-                <button className="btn-sm text-danger-text underline" disabled={options.length <= 2}
+                <button className="btn-danger-soft btn-sm btn-icon-sm" disabled={options.length <= 2}
                   onClick={() => onPatch({ options: options.filter((_, j) => j !== i) })} aria-label={`Remove option ${i + 1}`}>✕</button>
               </div>
             ))}
@@ -368,7 +384,7 @@ function ImageField({ boothId, slot, url, onChange, label, onError }: {
 
   if (!url && !open) {
     return (
-      <button type="button" className="mt-2 text-xs underline text-ink-soft" onClick={() => setOpen(true)}>
+      <button type="button" className="btn-quiet btn-sm mt-2" onClick={() => setOpen(true)}>
         + {label}
       </button>
     )
@@ -385,7 +401,7 @@ function ImageField({ boothId, slot, url, onChange, label, onError }: {
             {busy && <span className="text-xs text-ink-soft">Uploading…</span>}
           </div>
         )}
-      <button className="mt-2 text-xs underline text-danger-text" onClick={remove}>
+      <button className="btn-danger-soft btn-sm mt-2" onClick={remove}>
         {url ? 'Remove image' : 'Cancel'}
       </button>
     </div>

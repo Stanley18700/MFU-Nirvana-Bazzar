@@ -66,7 +66,8 @@ export default function BoothStats() {
       </div>
       <DataErrors className="mt-3" />
 
-      <section className="mt-5 grid grid-cols-1 gap-2 xs:grid-cols-3 sm:gap-3">
+      {/* Stacked until `sm`: three `text-4xl` figures across a 390px phone left 74px each. */}
+      <section className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
         <Fig value={fmt(stat?.stamps)} label={t('stats.visitorsStamped')} accent={onStage(booth.accentColor, true)}
           sub={last ? t('stats.lastAt', { time: clock(last) }) : t('stats.noneYet')} />
         <Fig value={stat?.rank ? `#${stat.rank}` : '–'} label={t('booth.rankOf', { count: booths.filter((b) => b.active).length })} />

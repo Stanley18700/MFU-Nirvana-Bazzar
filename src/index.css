@@ -1,6 +1,13 @@
 @import 'tailwindcss';
 
 /*
+ * A kiosk-shaped screen: wide AND tall. `sm:` alone is not it — a phone held sideways is 844px
+ * wide and 390px tall, and every rule that treats it as a table-top display (a fixed stage, a
+ * measured QR, the print button) is wrong there. Same thresholds as `isPhone` in Booth.tsx.
+ */
+@custom-variant kiosk (@media (min-width: 640px) and (min-height: 500px));
+
+/*
  * MFU International Festival 2026 — one theme for the guest app, the booth kiosk and the admin
  * console. Values come from design-system/tokens/*.css (mirrored from the Claude Design project);
  * this block maps them onto Tailwind utility names. Semantic names, not raw scale steps, are what
@@ -162,8 +169,17 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.015em; line-he
   font-family: var(--font-sans);
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  font-size: 0.7rem;
   font-weight: 600;
+}
+/*
+ * Layered, unlike the rest of the recipe, so a `text-[…]` utility can override it. Unlayered CSS
+ * beats every Tailwind utility (layers are compared before specificity), which is what made the
+ * kiosk's `stamp-text text-[0.5em]` labels render at a fixed 11px on every screen size. Same
+ * treatment for `.field`'s width below, for `field w-auto`.
+ */
+@layer components {
+  .stamp-text { font-size: 0.7rem; }
+  .field { width: 100%; }
 }
 .rule { border-color: var(--rule); }
 
@@ -332,15 +348,26 @@ h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.015em; line-he
 
 /* Booth screen must be legible at 3 m (§2.6) — on a kiosk. */
 .booth-screen { font-size: clamp(24px, 2.2vw, 36px); }
-/* On a phone the 24px floor overflows the manual code and the footer; scale with the viewport. */
-@media (max-width: 640px) {
+/*
+ * On a phone the 24px floor overflows the manual code and the footer; scale with the short side of
+ * the viewport instead, in either orientation. The thresholds mirror `isPhone` in Booth.tsx.
+ */
+@media (max-width: 639px) {
   .booth-screen { font-size: clamp(13px, 4.2vw, 22px); }
+}
+@media (max-height: 499px) {
+  .booth-screen { font-size: clamp(13px, 4.2vh, 22px); }
+}
+/* Only a kiosk-shaped screen is a fixed stage the QR is measured against; a phone scrolls. */
+@media (min-width: 640px) and (min-height: 500px) {
+  .booth-screen { overflow: hidden; }
 }
 
 input, select, textarea, button { font: inherit; }
 /* 14px corner, hairline at 28% ink, focus = solid sky-800 border plus a 3px sky ring at 20%. */
+/* Width lives in `@layer components` above, so `field w-auto` / `field w-56` can narrow it. */
 .field {
-  @apply w-full rounded-[14px] border border-ink/28 bg-white px-3.5 py-2.5 text-ink outline-none transition
+  @apply rounded-[14px] border border-ink/28 bg-white px-3.5 py-2.5 text-ink outline-none transition
     placeholder:text-ink-soft/70 focus:border-sky-800 focus:ring-[3px] focus:ring-sky-700/20;
 }
 /*
@@ -367,6 +394,9 @@ input, select, textarea, button { font: inherit; }
 /* On chrome: the kiosk, the desk, the auth screens. */
 .btn-dark { @apply bg-white/14 text-white hover:bg-white/22 focus-visible:ring-foil/60 focus-visible:ring-offset-chrome; }
 .btn-sm { @apply gap-1.5 px-3.5 py-1.5 text-xs; }
+/* The one big primary action on a phone screen — "Show code to visitor", "Next visitor". A recipe
+ * rather than `py-3.5 text-base` on the element, which the unlayered `.btn-*` padding would beat. */
+.btn-lg { @apply gap-2.5 px-6 py-3.5 text-base; }
 /* Square, and exactly as tall as `.btn-sm` (12px padding + a 16px text-xs line), so an icon-only
  * control and a labelled one sit at the same height in one row. */
 .btn-icon-sm { @apply h-7 w-7 shrink-0 p-0; }
@@ -400,6 +430,14 @@ input, select, textarea, button { font: inherit; }
   .seg-item { @apply px-4 py-2.5; }
   .tab { @apply px-4 py-2.5; }
   .menu-item { @apply py-2.5; }
+  /*
+   * A 44px floor as well as the padding: inside `.organizer-bar-lg` the padding is in `em` of a
+   * 12.8px font on a tablet, and `min-*` wins over `inline-size`/`block-size` whatever the order.
+   */
+  .btn-sm, .seg-item, .tab, .menu-item, summary.btn-sm { min-block-size: 2.75rem; }
+  .btn-icon-sm, .btn-icon, .organizer-bar-lg .btn-icon-sm { min-inline-size: 2.75rem; min-block-size: 2.75rem; }
+  /* iOS Safari zooms into any focused field under 16px; a finger never needs `text-sm` density. */
+  .field { font-size: 1rem; }
 }
 
 /*
@@ -576,14 +614,20 @@ details[open] > .pop-up { animation-name: pop-in-up; }
  * a bar in fixed rem sat at 12px next to a 42px title on a hall display. Font-size scales with the
  * viewport and the padding is in `em`, so the controls grow with it in proportion rather than
  * becoming tall thin pills.
+ *
+ * From `sm` up only. On a phone the clamp bottoms out at 12.8px and these two-class selectors beat
+ * the coarse-pointer bumps above, which left every chip in the bar about 30px tall under a thumb.
+ * Below 640px the bar is the ordinary recipe those bumps were written for.
  */
-.organizer-bar-lg { font-size: clamp(0.8rem, 0.95vw, 1.25rem); }
-.organizer-bar-lg .seg-item,
-.organizer-bar-lg .btn-sm,
-.organizer-bar-lg summary { font-size: 1em; padding-inline: 1.1em; padding-block: 0.5em; }
-.organizer-bar-lg .btn-icon-sm { inline-size: 2.4em; block-size: 2.4em; padding: 0; }
-.organizer-bar-lg .btn-icon-sm svg { inline-size: 1.15em; block-size: 1.15em; }
-.organizer-bar-lg .account-avatar { inline-size: 1.7em; block-size: 1.7em; font-size: 0.75em; }
+@media (min-width: 640px) {
+  .organizer-bar-lg { font-size: clamp(0.8rem, 0.95vw, 1.25rem); }
+  .organizer-bar-lg .seg-item,
+  .organizer-bar-lg .btn-sm,
+  .organizer-bar-lg summary { font-size: 1em; padding-inline: 1.1em; padding-block: 0.5em; }
+  .organizer-bar-lg .btn-icon-sm { inline-size: 2.4em; block-size: 2.4em; padding: 0; }
+  .organizer-bar-lg .btn-icon-sm svg { inline-size: 1.15em; block-size: 1.15em; }
+  .organizer-bar-lg .account-avatar { inline-size: 1.7em; block-size: 1.7em; font-size: 0.75em; }
+}
 
 /*
  * The bar is always the top row of the viewport — never nested inside a page's own column, which
@@ -595,7 +639,9 @@ details[open] > .pop-up { animation-name: pop-in-up; }
   position: sticky;
   top: 0;
   z-index: 30;
-  padding-block: 0.625rem;
+  /* `viewport-fit=cover` is on: keep the row under a notch or the status bar when standalone. */
+  padding-block-start: calc(0.625rem + env(safe-area-inset-top, 0px));
+  padding-block-end: 0.625rem;
   /* Frosted, not filled: the wave field runs behind the whole page and the bar is part of it. */
   background: rgb(255 255 255 / 0.62);
   backdrop-filter: blur(20px);

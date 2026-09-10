@@ -97,7 +97,7 @@ Have two visitors with a **Voyager** unlock (100 points) before §4, and one at 
 | O-04 | Open the same link again | "This invitation has already been used" | 12.17 | |
 | O-05 | Admin **Revoke**s an unopened invite, then open its link | "Revoked" | 6.4 | |
 | O-06 | Admin **Resend**s: open the old link, then the new one | Old: invalid. New: works | 6.4 | |
-| O-07 | Booth screen at 3 m | Booth name, QR at least 320 px on the accent ring, manual code below, countdown border | 5.1 | |
+| O-07 | Booth screen at 3 m (tablet or laptop) | Booth name, QR at least 320 px on the accent ring, manual code below, countdown border. On a phone the ring leaves about 280 px at 390 px wide — **Show code to visitor** (O-26) is the full-size view there | 5.1 | |
 | O-08 | Watch for 60 s | QR and code change every 20 s; the border traces the period; the swap animates | 5.2 | |
 | O-09 | Press ⛶ | Full screen and the screen stays awake (no dimming for 5 min) | 5.1 | |
 | O-10 | Turn the device's Wi-Fi off, wait 60 s, have a visitor type the manual code | Dot turns red "Offline — codes still valid"; QR keeps rotating; the code is accepted | 5.2, 12.5 | |
@@ -116,6 +116,10 @@ Have two visitors with a **Voyager** unlock (100 points) before §4, and one at 
 | O-23 | Admin unticks the booth's **Active** and saves | Red banner "switched off by the admin — visitor scans are refused" appears on the booth screen within seconds; re-ticking removes it | 6.3 | |
 | O-24 | Organizer scans a booth QR with their own phone (native camera) | Lands on their booth screen with the line "Staff accounts do not collect stamps" | 4.3 | |
 | O-25 | Hide the booth tab for a minute, then show it | Screen still awake (wake lock re-acquired), codes current, no error | 5.1 | |
+| O-26 | `/booth` on a phone (390 px, portrait) | The page scrolls: header, any notices, QR (about 280 px), manual code, a full-width **Show code to visitor** button, the three figures. No ⛶ or Print in the bar; every chip in the bar is at least 44 px tall; "Rotates in N s" is readable | 5.1 | |
+| O-27 | Press **Show code to visitor** | A white full-bleed view: the QR as large as the screen allows, booth name, manual code, countdown, **Back to booth screen**. The URL gains `?show=1`; the phone's back gesture (or Esc) closes it; on Android Chrome it also goes full screen, on iPhone Safari it does not and shows no F11 hint | 5.1 | |
+| O-28 | Turn the phone sideways (844 × 390) on `/booth` and in Show code | Booth screen still scrolls with nothing under the notices; Show code puts the QR on the left and the code on the right | 5.1 | |
+| O-29 | `/booth/stats`, `/booth/survey`, `/booth/survey/results`, `/redeem` on a phone | Figures stack one per row; no horizontal scroll except inside the responses table; every button at least 44 px tall; focusing any field does not zoom the page (iPhone); Survey's Save row and Discard/Preview row are separate, **Remove all questions** sits alone at the foot | 5.3, 4.4 | |
 
 ## 4. Prize desk (Organizer A at booth-01, then repeat P-03 to P-05 as admin)
 
