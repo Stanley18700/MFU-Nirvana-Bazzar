@@ -1,6 +1,7 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { BackLink, Notice, Spinner } from '../../components/ui'
+import { FestivalBackdrop } from '../auth/parts'
 
 /**
  * §4.4 — `/r/<payload>`: the visitor's redemption QR opened with the phone's native camera
@@ -18,14 +19,16 @@ export default function RedeemLanding() {
   }
 
   // A visitor scanned their own code. Nothing to do here but say so.
+  // Whoever reaches this is a visitor holding their own code, so it stands on the passport's sky
+  // rather than the dark ground the staff screens used to share.
   return (
-    <><div className="fixed inset-0 -z-10 bg-chrome" aria-hidden /><main className="mx-auto min-h-full max-w-md bg-chrome p-4 text-white">
+    <><FestivalBackdrop hills={false} /><main className="relative mx-auto min-h-full max-w-md p-4 text-ink">
       <header className="flex items-center justify-between px-1 py-3">
-        <BackLink to="/passport" dark>Passport</BackLink>
+        <BackLink to="/passport">Passport</BackLink>
         <div className="stamp-text text-ink-soft">Redemption code</div>
         <span className="w-16" />
       </header>
-      <div className="rounded-3xl bg-white p-6 text-ink">
+      <div className="card">
         <Notice>Show this code to the prize desk — they scan it from their own device. Open
           <Link to="/passport/prize" className="link"> your prize page</Link> to display it.</Notice>
       </div>

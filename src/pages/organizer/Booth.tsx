@@ -10,7 +10,7 @@ import { BoothCard } from '../../components/BoothCard'
 import { OrganizerBar } from '../../components/OrganizerBar'
 import { BoothWatermark, StageGround } from '../../components/OrganizerPage'
 import { onStage } from '../../lib/onStage'
-import { DarkNotice, DataErrors, Icon, IconButton, LiveDot, Notice, Spinner, fmt } from '../../components/ui'
+import { DataErrors, Icon, IconButton, LiveDot, Notice, Spinner, fmt } from '../../components/ui'
 import { APP_ORIGIN } from '../../lib/firebase'
 import { buildPayload, computeToken, counterFor, formatManualCode, msUntilRotation } from '../../../shared/token'
 import { dayOf, type BoothDoc } from '../../../shared/model'
@@ -184,27 +184,29 @@ export default function Booth() {
 
   if (err && !session) {
     return (
-      <main className="grid min-h-full place-items-center bg-chrome p-8 text-white">
-        <div className="flex w-full max-w-md flex-col gap-4">
-          <div className="stamp-text text-on-chrome-soft">{t('nav.booth')}</div>
+      /* Same ground as the screen it failed to become. It was the old dark chrome, so a booth
+         that could not start looked like a different product from one that could. */
+      <><StageGround /><main className="on-stage relative grid min-h-full place-items-center p-8 text-ink">
+        <div className="card flex w-full max-w-md flex-col gap-4">
+          <div className="stamp-text text-ink-soft">{t('nav.booth')}</div>
           <h1 className="text-2xl font-bold">{t('booth.failed')}</h1>
-          <DarkNotice tone="red">{err}</DarkNotice>
-          <p className="text-sm text-on-chrome-soft">
-            Signed in as <b className="text-white">{user?.email ?? 'this account'}</b>.
+          <Notice tone="red">{err}</Notice>
+          <p className="text-sm text-ink-soft">
+            Signed in as <b className="text-ink">{user?.email ?? 'this account'}</b>.
             {role === 'organizer' && !claimBooth && <> No booth is linked to it yet — ask the admin to assign one, then open this page again.</>}
           </p>
           <div className="flex flex-wrap gap-2">
             <button className="btn-gold" onClick={() => { setErr(null); void load(true) }}>{t('booth.retry')}</button>
             {/* An admin lands here whenever they open /booth without a ?boothId; without this the
                 only way back to the console is signing out of it. */}
-            {role === 'admin' && <Link to="/admin" className="btn-dark">{t('nav.admin')}</Link>}
-            <button className="btn-dark" onClick={() => void signOutAndGo()}>{t('nav.signOut')}</button>
+            {role === 'admin' && <Link to="/admin" className="btn-quiet">{t('nav.admin')}</Link>}
+            <button className="btn-quiet" onClick={() => void signOutAndGo()}>{t('nav.signOut')}</button>
           </div>
         </div>
-      </main>
+      </main></>
     )
   }
-  if (!session || !token) return <main className="min-h-full bg-chrome text-white"><Spinner label={t('booth.starting')} /></main>
+  if (!session || !token) return <><StageGround /><main className="relative min-h-full text-ink"><Spinner label={t('booth.starting')} /></main></>
 
   const b = live ?? session.booth
   const feedState = offline ? 'offline' as const : (stat.fromCache || ev.fromCache) ? 'stale' as const : 'live' as const

@@ -4,7 +4,7 @@ import { Scanner } from '../../components/Scanner'
 import { api, friendlyError, type LookupResult, type RedemptionCred } from '../../lib/api'
 import { useBooth, useBooths, useEvent, useTiersState } from '../../lib/data'
 import { OrganizerPage } from '../../components/OrganizerPage'
-import { DarkNotice, DataErrors, fmt, LiveDot, type Msg, Notice, Spinner } from '../../components/ui'
+import { DataErrors, fmt, LiveDot, type Msg, Notice, Spinner } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
 import { clock } from '../../lib/eventText'
 
@@ -132,10 +132,12 @@ export default function Redeem() {
     if (!mine.data?.isPrizeDesk) {
       return shell(
         <div className="flex flex-col gap-4 pt-4">
-          <DarkNotice tone="amber">
+          {/* `Notice`, not `DarkNotice`: this screen sits on the stage now, and the dark variant's
+              amber is #FFD9A3 — written for chrome, and all but invisible on light glass. */}
+          <Notice tone="amber">
             <b>{mine.data?.nameEn ?? 'Your booth'}</b> is not a prize desk, so this screen is not yours to run.
             {desks.length > 0 && <> The prize desk is <b>{desks.map((d) => d.nameEn).join(', ')}</b>.</>}
-          </DarkNotice>
+          </Notice>
           <Link to="/booth" className="btn-gold">Open my booth screen</Link>
         </div>,
       )
