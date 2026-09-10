@@ -36,7 +36,7 @@ export default function Cover() {
 
   return (
     <main className="px-5 pt-6">
-      <section className="relative isolate overflow-hidden rounded-[36px] bg-chrome px-6 py-8 text-white shadow-float">
+      <section className="relative isolate overflow-hidden rounded-[36px] bg-chrome/85 px-6 py-8 text-white shadow-float backdrop-blur-xl">
         {/* The passport cover is a printed object: the mountains show through the board, the way
             the design system's guest kit sets them behind it. */}
         {/*
@@ -57,7 +57,7 @@ export default function Cover() {
           * clipped by the corner they read as a moon, and they were the only foil above the crest,
           * competing with it. An inset frame is also the visa's own language, which draws two.
           */}
-        <div aria-hidden className="pointer-events-none absolute inset-3 rounded-[28px] ring-1 ring-inset ring-white/[0.09]" />
+        <div aria-hidden className="pointer-events-none absolute inset-3 rounded-[28px] ring-1 ring-inset ring-white/[0.12]" />
         <div className="stamp-text text-foil">Mae Fah Luang University</div>
         <div className="mt-1 text-lg font-semibold tracking-wide">{eventMark(event)}</div>
         <div className="mt-8 flex items-center gap-5">
