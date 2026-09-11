@@ -8,6 +8,14 @@ import {
 export default async function lifecycle(ctx) {
   const { liveEvent, secrets, tokens, tally, visitorUid, visitor3Uid } = ctx
 
+  // §4.1 — the demographics moved to their own admin-only document. The admin dashboard still
+  // draws them, so check the split did not quietly drop the data on the floor.
+  section('Demographics stay readable by an admin')
+  const demoShards = await getDocs(collection(db, 'stats/demographics/shards'))
+  const countryTotal = demoShards.docs.reduce((t, d) => t + Object.values(d.data().byCountry ?? {}).reduce((a, n) => a + n, 0), 0)
+  ok('admin reads the demographic shards', demoShards.size > 0, `${demoShards.size} shards`)
+  ok('every registered visitor is counted by country', countryTotal === tally.visitors, `${countryTotal} counted vs ${tally.visitors} registered`)
+
   section('Archive freezes totals')
   const arch = await call('archiveEvent')({ id: liveEvent.id, confirmName: liveEvent.nameEn })
   ok('archive records the totals', arch.totals.stamps === tally.stamps && arch.totals.redeemed === tally.redeemed && arch.totals.visitors === tally.visitors,

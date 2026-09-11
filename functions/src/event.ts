@@ -340,10 +340,16 @@ export const purgeEventData = onCall({ timeoutSeconds: 120 }, async (req) => {
 
     case 'eventStats': {
       const batch = db.batch()
-      for (let i = 0; i < STATS_SHARDS; i++) batch.delete(db.doc(`stats/event/shards/${i}`))
+      for (let i = 0; i < STATS_SHARDS; i++) {
+        batch.delete(db.doc(`stats/event/shards/${i}`))
+        // The demographic shards are event counters too, just held apart for access (§4.1).
+        // Clearing one set and not the other would carry a finished event's visitors into
+        // the next one's dashboard.
+        batch.delete(db.doc(`stats/demographics/shards/${i}`))
+      }
       batch.delete(db.doc('stats/event'))
       await batch.commit()
-      deleted = STATS_SHARDS + 1
+      deleted = STATS_SHARDS * 2 + 1
       remaining = 0
       break
     }

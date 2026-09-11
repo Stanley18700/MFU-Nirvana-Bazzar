@@ -122,6 +122,11 @@ export function shardRef(i = Math.floor(Math.random() * STATS_SHARDS)) {
   return db.doc(`stats/event/shards/${i}`)
 }
 
+/** §4.1 — visitor demographics, sharded like the event counters but admin-only (firestore.rules). */
+export function demographicsRef(i = Math.floor(Math.random() * STATS_SHARDS)) {
+  return db.doc(`stats/demographics/shards/${i}`)
+}
+
 export function boothStatsRef(boothId: string) {
   return db.doc(`stats/booths/items/${boothId}`)
 }

@@ -1,6 +1,6 @@
 import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
-import { db, FieldValue, Timestamp, shardRef, boothStatsRef, bucketRef, getActiveEvent, toMillis } from './lib'
+import { db, FieldValue, Timestamp, shardRef, demographicsRef, boothStatsRef, bucketRef, getActiveEvent, toMillis } from './lib'
 import { BoothStats, PrizeTierDoc, ScanDoc, UserDoc, hourOf } from './shared/model'
 
 /** §7.2 — one scan updates every counter in a single transaction, and creates tier unlocks. */
@@ -48,7 +48,11 @@ export const onScanCreate = onDocumentCreated('scans/{scanId}', async (event) =>
       stamps: FieldValue.increment(1),
       points: FieldValue.increment(scan.pointsAwarded),
       byDay: { [scan.day]: { stamps: FieldValue.increment(1) } },
-      // cross-school matrix (§6.1): visitor school/institution x booth
+    }, { merge: true })
+    // cross-school matrix (§6.1): visitor school/institution x booth. Demographic, so it
+    // belongs with the rest of them in the admin-only document, not in the shard an
+    // organizer reads. Same transaction, so it is covered by the marker above.
+    tx.set(demographicsRef(), {
       crossSchool: { [key(school ?? inst)]: { [hostKey]: FieldValue.increment(1) } },
     }, { merge: true })
     tx.set(boothStatsRef(scan.boothId), {
@@ -120,21 +124,29 @@ export const onUserWrite = onDocumentWritten('users/{uid}', async (event) => {
   const day = u.daysAttended?.[0] ?? 'unknown'
   // Nested maps, not dotted keys — see the note in onScanCreate. `byDay` is also written by
   // onScanCreate with a `stamps` leaf; the deep merge keeps both on the same day.
-  const update: Record<string, unknown> = {
+  const counters: Record<string, unknown> = {
     visitors: FieldValue.increment(delta),
     byVisitorType: { [u.visitorType ?? 'guest']: FieldValue.increment(delta) },
-    byCountry: { [u.countryCode ?? 'XX']: FieldValue.increment(delta) },
-    byInstitution: { [key(u.institution || 'Unknown')]: FieldValue.increment(delta) },
     byDay: { [day]: { visitors: FieldValue.increment(delta) } },
   }
-  if (u.institution === 'MFU') update.bySchool = { [key(u.school || 'Unknown school')]: FieldValue.increment(delta) }
-  if (u.ethnicGroup) {
-    update.byEthnicGroup = { [key(u.ethnicGroup)]: FieldValue.increment(delta) }
-    update.ethnicResponses = FieldValue.increment(delta)
-  } else {
-    update.ethnicDeclines = FieldValue.increment(delta)
+  // Who the visitors are goes to its own admin-only document (§4.1). An organizer's booth
+  // screen subscribes to the event counters above; it must not receive a country, a school
+  // or an ethnic group along with them.
+  const who: Record<string, unknown> = {
+    byCountry: { [u.countryCode ?? 'XX']: FieldValue.increment(delta) },
+    byInstitution: { [key(u.institution || 'Unknown')]: FieldValue.increment(delta) },
   }
-  await shardRef().set(update, { merge: true })
+  if (u.institution === 'MFU') who.bySchool = { [key(u.school || 'Unknown school')]: FieldValue.increment(delta) }
+  if (u.ethnicGroup) {
+    who.byEthnicGroup = { [key(u.ethnicGroup)]: FieldValue.increment(delta) }
+    who.ethnicResponses = FieldValue.increment(delta)
+  } else {
+    who.ethnicDeclines = FieldValue.increment(delta)
+  }
+  await Promise.all([
+    shardRef().set(counters, { merge: true }),
+    demographicsRef().set(who, { merge: true }),
+  ])
 })
 
 /** §7.2 — booth ranks, recomputed every minute (Cloud Scheduler's floor). */

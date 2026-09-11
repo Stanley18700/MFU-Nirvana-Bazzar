@@ -3,7 +3,7 @@ import {
   collection, doc, onSnapshot, orderBy, query, where, limit, type DocumentData, type Query, type DocumentReference,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import type { BoothDoc, BoothStats, BucketDoc, EventDoc, EventStatsShard, PrizeTierDoc, TierUnlockDoc, ScanDoc } from '../../shared/model'
+import type { BoothDoc, BoothStats, BucketDoc, DemographicsShard, EventDoc, EventStatsShard, PrizeTierDoc, TierUnlockDoc, ScanDoc } from '../../shared/model'
 import { DEFAULT_PASSPORT_PREFIX, EVENT_DAYS, EVENT_ID, STATS_SHARDS, ZONE_POINTS } from '../../shared/model'
 
 export type WithId<T> = T & { id: string }
@@ -154,26 +154,43 @@ export function useEventStats() {
   const { data: shards, loading, fromCache } = useCollection<EventStatsShard>(collection(db, 'stats/event/shards'), [], 'the event counters')
   const { data: meta } = useDoc<{ activeLast15m?: number; updatedAt?: { toMillis(): number } }>(doc(db, 'stats/event'), [], 'the event counters')
   const totals = useMemo(() => {
-    const t = { visitors: 0, stamps: 0, points: 0, redeemed: 0, visitorsWithStamps: 0, tierReached: 0, byVisitorType: {} as Record<string, number>, byCountry: {} as Record<string, number>, byInstitution: {} as Record<string, number>, bySchool: {} as Record<string, number>, byDay: {} as Record<string, { visitors: number; stamps: number }>, byEthnicGroup: {} as Record<string, number>, ethnicResponses: 0, ethnicDeclines: 0, crossSchool: {} as Record<string, Record<string, number>> }
+    const t = { visitors: 0, stamps: 0, points: 0, redeemed: 0, visitorsWithStamps: 0, tierReached: 0, byVisitorType: {} as Record<string, number>, byDay: {} as Record<string, { visitors: number; stamps: number }> }
     for (const s of shards as unknown as Array<EventStatsShard & Record<string, unknown>>) {
       t.visitors += s.visitors ?? 0; t.stamps += s.stamps ?? 0; t.points += s.points ?? 0; t.redeemed += s.redeemed ?? 0
       t.visitorsWithStamps += (s.visitorsWithStamps as number) ?? 0; t.tierReached += (s.tierReached as number) ?? 0
-      t.ethnicResponses += (s.ethnicResponses as number) ?? 0; t.ethnicDeclines += (s.ethnicDeclines as number) ?? 0
-      for (const k of ['byVisitorType', 'byCountry', 'byInstitution', 'bySchool', 'byEthnicGroup'] as const) {
-        for (const [key, v] of Object.entries((s[k] as Record<string, number>) ?? {})) (t[k] as Record<string, number>)[key] = ((t[k] as Record<string, number>)[key] ?? 0) + v
-      }
+      for (const [key, v] of Object.entries(s.byVisitorType ?? {})) t.byVisitorType[key] = (t.byVisitorType[key] ?? 0) + (v as number)
       for (const [day, v] of Object.entries(s.byDay ?? {})) {
         t.byDay[day] ??= { visitors: 0, stamps: 0 }
         t.byDay[day].visitors += v.visitors ?? 0; t.byDay[day].stamps += v.stamps ?? 0
       }
-      for (const [school, row] of Object.entries((s.crossSchool as Record<string, Record<string, number>>) ?? {})) {
+    }
+    return t
+  }, [shards])
+  return { totals, activeLast15m: meta?.activeLast15m ?? 0, updatedAt: meta?.updatedAt?.toMillis() ?? null, loading, fromCache, shardCount: shards.length, expectedShards: STATS_SHARDS }
+}
+
+/**
+ * §4.1 — who the visitors are, kept apart from the event counters so an organizer's booth
+ * screen never receives it. The rules refuse this collection to anyone but an admin, so only
+ * admin screens may call this hook.
+ */
+export function useDemographics() {
+  const { data: shards, loading, fromCache } = useCollection<DemographicsShard>(collection(db, 'stats/demographics/shards'), [], 'the visitor breakdown')
+  const totals = useMemo(() => {
+    const t = { byCountry: {} as Record<string, number>, byInstitution: {} as Record<string, number>, bySchool: {} as Record<string, number>, byEthnicGroup: {} as Record<string, number>, ethnicResponses: 0, ethnicDeclines: 0, crossSchool: {} as Record<string, Record<string, number>> }
+    for (const s of shards) {
+      t.ethnicResponses += s.ethnicResponses ?? 0; t.ethnicDeclines += s.ethnicDeclines ?? 0
+      for (const k of ['byCountry', 'byInstitution', 'bySchool', 'byEthnicGroup'] as const) {
+        for (const [key, v] of Object.entries(s[k] ?? {})) t[k][key] = (t[k][key] ?? 0) + v
+      }
+      for (const [school, row] of Object.entries(s.crossSchool ?? {})) {
         t.crossSchool[school] ??= {}
         for (const [booth, n] of Object.entries(row)) t.crossSchool[school][booth] = (t.crossSchool[school][booth] ?? 0) + n
       }
     }
     return t
   }, [shards])
-  return { totals, activeLast15m: meta?.activeLast15m ?? 0, updatedAt: meta?.updatedAt?.toMillis() ?? null, loading, fromCache, shardCount: shards.length, expectedShards: STATS_SHARDS }
+  return { totals, loading, fromCache }
 }
 
 export function useBoothStats() {
