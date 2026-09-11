@@ -232,11 +232,26 @@ export const submitSurveyResponse = onCall(async (req) => {
   const doc: SurveyResponseDoc = {
     boothId, eventId: ev.id, answers, submittedAt: FieldValue.serverTimestamp(),
   }
+  /**
+   * The "already answered" read above is a courtesy, not the guard: a batch is atomic but
+   * takes no read lock, so two submissions sent at once both find `surveyTaken` absent and
+   * both commit. `create` is the guard — it fails if the marker is already there, so the
+   * loser's whole batch is rejected and only one response is stored.
+   *
+   * This has to be right at the write rather than cleaned up afterwards: the response carries
+   * an auto-id and nothing linking it to its author, which is deliberate (§10) and means a
+   * duplicate cannot be told from a second visitor's answers once it is in.
+   */
   const batch = db.batch()
   // Auto-id, so nothing about the document's address hints at who wrote it.
   batch.set(db.collection('surveyResponses').doc(), doc)
-  batch.set(takenRef, { boothId, takenAt: FieldValue.serverTimestamp() })
+  batch.create(takenRef, { boothId, takenAt: FieldValue.serverTimestamp() })
   batch.set(db.doc(`surveys/${boothId}`), { responseCount: FieldValue.increment(1) }, { merge: true })
-  await batch.commit()
+  try {
+    await batch.commit()
+  } catch (e) {
+    if ((e as { code?: number }).code === 6) throw new HttpsError('already-exists', 'You have already answered this one')
+    throw e
+  }
   return { ok: true }
 })
