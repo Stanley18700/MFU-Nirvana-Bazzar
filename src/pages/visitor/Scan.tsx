@@ -6,11 +6,13 @@ import type { ScanResult } from '../../../shared/model'
 import { ScanResultView } from './ScanResult'
 import { BackLink, Notice, Spinner } from '../../components/ui'
 import { FestivalBackdrop } from '../auth/parts'
+import { useOnline } from '../../lib/useOnline'
 
 export default function Scan() {
   const [result, setResult] = useState<ScanResult | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const online = useOnline()
   const [manual, setManual] = useState('')
 
   const submit = useCallback(async (payload: string) => {
@@ -48,6 +50,12 @@ export default function Scan() {
             <Scanner onResult={(t) => void submit(t)} paused={busy} className="aspect-square max-h-[50dvh] w-full" />
           </div>
           {busy && <Spinner label="Checking…" />}
+          {/*
+            * Ahead of the error, because it explains it. A stamp is recorded by the server, so
+            * scanning offline cannot work — and without this the visitor reads a network
+            * failure as a broken QR code and tries the booth's sign again and again.
+            */}
+          {!online && <div className="mx-4 mt-3"><Notice tone="amber">No connection. A stamp is saved on the server, so this needs a moment of signal — the booth code stays valid while you wait.</Notice></div>}
           {err && <div className="mx-4 mt-3"><Notice tone="red">{err}</Notice></div>}
           <form onSubmit={onManual} className="card card-static mx-4 mt-4 mb-8">
             <label className="stamp-text text-ink-soft" htmlFor="manual">Or type the 6-character code under the QR</label>
