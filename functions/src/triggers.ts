@@ -13,21 +13,25 @@ export const onScanCreate = onDocumentCreated('scans/{scanId}', async (event) =>
   const school = scan.institution === 'MFU' ? scan.school || 'Unknown school' : null
   const hostKey = `${scan.boothId}`
 
+  // Breakdowns are written as real nested maps, never as 'byDay.2026-09-16' keys. `set()`
+  // takes a dotted key as one literal field name — only `update()` splits it into a path —
+  // so a dotted key here would store a field called 'byDay.2026-09-16.stamps' that no reader
+  // can find. `merge: true` deep-merges these maps, so the increments still land per key.
   const batch = db.batch()
   batch.set(shardRef(), {
     stamps: FieldValue.increment(1),
     points: FieldValue.increment(scan.pointsAwarded),
-    [`byDay.${scan.day}.stamps`]: FieldValue.increment(1),
+    byDay: { [scan.day]: { stamps: FieldValue.increment(1) } },
     // cross-school matrix (§6.1): visitor school/institution x booth
-    [`crossSchool.${key(school ?? inst)}.${hostKey}`]: FieldValue.increment(1),
+    crossSchool: { [key(school ?? inst)]: { [hostKey]: FieldValue.increment(1) } },
   }, { merge: true })
 
   batch.set(boothStatsRef(scan.boothId), {
     boothId: scan.boothId,
     stamps: FieldValue.increment(1),
-    [`byVisitorType.${vt}`]: FieldValue.increment(1),
-    [`byDay.${scan.day}`]: FieldValue.increment(1),
-    [`byHour.${scan.day}T${hourOf(at)}`]: FieldValue.increment(1),
+    byVisitorType: { [vt]: FieldValue.increment(1) },
+    byDay: { [scan.day]: FieldValue.increment(1) },
+    byHour: { [`${scan.day}T${hourOf(at)}`]: FieldValue.increment(1) },
     lastStampAt: scan.scannedAt,
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true })
@@ -36,7 +40,7 @@ export const onScanCreate = onDocumentCreated('scans/{scanId}', async (event) =>
   batch.set(bRef, {
     startsAt, day: scan.day,
     total: FieldValue.increment(1),
-    [`perBooth.${scan.boothId}`]: FieldValue.increment(1),
+    perBooth: { [scan.boothId]: FieldValue.increment(1) },
   }, { merge: true })
 
   const userRef = db.doc(`users/${scan.visitorId}`)
@@ -91,16 +95,18 @@ export const onUserWrite = onDocumentWritten('users/{uid}', async (event) => {
   const delta = isVisitor ? 1 : -1
   const u = (isVisitor ? after : before)!
   const day = u.daysAttended?.[0] ?? 'unknown'
+  // Nested maps, not dotted keys — see the note in onScanCreate. `byDay` is also written by
+  // onScanCreate with a `stamps` leaf; the deep merge keeps both on the same day.
   const update: Record<string, unknown> = {
     visitors: FieldValue.increment(delta),
-    [`byVisitorType.${u.visitorType ?? 'guest'}`]: FieldValue.increment(delta),
-    [`byCountry.${u.countryCode ?? 'XX'}`]: FieldValue.increment(delta),
-    [`byInstitution.${key(u.institution || 'Unknown')}`]: FieldValue.increment(delta),
-    [`byDay.${day}.visitors`]: FieldValue.increment(delta),
+    byVisitorType: { [u.visitorType ?? 'guest']: FieldValue.increment(delta) },
+    byCountry: { [u.countryCode ?? 'XX']: FieldValue.increment(delta) },
+    byInstitution: { [key(u.institution || 'Unknown')]: FieldValue.increment(delta) },
+    byDay: { [day]: { visitors: FieldValue.increment(delta) } },
   }
-  if (u.institution === 'MFU') update[`bySchool.${key(u.school || 'Unknown school')}`] = FieldValue.increment(delta)
+  if (u.institution === 'MFU') update.bySchool = { [key(u.school || 'Unknown school')]: FieldValue.increment(delta) }
   if (u.ethnicGroup) {
-    update[`byEthnicGroup.${key(u.ethnicGroup)}`] = FieldValue.increment(delta)
+    update.byEthnicGroup = { [key(u.ethnicGroup)]: FieldValue.increment(delta) }
     update.ethnicResponses = FieldValue.increment(delta)
   } else {
     update.ethnicDeclines = FieldValue.increment(delta)

@@ -50,6 +50,24 @@ export default async function visitor(ctx) {
   const unlocks = await getDocs(query(collection(db, 'tierUnlocks'), where('visitorId', '==', visitorUid)))
   ok('tier unlocks created by the trigger', unlocks.size === 2, `${unlocks.size} unlocks at 140 points (50/100 reached, 150 not)`)
 
+  // The breakdowns must be real nested maps. `set()` treats a dotted key as one literal field
+  // name, so writing 'byDay.2026-09-16.stamps' stores a field nothing can read: the totals
+  // still look right while every per-day, per-hour and per-type figure reads zero. A dot in a
+  // top-level key is the signature of that bug, so assert against it directly.
+  const b1 = await ownerDoc('stats/booths/items/booth-01')
+  ok('booth counters use no dotted field names', Object.keys(b1).every((k) => !k.includes('.')), Object.keys(b1).filter((k) => k.includes('.')).join(',') || 'none')
+  ok('booth byDay is a nested map holding the stamp', typeof b1.byDay === 'object' && b1.byDay !== null && Object.values(b1.byDay).reduce((s, n) => s + n, 0) === 1, JSON.stringify(b1.byDay))
+  ok('booth byVisitorType and byHour nest too', Object.values(b1.byVisitorType ?? {}).reduce((s, n) => s + n, 0) === 1 && Object.keys(b1.byHour ?? {}).length === 1,
+    `${JSON.stringify(b1.byVisitorType)} ${JSON.stringify(b1.byHour)}`)
+
+  const shards = []
+  for (let i = 0; i < 10; i++) shards.push(await ownerDoc(`stats/event/shards/${i}`))
+  const live = shards.filter(Boolean)
+  ok('event shards use no dotted field names', live.every((s) => Object.keys(s).every((k) => !k.includes('.'))),
+    live.flatMap((s) => Object.keys(s).filter((k) => k.includes('.'))).join(',') || 'none')
+  const byDayStamps = live.reduce((sum, s) => sum + Object.values(s.byDay ?? {}).reduce((t, v) => t + (v.stamps ?? 0), 0), 0)
+  ok('event byDay stamps sum to every stamp taken', byDayStamps === tally.stamps, `${byDayStamps} vs ${tally.stamps}`)
+
   section('Ranks and deactivation')
   await rawCall(tokens.admin, 'refreshRanks', {})
   const ranks = []
