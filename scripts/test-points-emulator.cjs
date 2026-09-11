@@ -7,7 +7,7 @@ if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.GCLOUD_PROJECT?.startsW
 }
 const { db, Timestamp, clearEventCache } = require('../functions/lib/lib')
 const { previewPointAdjustments: preview, applyPointAdjustments: apply, resetPointAdjustments: reset } = require('../functions/lib/points')
-const { updateBooth } = require('../functions/lib/admin')
+const { updateBooth, savePrizePolicy } = require('../functions/lib/admin')
 const { scan } = require('../functions/lib/visitor')
 const { onScanCreate } = require('../functions/lib/triggers')
 const { dayOf } = require('../functions/lib/shared/model')
@@ -196,3 +196,31 @@ test('a redelivered scan trigger counts the stamp once', async () => {
 })
 
 after(async () => { await db.terminate() })
+
+test('a threshold backfills every eligible visitor, not just the first batch', async () => {
+  await seed()
+  // 451 is the number that mattered: the old code stopped after 450 new unlocks per tier and
+  // returned nothing to say it had stopped, so the 451st visitor saw enough points on their
+  // passport and would have been turned away at the desk. A three-day event is ~1,500 visitors.
+  const total = 451
+  for (let i = 0; i < total; i += 400) {
+    const batch = db.batch()
+    for (let j = i; j < Math.min(i + 400, total); j++) {
+      batch.set(db.doc(`users/bulk-${String(j).padStart(4, '0')}`), {
+        role: 'visitor', points: 60, stampCount: 3, stampedBoothIds: [], visitorType: 'guest',
+      })
+    }
+    await batch.commit()
+  }
+
+  const r = await call(savePrizePolicy, { tiers: [{ id: 'top', name: 'Top', reward: 'A thing', thresholdPoints: 10, stockTotal: 1000 }] })
+  assert.equal(r.unlocksCreated, total)
+  const unlocks = await db.collection('tierUnlocks').where('tierId', '==', 'top').count().get()
+  assert.equal(unlocks.data().count, total)
+
+  // Saving the same policy again must not double up: the unlock id is deterministic and the
+  // bulk existence check is what keeps a re-save from creating a second row per visitor.
+  const again = await call(savePrizePolicy, { tiers: [{ id: 'top', name: 'Top', reward: 'A thing', thresholdPoints: 10, stockTotal: 1000 }] })
+  assert.equal(again.unlocksCreated, 0)
+  assert.equal((await db.collection('tierUnlocks').where('tierId', '==', 'top').count().get()).data().count, total)
+})
