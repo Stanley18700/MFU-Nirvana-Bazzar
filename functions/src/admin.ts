@@ -5,7 +5,7 @@ import {
   getActiveEvent, toMillis, type ActiveEvent,
 } from './lib'
 import { ACCENTS, BoothDoc, InviteDoc, PrizeTierDoc, Role, UserDoc, VisitorType, Zone, dayOf, passportNo } from './shared/model'
-import { APP_ORIGIN, EMAILJS_PRIVATE_KEY, mailConfigured, sendInvite } from './mailer'
+import { APP_ORIGIN, RESEND_API_KEY, mailConfigured, sendInvite } from './mailer'
 import { recomputeRanks } from './triggers'
 
 const ZONES: Zone[] = ['entrance', 'middle', 'far']
@@ -516,7 +516,7 @@ function eventDates(ev: ActiveEvent): string {
   return a && b ? (a === b ? a : a + ' - ' + b) : ev.days.join(' / ')
 }
 
-export const inviteOrganizer = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async (req) => {
+export const inviteOrganizer = onCall({ secrets: [RESEND_API_KEY] }, async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
   const ev = await getActiveEvent(true)
   const list: Array<{ name: string; email: string; boothId: string; role?: Role }> = Array.isArray(req.data?.invites)
@@ -561,7 +561,7 @@ export const inviteOrganizer = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async 
   return { results, mailConfigured: mailConfigured() }
 })
 
-export const resendInvite = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async (req) => {
+export const resendInvite = onCall({ secrets: [RESEND_API_KEY] }, async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
   const id = str(req.data?.inviteId, 'inviteId')
   const ref = db.doc(`invites/${id}`)
@@ -674,7 +674,7 @@ export const acceptInvite = onCall(async (req) => {
 // ---------- misc ----------
 
 /** What the dashboard's readiness checklist cannot see from the client: whether invitation mail can be sent. */
-export const setupStatus = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async (req) => {
+export const setupStatus = onCall({ secrets: [RESEND_API_KEY] }, async (req) => {
   requireRole(req, 'admin')
   return { mailConfigured: mailConfigured() }
 })

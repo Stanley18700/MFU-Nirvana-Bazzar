@@ -32,7 +32,7 @@ flowchart TB
 
   Auth["Firebase Auth<br/>Google + email/password<br/>custom claims: role, boothId"]
   ST["Cloud Storage<br/>booth artwork"]
-  MJ["EmailJS<br/>organizer invitations"]
+  MJ["Resend<br/>organizer invitations"]
 
   V & O & A -->|"httpsCallable"| C
   V & O & A -->|"onSnapshot (reads only)"| D1
@@ -258,7 +258,7 @@ admin is bounced to `/redeem?code=…`, a visitor is told to show the code inste
 admin /admin/users → inviteOrganizer(name, email, boothId, role)
    ↳ invites/{id}: tokenHash = sha256(token), status 'sent',
      expiresAt = min(now + 14 days, event end)
-   ↳ EmailJS (server-side, PRIVATE key) → link  <origin>/invite/<token>
+   ↳ Resend (server-side, API key) → link  <origin>/invite/<token>
      · mail not configured → the link is returned to the admin to copy by hand
 /invite/:token → inviteInfo(token)     marks 'opened', names the invited address
               → sign in as that address (Google or password)
@@ -401,14 +401,14 @@ booths over **must** be paired with `rotateSecrets`, or last year's photographed
 | Message | Sent by | Configured in |
 |---|---|---|
 | Address verification, password reset, address change | **Firebase Auth itself**, triggered from [authActions.ts](../src/lib/authActions.ts) | Console → Authentication → Templates |
-| Organizer / admin invitation | `inviteOrganizer` / `resendInvite` via EmailJS, server-side with the **private** key | `EMAILJS_*` params + secret |
+| Organizer / admin invitation | `inviteOrganizer` / `resendInvite` via Resend, server-side | `RESEND_FROM` / `RESEND_REPLY_TO` params + `RESEND_API_KEY` secret |
 
 All three Auth mails point their action URL at `<origin>/auth/action`, which
 [Action.tsx](../src/pages/auth/Action.tsx) handles for all of `verifyEmail`, `resetPassword`,
 `recoverEmail` and `verifyAndChangeEmail`, so the visitor stays inside the passport. Leave the
 action URL unset and Firebase's own page still works — it just looks like someone else's site.
 
-Mail never goes out from the browser. If EmailJS is not configured, the invitation callable returns
+Mail never goes out from the browser. If Resend is not configured, the invitation callable returns
 the link so the admin can copy it by hand, and `setupStatus` tells the readiness checklist.
 
 ---
@@ -451,7 +451,7 @@ booth-id reuse.
 | [functions/src/admin.ts](../functions/src/admin.ts) | Users, booths, prizes, draw, reference data, invitations, `bootstrapAdmin` |
 | [functions/src/event.ts](../functions/src/event.ts) | `createEvent` → `goLive` → `archiveEvent` → `purgeEventData`, `listEvents` |
 | [functions/src/triggers.ts](../functions/src/triggers.ts) | `onScanCreate`, `onUserWrite`, `rankBooths`, `sweepActive`, `purgePersonalData` |
-| [functions/src/mailer.ts](../functions/src/mailer.ts) | EmailJS invitation send |
+| [functions/src/mailer.ts](../functions/src/mailer.ts) | Resend invitation send, and the invitation's own HTML |
 | [functions/src/seed.ts](../functions/src/seed.ts) · [rescueAdmin.ts](../functions/src/rescueAdmin.ts) | Idempotent seed; admin sign-in rescue |
 | [src/lib/api.ts](../src/lib/api.ts) | Every callable, typed, in one object |
 | [src/lib/data.ts](../src/lib/data.ts) | Live-snapshot hooks + the shared listener-error registry |

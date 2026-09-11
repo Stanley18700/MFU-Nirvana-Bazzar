@@ -553,6 +553,24 @@ likely to land in spam than mail from the university's own server, so whichever 
 send the twelve invites **a week early**, not on the morning of the 16th, and watch the
 `opened` column.
 
+> **Amended, September 2026 — the mailer is Resend, not EmailJS.** The prediction above held:
+> the mailer was one interface and the swap was one file, `functions/src/mailer.ts`, plus the
+> parameter names.
+>
+> EmailJS was chosen for "template editing in a web UI a non-developer can use", and that turned
+> out to be the reason to leave. Using it from a server needed four pieces of configuration for
+> one message — a private key, a public key, a service id and a dashboard template id — and the
+> wording of the only email this app sends lived somewhere nobody working on the repository
+> could see or review. Resend needs a key and a verified sender, and takes the HTML in the
+> request, so the invitation is now `inviteHtml` in that file: reviewed in a pull request,
+> changed by a deploy.
+>
+> What did not change: mail still goes out only from the Cloud Function and never the browser,
+> the key still lives in Secret Manager, and an unconfigured mailer still returns a copyable
+> single-use link rather than failing. The deliverability point in the paragraph above stands
+> whichever service is used — Resend needs a DNS-verified sending domain, which is itself the
+> thing that makes the mail land.
+
 ### 6.5 Prize policy — `/admin/prizes`
 
 The policy is data, not code, and is editable during the event.
@@ -928,7 +946,7 @@ Firebase throughout, project region `asia-southeast1`.
 | QR scanning | `BarcodeDetector` with a `zxing-wasm` fallback | Native where available |
 | Charts | Recharts | Small, themeable to the palette |
 | Files | Cloud Storage for Firebase | CSV and PDF exports, served by signed URL |
-| Email | **EmailJS, called server-side** from Cloud Functions with the private key in Secret Manager (organizer invites, restore links); Firebase Auth email link underneath for the actual sign-in | Template editing in a web UI, no SMTP credentials to procure. See 6.4 for why it is never called from the browser |
+| Email | **Resend, called server-side** from Cloud Functions with the API key in Secret Manager (organizer invites); Firebase Auth's own templates for verification, password reset and address change | No SMTP credentials to procure, and the invitation's wording lives in the repository rather than a dashboard. See 6.4 for why it is never called from the browser, and its amendment for why not EmailJS |
 | Images | Cloud Storage for Firebase plus the Resize Images extension | Booth badges and photos, with generated thumbnails |
 | Analytics / errors | Firebase Analytics and Crashlytics for web | Already in the SDK |
 | Local dev and CI | Firebase Emulator Suite (Auth, Firestore, Functions, Hosting) | Security rules and the scan transaction are unit-tested against the emulator |
@@ -1131,6 +1149,6 @@ native camera app rather than opening our scanner first.
    it can be corrected without a deploy.
 7. **Institution list** — how wide? MFU plus the Chiang Rai institutions, or every Thai
    university? Free-text `Other` covers the tail either way.
-8. **EmailJS account** — who owns it, and can the sending address be an `mfu.ac.th`
+8. **Resend account** — who owns it, and can the sending domain be an `mfu.ac.th`
    domain? If IT can supply SMTP credentials instead, the Trigger Email extension is the
    better long-run choice for deliverability (6.4).
