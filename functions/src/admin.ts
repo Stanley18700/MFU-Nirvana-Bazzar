@@ -1,5 +1,6 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { defineSecret } from 'firebase-functions/params'
+import { FieldPath, type QueryDocumentSnapshot } from 'firebase-admin/firestore'
 import {
   db, auth, FieldValue, Timestamp, requireRole, requireAuth, str, num, sha256, randomToken, randomSecretB64, audit,
   getActiveEvent, toMillis, type ActiveEvent,
@@ -323,7 +324,8 @@ export const rotateBoothSecret = onCall(async (req) => {
 // ---------- prizes ----------
 
 /** §6.5 / §6.7 — thresholds validated against points available; preview of new unlocks. */
-export const savePrizePolicy = onCall(async (req) => {
+// Paging every eligible visitor across every tier can outlast the 30s default (index.ts).
+export const savePrizePolicy = onCall({ timeoutSeconds: 120 }, async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
   const ev = await getActiveEvent(true)
   const tiers = req.data?.tiers
@@ -382,28 +384,54 @@ export const savePrizePolicy = onCall(async (req) => {
   for (const d of existing.docs) if (!parsed.some((t) => t.id === d.id)) batch.set(d.ref, { active: false }, { merge: true })
   await batch.commit()
 
-  // Lowering a threshold unlocks immediately (§6.7). Raising never revokes.
+  /**
+   * Lowering a threshold unlocks immediately (§6.7). Raising never revokes.
+   *
+   * This used to read every matching visitor in one unbounded query and then stop after 450
+   * new unlocks per tier, with nothing in the result to say it had stopped. At 451 eligible
+   * visitors the 451st was silently skipped and never retried — they would see enough points
+   * on their passport and be turned away at the desk. A three-day event is around 1,500
+   * visitors, so this was going to happen.
+   *
+   * Now it pages the visitors, checks the unlock documents in bulk rather than one round trip
+   * each, and keeps committing until the tier is finished. `PAGE` stays under Firestore's
+   * 500-writes-per-batch ceiling so one page is always one batch.
+   */
+  const PAGE = 400
+  let created = 0
   for (const t of parsed) {
-    const q = await db.collection('users').where('role', '==', 'visitor').where('points', '>=', t.thresholdPoints).get()
-    const b2 = db.batch()
-    let n = 0
-    for (const u of q.docs) {
-      const ref = db.doc(`tierUnlocks/${u.id}_${t.id}`)
-      if ((await ref.get()).exists) continue
-      const ud = u.data() as UserDoc
-      b2.set(ref, {
-        visitorId: u.id, tierId: t.id, unlockedAt: FieldValue.serverTimestamp(),
-        pointsAtUnlock: ud.points, stampCountAtUnlock: ud.stampCount,
-        redeemedAt: null, redeemedBy: null, redemptionNote: null, voidedAt: null, voidedBy: null, voidReason: null,
-      })
-      if (++n >= 450) break
+    let cursor: QueryDocumentSnapshot | undefined
+    for (;;) {
+      let q = db.collection('users')
+        .where('role', '==', 'visitor').where('points', '>=', t.thresholdPoints)
+        .orderBy('points').orderBy(FieldPath.documentId()).limit(PAGE)
+      if (cursor) q = q.startAfter(cursor)
+      const page = await q.get()
+      if (page.empty) break
+      cursor = page.docs[page.docs.length - 1]
+
+      const refs = page.docs.map((u) => db.doc(`tierUnlocks/${u.id}_${t.id}`))
+      const already = new Set((await db.getAll(...refs)).filter((s) => s.exists).map((s) => s.id))
+      const batch = db.batch()
+      let n = 0
+      for (const u of page.docs) {
+        if (already.has(`${u.id}_${t.id}`)) continue
+        const ud = u.data() as UserDoc
+        batch.set(db.doc(`tierUnlocks/${u.id}_${t.id}`), {
+          visitorId: u.id, tierId: t.id, unlockedAt: FieldValue.serverTimestamp(),
+          pointsAtUnlock: ud.points, stampCountAtUnlock: ud.stampCount,
+          redeemedAt: null, redeemedBy: null, redemptionNote: null, voidedAt: null, voidedBy: null, voidReason: null,
+        })
+        n++
+      }
+      if (n) { await batch.commit(); created += n }
+      if (page.size < PAGE) break
     }
-    if (n) await b2.commit()
   }
   // `stockTotal` is undefined for an existing tier (stock is never typed over), and Firestore
   // refuses undefined inside a document — which made every policy save from the admin page fail.
   await audit(actor, 'savePrizePolicy', 'prizePolicy', ev.id, existing.docs.map((d) => d.data()), parsed.map((t) => ({ ...t, stockTotal: t.stockTotal ?? null })))
-  return { ok: true, preview, available }
+  return { ok: true, preview, available, unlocksCreated: created }
 })
 
 /** §6.7 — stock is only ever adjusted with a reason, never typed over. */
