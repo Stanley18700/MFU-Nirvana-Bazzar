@@ -1,5 +1,6 @@
 import { onDocumentCreated, onDocumentWritten } from 'firebase-functions/v2/firestore'
 import { onSchedule } from 'firebase-functions/v2/scheduler'
+import { FieldPath, type QueryDocumentSnapshot } from 'firebase-admin/firestore'
 import { db, FieldValue, Timestamp, shardRef, demographicsRef, boothStatsRef, bucketRef, getActiveEvent, toMillis } from './lib'
 import { BoothStats, PrizeTierDoc, ScanDoc, UserDoc, hourOf } from './shared/model'
 
@@ -172,19 +173,43 @@ export const sweepActive = onSchedule({ schedule: 'every 1 minutes', timeZone: '
 })
 
 /** §10 — 90-day retention. Runs daily; a no-op until the cut-off. */
-export const purgePersonalData = onSchedule({ schedule: 'every day 03:00', timeZone: 'Asia/Bangkok' }, async () => {
+export const purgePersonalData = onSchedule({ schedule: 'every day 03:00', timeZone: 'Asia/Bangkok', timeoutSeconds: 540 }, async () => {
   // §10 — 90 days after the live event ends, whenever that is. Never a fixed date, or a
   // future event's visitors would be purged mid-run.
   const ev = await getActiveEvent(true)
   const endsAt = toMillis(ev.endsAt)
   if (!endsAt) return
   if (Date.now() < endsAt + 90 * 86400_000) return
-  const users = await db.collection('users').where('role', '==', 'visitor').limit(400).get()
-  const batch = db.batch()
-  users.docs.forEach((d) => batch.update(d.ref, {
-    displayName: 'Purged', studentId: null, contact: `purged-${d.id}`, ethnicGroup: null, ethnicConsentAt: null, purgedAt: FieldValue.serverTimestamp(),
-  }))
-  await batch.commit()
+
+  /**
+   * Pages by document id until there are none left. It used to read `limit(400)` with no
+   * cursor, and since the write does not change `role`, every run returned the same first 400
+   * documents: visitor 401 was not purged late, but never — while the job rewrote the same
+   * 400 every night and looked healthy in the logs. A retention promise that quietly covers
+   * only the alphabetically-first 400 people is the kind of failure nobody notices until
+   * someone asks.
+   *
+   * Filtering on `purgedAt` would not work here: Firestore's `== null` matches an explicit
+   * null, not a missing field, and the visitors already in the database have no such field.
+   * A cursor needs nothing to be true of the existing data.
+   */
+  let cursor: QueryDocumentSnapshot | undefined
+  let purged = 0
+  for (;;) {
+    let q = db.collection('users').where('role', '==', 'visitor').orderBy(FieldPath.documentId()).limit(400)
+    if (cursor) q = q.startAfter(cursor)
+    const users = await q.get()
+    if (users.empty) break
+    cursor = users.docs[users.docs.length - 1]
+    const batch = db.batch()
+    users.docs.forEach((d) => batch.update(d.ref, {
+      displayName: 'Purged', studentId: null, contact: `purged-${d.id}`, ethnicGroup: null, ethnicConsentAt: null, purgedAt: FieldValue.serverTimestamp(),
+    }))
+    await batch.commit()
+    purged += users.size
+    if (users.size < 400) break
+  }
+  console.log(`purgePersonalData: ${purged} visitor records purged`)
 })
 
 /** Firestore field paths cannot contain '.', '/', etc. */

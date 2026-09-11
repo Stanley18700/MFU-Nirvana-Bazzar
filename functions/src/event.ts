@@ -292,8 +292,21 @@ export const purgeEventData = onCall({ timeoutSeconds: 120 }, async (req) => {
     case 'prizeTiers': await deletePage('prizeTiers'); break
 
     case 'visitors': {
-      // Default is to reset progress and keep the account; `hard` deletes it outright (PDPA).
-      const snap = await db.collection('users').where('role', '==', 'visitor').limit(limit).get()
+      /**
+       * Default is to reset progress and keep the account; `hard` deletes it outright (PDPA).
+       *
+       * The soft reset selects on `points > 0`, the same condition `remaining` counts below.
+       * Selecting every visitor instead made the page never advance: the write clears points
+       * but not `role`, so the next call re-read the same first 300 and everyone past them
+       * kept their points however many times an admin pressed it. The client loop gives up
+       * after 500 rounds and reports items still to clear, which is what it looked like.
+       *
+       * A stamp always awards at least one point — booth points are `min: 1` — so `points > 0`
+       * is exactly "has progress to clear", and a reset visitor drops out of the query.
+       */
+      const snap = hard
+        ? await db.collection('users').where('role', '==', 'visitor').limit(limit).get()
+        : await db.collection('users').where('role', '==', 'visitor').where('points', '>', 0).limit(limit).get()
       if (!snap.empty) {
         if (hard) {
           await auth.deleteUsers(snap.docs.map((d) => d.id)).catch((e) => console.error('deleteUsers', e))
