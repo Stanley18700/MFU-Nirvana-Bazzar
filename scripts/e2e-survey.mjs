@@ -219,8 +219,11 @@ async function main() {
   const asText = JSON.stringify(r.data())
   ok('no visitor uid in any field', !asText.includes(visitorUid), asText.slice(0, 120))
   ok('no visitor uid in the document id', !r.id.includes(visitorUid), r.id)
-  ok('fields are exactly boothId, eventId, answers, submittedAt',
-    JSON.stringify(Object.keys(r.data()).sort()) === JSON.stringify(['answers', 'boothId', 'eventId', 'submittedAt']),
+  // An allow-list, so anything new on a response has to be looked at before it ships.
+  // `surveyVersion` is which question set the answers were given against — a small integer
+  // shared by everyone who answered that version, which identifies nobody.
+  ok('fields are exactly boothId, eventId, surveyVersion, answers, submittedAt',
+    JSON.stringify(Object.keys(r.data()).sort()) === JSON.stringify(['answers', 'boothId', 'eventId', 'submittedAt', 'surveyVersion']),
     Object.keys(r.data()).sort().join(','))
 
   const a = r.data().answers
@@ -247,6 +250,27 @@ async function main() {
   await signOut(auth)
   await signInWithEmailAndPassword(auth, 'organizer1@example.com', 'passw0rd!')
   await auth.currentUser.getIdToken(true)
+  // Answers are stored by question id and the results screen labels them from the questions
+  // the survey holds now, so reusing an id with new wording used to relabel every answer
+  // already given, with nothing anywhere saying so. Editing is still allowed; what it may not
+  // do is destroy the question that was actually asked.
+  section('Editing a published survey keeps the questions it replaces')
+  const beforeEdit = (await getDoc(doc(db, 'surveys', b1))).data()
+  ok('a survey starts at version 1', (beforeEdit.version ?? 1) === 1, String(beforeEdit.version))
+  await call('saveSurvey')({
+    title: 'Booth one', active: true,
+    questions: [{ ...QUESTIONS[0], title: 'Rate the staff instead' }],
+  })
+  const afterEdit = (await getDoc(doc(db, 'surveys', b1))).data()
+  ok('an edit moves the version on', afterEdit.version === 2, String(afterEdit.version))
+  const v1 = await getDoc(doc(db, 'surveys', b1, 'versions', '1'))
+  ok('the replaced questions are kept', v1.exists() && (v1.data().questions ?? []).length === QUESTIONS.length,
+    `${v1.data()?.questions?.length} of ${QUESTIONS.length} kept`)
+  ok('the retired set keeps its own wording', v1.data()?.questions?.[0]?.title === QUESTIONS[0].title, v1.data()?.questions?.[0]?.title)
+  const stored = await getDocs(query(collection(db, 'surveyResponses'), where('boothId', '==', b1)))
+  ok('the answer still names the version it was given against', stored.docs[0].data().surveyVersion === 1,
+    String(stored.docs[0].data().surveyVersion))
+
   await call('setSurveyActive')({ active: false })
   ok('unpublished', (await getDoc(doc(db, 'surveys', b1))).data().active === false)
   await call('deleteSurvey')({})

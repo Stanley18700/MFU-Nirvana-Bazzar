@@ -289,6 +289,13 @@ export interface SurveyDoc {
   /** Off by default: a half-built survey must never reach a visitor. */
   active: boolean
   responseCount: number
+  /**
+   * Bumped whenever the questions change. Answers are stored by question id, so reusing an id
+   * with new wording would relabel the answers already given; the retired question set is kept
+   * at `surveys/{boothId}/versions/{version}` and every response records the version it
+   * belongs to. Absent on surveys saved before this existed, which are version 1.
+   */
+  version?: number
   updatedAt: unknown
   updatedBy: string
 }
@@ -306,6 +313,8 @@ export type SurveyAnswer = string | string[] | number
 export interface SurveyResponseDoc {
   boothId: string
   eventId: string
+  /** The `SurveyDoc.version` these answers were given against. Absent means version 1. */
+  surveyVersion?: number
   /** Keyed by question id. A skipped optional question is simply absent. */
   answers: Record<string, SurveyAnswer>
   submittedAt: unknown
