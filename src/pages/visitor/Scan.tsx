@@ -7,6 +7,7 @@ import { ScanResultView } from './ScanResult'
 import { BackLink, Notice, Spinner } from '../../components/ui'
 import { FestivalBackdrop } from '../auth/parts'
 import { useOnline } from '../../lib/useOnline'
+import { setServerTime } from '../../lib/serverClock'
 
 export default function Scan() {
   const [result, setResult] = useState<ScanResult | null>(null)
@@ -20,6 +21,9 @@ export default function Scan() {
     setBusy(true); setErr(null)
     try {
       const r = await api.scan({ payload })
+      // A stamp is the first thing most visitors do, so this is usually where the passport
+      // learns what the server thinks the time is.
+      if (r.status === 'success') setServerTime(r.serverTime)
       setResult(r)
       if (r.status === 'success' && 'vibrate' in navigator) navigator.vibrate?.(18) // §2.4
     } catch (e) {

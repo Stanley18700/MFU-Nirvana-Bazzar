@@ -6,7 +6,7 @@ import { stampMarks } from '../../lib/eventText'
 import { Spinner } from '../../components/ui'
 import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { dayOf, type BoothDoc } from '../../../shared/model'
-import { rewardExpiry, useRewardBooths } from '../../lib/points'
+import { rewardExpiry, usePointsClock, useRewardBooths } from '../../lib/points'
 
 function tiltFor(id: string) {
   let h = 0
@@ -24,6 +24,7 @@ function makeDayLabel(days: string[]) {
 export default function Stamps() {
   const { profile, user } = useAuth()
   const booths = useRewardBooths(useBooths(true))
+  const now = usePointsClock()
   const scans = useMyScans(user?.uid).data
   const event = useEvent()
   const dayLabel = makeDayLabel(event.days)
@@ -117,7 +118,7 @@ export default function Stamps() {
                     <Stamp booth={b} collected={false} size={84} points={b.displayPoints} {...marks} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm">{b.nameEn}</span>
-                      {rewardExpiry(b, Date.now()) && <span className="block text-xs text-ink-soft">{rewardExpiry(b, Date.now())}</span>}
+                      {rewardExpiry(b, now) && <span className="block text-xs text-ink-soft">{rewardExpiry(b, now)}</span>}
                       {notToday && <span className="block text-[11px] text-warn-text">{b.activeDays.map(dayLabel).join(' · ')} only</span>}
                     </span>
                     <span className="shrink-0 text-xs font-semibold tabular-nums text-ink">{b.displayPoints} pts</span>
@@ -139,7 +140,7 @@ export default function Stamps() {
               <Stamp booth={open} collected={have} size={152} points={open.displayPoints} {...marks} />
               <div className="min-w-0 flex-1">
                 <div className="stamp-text text-ink-soft">{open.location} · {open.displayPoints ?? '…'} {have ? 'points earned' : 'points'}</div>
-                {!have && rewardExpiry(open, Date.now()) && <p className="text-xs text-ink-soft">{rewardExpiry(open, Date.now())}</p>}
+                {!have && rewardExpiry(open, now) && <p className="text-xs text-ink-soft">{rewardExpiry(open, now)}</p>}
                 <h3 className="text-lg font-bold leading-tight">{open.nameEn}</h3>
                 <div className="text-sm text-ink-soft">{open.hostUnit}</div>
               </div>

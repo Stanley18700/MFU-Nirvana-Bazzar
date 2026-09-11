@@ -228,7 +228,9 @@ export const STATS_SHARDS = 10
 
 /** Scan result codes returned by the `scan` callable — spec §4.3. */
 export type ScanResult =
-  | { status: 'success'; boothId: string; pointsAwarded: number; points: number; stampCount: number; unlockedTierIds: string[] }
+  // `serverTime` lets the passport correct a phone whose clock disagrees with the server's,
+  // which is what decides a temporary booth reward (see lib/serverClock).
+  | { status: 'success'; boothId: string; pointsAwarded: number; points: number; stampCount: number; unlockedTierIds: string[]; serverTime: number }
   | { status: 'already'; boothId: string }
   | { status: 'expired' }
   | { status: 'invalid' }
