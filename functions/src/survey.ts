@@ -114,9 +114,36 @@ export const saveSurvey = onCall(async (req) => {
   }
   // responseCount belongs to the responses, not to an edit — never reset it on save.
   if (!before) doc.responseCount = 0
+
+  /**
+   * Answers are stored by question id, and the results screen labels them by joining against
+   * whatever questions the survey currently holds. So reusing an id with new wording silently
+   * relabels every answer already given: fifty people who rated the food are now reported as
+   * having rated the staff, and nothing anywhere says so.
+   *
+   * Editing is not forbidden — an organizer fixing a typo mid-event is reasonable — but the
+   * question set that answers were actually given against is kept, and every response records
+   * which version it belongs to. That is enough to reconstruct an honest report, and enough
+   * for the results screen to say when a table mixes two of them.
+   */
+  const prevVersion = before?.version ?? 1
+  const changed = !before || JSON.stringify(before.questions ?? []) !== JSON.stringify(questions)
+  doc.version = changed ? prevVersion + (before ? 1 : 0) : prevVersion
+  if (before && changed) {
+    await db.doc(`surveys/${boothId}/versions/${prevVersion}`).set({
+      version: prevVersion,
+      title: before.title ?? null,
+      questions: before.questions ?? [],
+      responseCountAtRetire: before.responseCount ?? 0,
+      retiredAt: FieldValue.serverTimestamp(),
+      retiredBy: actor,
+    })
+  }
+
   await ref.set(doc, { merge: true })
-  await audit(actor, 'saveSurvey', 'survey', boothId, before ? { active: before.active, questions: before.questions.length } : null,
-    { active: doc.active, questions: questions.length })
+  await audit(actor, 'saveSurvey', 'survey', boothId,
+    before ? { active: before.active, questions: before.questions.length, version: prevVersion } : null,
+    { active: doc.active, questions: questions.length, version: doc.version })
   return { ok: true }
 })
 
@@ -230,7 +257,8 @@ export const submitSurveyResponse = onCall(async (req) => {
   }
 
   const doc: SurveyResponseDoc = {
-    boothId, eventId: ev.id, answers, submittedAt: FieldValue.serverTimestamp(),
+    // Which question set these answers were given against, so an edit cannot relabel them.
+    boothId, eventId: ev.id, surveyVersion: survey.version ?? 1, answers, submittedAt: FieldValue.serverTimestamp(),
   }
   /**
    * The "already answered" read above is a courtesy, not the guard: a batch is atomic but

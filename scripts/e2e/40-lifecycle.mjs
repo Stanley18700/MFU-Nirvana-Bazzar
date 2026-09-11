@@ -85,6 +85,16 @@ export default async function lifecycle(ctx) {
   ok('the intended event is the live one again', settled.size === 1 && settled.docs[0].id === created.id,
     settled.docs.map((d) => d.id).join(', '))
 
+  // Most of what a purge deletes lives in collections shared between events, and tierUnlocks,
+  // draws and invites carry no eventId to filter on at all. Reaching for a finished event's id
+  // while a festival is running would take the live event's scans and unlocks with it, so now
+  // it is refused outright. The intended order — archive, purge, then go live on the next —
+  // is unaffected, which is why every purge above still worked.
+  ok('purging a finished event is refused while another is live',
+    await fails(call('purgeEventData')({ eventId: liveEvent.id, scope: 'scans' }), /is live/i))
+  ok('and refused for the destructive scopes too',
+    await fails(call('purgeEventData')({ eventId: liveEvent.id, scope: 'visitors', hard: true }), /is live/i))
+
   section('The next event reuses the booth ids safely')
   // A booth carries the id of the event it was created under, and `scan` refuses one that is
   // not the live event's (§6.6). Carrying a booth over is therefore an explicit admin action

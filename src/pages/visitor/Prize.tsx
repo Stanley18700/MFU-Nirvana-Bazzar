@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../lib/auth'
 import { useMyUnlocks, useTiers } from '../../lib/data'
 import { api } from '../../lib/api'
+import { setServerTime } from '../../lib/serverClock'
 import { QR } from '../../components/QR'
 import { Notice, Spinner, fmt } from '../../components/ui'
 import { APP_ORIGIN } from '../../lib/firebase'
@@ -17,6 +18,7 @@ function useRedemptionCode(enabled: boolean) {
       try {
         const r = await api.redemptionCode({})
         if (stop) return
+        setServerTime(r.serverTime)
         const skew = r.serverTime - Date.now()
         const periodMs = r.period * 1000
         const expiresAt = (r.counter + 1) * periodMs - skew

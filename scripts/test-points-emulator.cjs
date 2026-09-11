@@ -8,8 +8,9 @@ if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.GCLOUD_PROJECT?.startsW
 const { db, Timestamp, clearEventCache } = require('../functions/lib/lib')
 const { previewPointAdjustments: preview, applyPointAdjustments: apply, resetPointAdjustments: reset } = require('../functions/lib/points')
 const { updateBooth, savePrizePolicy } = require('../functions/lib/admin')
+const { purgeEventData } = require('../functions/lib/event')
 const { scan } = require('../functions/lib/visitor')
-const { onScanCreate } = require('../functions/lib/triggers')
+const { onScanCreate, purgePersonalData } = require('../functions/lib/triggers')
 const { dayOf } = require('../functions/lib/shared/model')
 const { effectivePoints, pointWindow } = require('../functions/lib/shared/points')
 const { computeToken, counterFor, buildPayload } = require('../functions/lib/shared/token')
@@ -223,4 +224,57 @@ test('a threshold backfills every eligible visitor, not just the first batch', a
   const again = await call(savePrizePolicy, { tiers: [{ id: 'top', name: 'Top', reward: 'A thing', thresholdPoints: 10, stockTotal: 1000 }] })
   assert.equal(again.unlocksCreated, 0)
   assert.equal((await db.collection('tierUnlocks').where('tierId', '==', 'top').count().get()).data().count, total)
+})
+
+const bulkVisitors = async (n, prefix, extra = {}) => {
+  for (let i = 0; i < n; i += 400) {
+    const batch = db.batch()
+    for (let j = i; j < Math.min(i + 400, n); j++) {
+      batch.set(db.doc(`users/${prefix}-${String(j).padStart(4, '0')}`), {
+        role: 'visitor', points: 60, stampCount: 3, stampedBoothIds: ['quiet'],
+        displayName: `Visitor ${j}`, studentId: `S${j}`, contact: `v${j}@example.com`,
+        ethnicGroup: 'Lahu', visitorType: 'guest', ...extra,
+      })
+    }
+    await batch.commit()
+  }
+}
+
+test('the retention purge reaches past the first 400 visitors', async () => {
+  await seed()
+  // 401 is the number that mattered: the job read limit(400) with no cursor and the write does
+  // not change `role`, so every nightly run rewrote the same first 400 and visitor 401 was
+  // never purged — while the logs looked healthy.
+  await bulkVisitors(401, 'ret')
+  await db.doc(`events/${eventId}`).update({ endsAt: Timestamp.fromMillis(Date.now() - 91 * 86400000) })
+  clearEventCache()
+
+  await purgePersonalData.run({})
+
+  const all = await db.collection('users').where('role', '==', 'visitor').get()
+  const unpurged = all.docs.filter((d) => d.data().displayName !== 'Purged')
+  assert.equal(unpurged.length, 0, `${unpurged.length} left unpurged, e.g. ${unpurged[0]?.id}`)
+  assert.equal(all.size, 401)
+  const last = await db.doc('users/ret-0400').get()
+  assert.equal(last.data().displayName, 'Purged')
+  assert.equal(last.data().studentId, null)
+  assert.equal(last.data().ethnicGroup, null)
+})
+
+test('a visitor reset clears everyone, not just the first page', async () => {
+  await seed()
+  // The reset selects on points > 0 now. Selecting every visitor made the page never advance,
+  // because the write clears points but not `role`.
+  await bulkVisitors(700, 'reset')
+  await db.doc(`events/${eventId}`).update({ status: 'archived' })
+  clearEventCache()
+
+  for (let round = 0; round < 10; round++) {
+    const r = await call(purgeEventData, { eventId, scope: 'visitors' })
+    if (r.deleted === 0) break
+  }
+  const withPoints = await db.collection('users').where('role', '==', 'visitor').where('points', '>', 0).count().get()
+  assert.equal(withPoints.data().count, 0)
+  const total = await db.collection('users').where('role', '==', 'visitor').count().get()
+  assert.equal(total.data().count, 700, 'accounts are kept, only progress is cleared')
 })

@@ -223,6 +223,7 @@ export const scan = onCall(async (req): Promise<ScanResult> => {
 
   return {
     status: 'success',
+    serverTime: Date.now(),
     boothId: parsed.boothId,
     pointsAwarded,
     points,

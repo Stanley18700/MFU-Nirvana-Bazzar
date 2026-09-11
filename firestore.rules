@@ -48,6 +48,18 @@ service cloud.firestore {
     match /surveys/{boothId} {
       allow read: if signedIn();
       allow write: if false;
+
+      /*
+       * The question sets this survey used to have, retired by an edit. Answers are stored by
+       * question id, so these are what make an old response readable as the question it was
+       * actually asked. Scoped like the answers themselves — the booth's own organizer and an
+       * admin — rather than to every signed-in visitor, who only ever needs the current form.
+       */
+      match /versions/{version} {
+        allow read: if isAdmin()
+                    || (isOrganizer() && boothId == request.auth.token.get('boothId', ''));
+        allow write: if false;
+      }
     }
 
     /**

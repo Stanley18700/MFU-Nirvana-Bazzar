@@ -258,6 +258,26 @@ export const purgeEventData = onCall({ timeoutSeconds: 120 }, async (req) => {
   if (!ev) throw new HttpsError('not-found', 'Event not found')
   if (ev.status !== 'archived') throw new HttpsError('failed-precondition', 'Archive the event before purging its data')
 
+  /**
+   * And the second guard: nothing may be live while this runs.
+   *
+   * Most of what is deleted below lives in collections shared between events — that is the
+   * deliberate trade described at the top of this file — and `tierUnlocks`, `draws`,
+   * `stockAdjustments` and `invites` carry no eventId to filter on even if we wanted to. So
+   * "purge the archived event" is really "purge the working data", and running it while
+   * another event is live would delete that event's scans and unlocks instead.
+   *
+   * The intended order already satisfies this: archive the live event, purge it, then create
+   * and go live on the next one, which is what the admin page does and what the e2e run
+   * asserts. Nothing legitimate is blocked; what is blocked is reaching for an old event id
+   * during a festival and taking the live one down with it.
+   */
+  const live = await db.collection('events').where('status', '==', 'live').limit(1).get()
+  if (!live.empty) {
+    throw new HttpsError('failed-precondition',
+      `"${(live.docs[0].data() as EventDoc).nameEn}" is live. A purge clears the working data these collections share, so archive the live event first.`)
+  }
+
   let deleted = 0
   let remaining = 0
 
@@ -272,15 +292,32 @@ export const purgeEventData = onCall({ timeoutSeconds: 120 }, async (req) => {
     remaining = (await db.collection(path).count().get()).data().count
   }
 
+  /**
+   * For the collections that do carry an eventId, filter on it. The guard above is what makes
+   * a cross-event purge impossible; this is the belt to that pair of braces, and it keeps the
+   * counts honest if an event ever does leave scans behind.
+   */
+  const deleteScoped = async (path: string) => {
+    const base = db.collection(path).where('eventId', '==', eventId)
+    const snap = await base.limit(limit).get()
+    if (!snap.empty) {
+      const batch = db.batch()
+      snap.docs.forEach((d) => batch.delete(d.ref))
+      await batch.commit()
+      deleted = snap.size
+    }
+    remaining = (await base.count().get()).data().count
+  }
+
   switch (scope) {
     // The award markers live or die with the scans they guard. A marker left behind would
     // make the same visitor's re-scan after a purge create its stamp and then silently count
     // nothing, because onScanCreate would take it for a redelivery. Same scope, so an admin
     // cannot clear one without the other; scans first, then the markers.
     case 'scans': {
-      await deletePage('scans')
-      if (deleted === 0) await deletePage('countedScans')
-      else remaining += (await db.collection('countedScans').count().get()).data().count
+      await deleteScoped('scans')
+      if (deleted === 0) await deleteScoped('countedScans')
+      else remaining += (await db.collection('countedScans').where('eventId', '==', eventId).count().get()).data().count
       break
     }
     case 'tierUnlocks': await deletePage('tierUnlocks'); break
@@ -292,8 +329,21 @@ export const purgeEventData = onCall({ timeoutSeconds: 120 }, async (req) => {
     case 'prizeTiers': await deletePage('prizeTiers'); break
 
     case 'visitors': {
-      // Default is to reset progress and keep the account; `hard` deletes it outright (PDPA).
-      const snap = await db.collection('users').where('role', '==', 'visitor').limit(limit).get()
+      /**
+       * Default is to reset progress and keep the account; `hard` deletes it outright (PDPA).
+       *
+       * The soft reset selects on `points > 0`, the same condition `remaining` counts below.
+       * Selecting every visitor instead made the page never advance: the write clears points
+       * but not `role`, so the next call re-read the same first 300 and everyone past them
+       * kept their points however many times an admin pressed it. The client loop gives up
+       * after 500 rounds and reports items still to clear, which is what it looked like.
+       *
+       * A stamp always awards at least one point — booth points are `min: 1` — so `points > 0`
+       * is exactly "has progress to clear", and a reset visitor drops out of the query.
+       */
+      const snap = hard
+        ? await db.collection('users').where('role', '==', 'visitor').limit(limit).get()
+        : await db.collection('users').where('role', '==', 'visitor').where('points', '>', 0).limit(limit).get()
       if (!snap.empty) {
         if (hard) {
           await auth.deleteUsers(snap.docs.map((d) => d.id)).catch((e) => console.error('deleteUsers', e))

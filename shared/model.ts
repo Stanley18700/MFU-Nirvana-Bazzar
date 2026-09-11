@@ -228,7 +228,9 @@ export const STATS_SHARDS = 10
 
 /** Scan result codes returned by the `scan` callable — spec §4.3. */
 export type ScanResult =
-  | { status: 'success'; boothId: string; pointsAwarded: number; points: number; stampCount: number; unlockedTierIds: string[] }
+  // `serverTime` lets the passport correct a phone whose clock disagrees with the server's,
+  // which is what decides a temporary booth reward (see lib/serverClock).
+  | { status: 'success'; boothId: string; pointsAwarded: number; points: number; stampCount: number; unlockedTierIds: string[]; serverTime: number }
   | { status: 'already'; boothId: string }
   | { status: 'expired' }
   | { status: 'invalid' }
@@ -287,6 +289,13 @@ export interface SurveyDoc {
   /** Off by default: a half-built survey must never reach a visitor. */
   active: boolean
   responseCount: number
+  /**
+   * Bumped whenever the questions change. Answers are stored by question id, so reusing an id
+   * with new wording would relabel the answers already given; the retired question set is kept
+   * at `surveys/{boothId}/versions/{version}` and every response records the version it
+   * belongs to. Absent on surveys saved before this existed, which are version 1.
+   */
+  version?: number
   updatedAt: unknown
   updatedBy: string
 }
@@ -304,6 +313,8 @@ export type SurveyAnswer = string | string[] | number
 export interface SurveyResponseDoc {
   boothId: string
   eventId: string
+  /** The `SurveyDoc.version` these answers were given against. Absent means version 1. */
+  surveyVersion?: number
   /** Keyed by question id. A skipped optional question is simply absent. */
   answers: Record<string, SurveyAnswer>
   submittedAt: unknown

@@ -44,6 +44,23 @@ export default function SurveyResults() {
   const questions = survey.data?.questions ?? []
   const rows = responses.data
 
+  /**
+   * Two things the table cannot say for itself.
+   *
+   * The query is capped, so a busy booth's export is the most recent 1,000 answers and not the
+   * whole set — and the footer used to report `rows.length`, which is the cap, as though it
+   * were the total. `responseCount` on the survey is the real figure.
+   *
+   * And the columns are labelled from the questions the survey holds *now*. A response given
+   * against an earlier set of questions is still shown under today's labels, so where the
+   * answers on screen span more than one version, say so rather than let a mixed table read as
+   * a uniform one. The retired questions are kept at `surveys/{boothId}/versions/{n}`.
+   */
+  const totalResponses = survey.data?.responseCount ?? rows.length
+  const truncated = totalResponses > rows.length
+  const versions = new Set(rows.map((r) => r.surveyVersion ?? 1))
+  const mixedVersions = versions.size > 1
+
   /** One row per response, columns named by question — the shape an organizer wants in Excel. */
   const csv = useMemo(() => rows.map((r, i) => {
     const out: Record<string, string | number> = {
@@ -144,6 +161,16 @@ export default function SurveyResults() {
           </div>
           {!showAll && rows.length > 20 && (
             <p className="mt-2 text-xs text-ink-soft">Showing the 20 most recent of {fmt(rows.length)}.</p>
+          )}
+          {truncated && (
+            <p className="mt-2 text-xs text-ink-soft">
+              This booth has {fmt(totalResponses)} answers in total. Only the most recent {fmt(rows.length)} are loaded here, and an export covers those.
+            </p>
+          )}
+          {mixedVersions && (
+            <p className="mt-2 text-xs text-ink-soft">
+              These answers were given against {versions.size} different versions of the questions, and the columns are labelled from the current one. Earlier versions are kept with the survey.
+            </p>
           )}
         </section>
       )}
