@@ -44,6 +44,14 @@ export default async function organizer(ctx) {
   ok('a non-prize-desk organizer is refused at the desk', await fails(call('lookupRedemption')({ payload: p1.payload }), /not a prize desk/i))
   ok('organizer reads own booth counters', (await getDoc(doc(db, 'stats/booths/items/booth-02'))).exists())
   ok('organizer reads the event shards', (await getDocs(collection(db, 'stats/event/shards'))).size > 0)
+  // §4.1 — the booth screen needs the event total, so the shards above stay readable. Who the
+  // visitors are must not come with it: a group of one or two identifies a person, and the
+  // dashboard's under-5 folding is a render filter an organizer never runs.
+  ok('organizer cannot read visitor demographics', await denied(getDocs(collection(db, 'stats/demographics/shards'))))
+  const openShards = await getDocs(collection(db, 'stats/event/shards'))
+  ok('the readable shards carry no demographic field',
+    openShards.docs.every((d) => !['byCountry', 'byInstitution', 'bySchool', 'byEthnicGroup', 'crossSchool', 'ethnicResponses', 'ethnicDeclines'].some((f) => f in d.data())),
+    openShards.docs.flatMap((d) => Object.keys(d.data())).join(','))
   ok('organizer reads booths and prize tiers', (await getDocs(collection(db, 'booths'))).size === 12 && (await getDocs(collection(db, 'prizeTiers'))).size === 3)
   ok('organizer cannot read visitors', await denied(getDoc(doc(db, 'users', visitorUid))))
   ok('organizer cannot read invites / audit / stock ledger', (await denied(getDocs(collection(db, 'invites')))) && (await denied(getDocs(collection(db, 'auditLog')))) && (await denied(getDocs(collection(db, 'stockAdjustments')))))

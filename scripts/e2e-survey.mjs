@@ -171,16 +171,29 @@ async function main() {
   await throws('a required question cannot be skipped',
     () => call('submitSurveyResponse')({ boothId: b1, answers: { q_how: 'Poster' } }), 'required')
 
-  await call('submitSurveyResponse')({ boothId: b1, answers: {
-    q_rate: 4,
-    q_how: 'Poster',
-    q_langs: ['Thai', 'English', 'Thai'],
-    q_scale: 5,
-    q_note: '  Loved the origami.  ',
-    q_when: '2026-09-17',
-    q_ghost: 'not a question on this form',
-  } })
-  ok('answering is accepted', true)
+  // Submitted eight times at once, not once: the "already answered" read cannot be the guard,
+  // because a batch takes no read lock and every one of these would find the marker absent.
+  // A response carries no identity by design, so a duplicate could never be cleaned up after
+  // the fact — exactly one must be stored. The assertions further down (one response for this
+  // booth, responseCount of 1) are what hold the line; they now mean something.
+  const burst = await Promise.allSettled(Array.from({ length: 8 }, () =>
+    call('submitSurveyResponse')({ boothId: b1, answers: {
+      q_rate: 4,
+      q_how: 'Poster',
+      q_langs: ['Thai', 'English', 'Thai'],
+      q_scale: 5,
+      q_note: '  Loved the origami.  ',
+      q_when: '2026-09-17',
+      q_ghost: 'not a question on this form',
+    } })))
+  const accepted = burst.filter((r) => r.status === 'fulfilled')
+  ok('exactly one of eight simultaneous submissions is accepted', accepted.length === 1,
+    `${accepted.length} accepted, ${burst.length - accepted.length} refused`)
+  ok('the rest are refused as already answered',
+    burst.filter((r) => r.status === 'rejected').every((r) => /already answered/i.test(r.reason?.message ?? '')),
+    burst.filter((r) => r.status === 'rejected').map((r) => r.reason?.message).join(' | ').slice(0, 160))
+  // A visitor cannot list surveyResponses, and should not be able to. That exactly one row
+  // was stored is asserted below, where the organizer who owns the booth reads them.
 
   section('The passport is untouched')
   // Given a moment in which a stray trigger could have fired, then compared.

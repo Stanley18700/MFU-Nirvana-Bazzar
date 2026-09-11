@@ -164,4 +164,35 @@ test('a scan racing an application receives the value of its serialized booth st
   assert.equal((await visit('quiet')).result.pointsAwarded, 25)
 })
 
+const sumShards = async (field) => {
+  const shards = await db.collection('stats/event/shards').get()
+  return shards.docs.reduce((t, d) => t + (d.data()[field] ?? 0), 0)
+}
+
+test('a redelivered scan trigger counts the stamp once', async () => {
+  await seed()
+  const first = await visit('quiet')
+  const delivery = { id: 'delivery-1', data: first.stored, params: { scanId: first.stored.id } }
+
+  await onScanCreate.run(delivery)
+  const once = (await db.doc(`users/${first.uid}`).get()).data()
+  assert.equal(once.stampCount, 1)
+  assert.equal(once.points, 20)
+  assert.equal(await sumShards('stamps'), 1)
+
+  // Firestore delivers at least once. The same delivery, and a fresh delivery id for the same
+  // scan, must both be ignored — otherwise the visitor ends on 40 points and 2 stamps with
+  // only one booth in stampedBoothIds, which is what the bug looked like.
+  await onScanCreate.run(delivery)
+  await onScanCreate.run({ ...delivery, id: 'delivery-2' })
+
+  const after = (await db.doc(`users/${first.uid}`).get()).data()
+  assert.equal(after.stampCount, 1)
+  assert.equal(after.points, 20)
+  assert.deepEqual(after.stampedBoothIds, ['quiet'])
+  assert.equal(await sumShards('stamps'), 1)
+  assert.equal(await sumShards('points'), 20)
+  assert.equal((await db.doc(`stats/booths/items/quiet`).get()).data().stamps, 1)
+})
+
 after(async () => { await db.terminate() })

@@ -174,17 +174,36 @@ export interface InviteDoc {
   acceptedUid?: string | null
 }
 
+/**
+ * The counters an organizer's booth screen is allowed to see: how the event as a whole is
+ * going. Nothing here describes who the visitors are — see `DemographicsShard`.
+ */
 export interface EventStatsShard {
   visitors: number
   stamps: number
   points: number
   redeemed: number
   byVisitorType: Partial<Record<VisitorType, number>>
+  byDay: Record<string, { visitors?: number; stamps?: number }>
+  pointsBuckets?: Record<string, number>
+  visitorsWithStamps?: number
+  tierReached?: number
+}
+
+/**
+ * §4.1/§10 — who the visitors are, kept in its own admin-only document rather than in the
+ * shards above. Small ethnic-group counts identify people, and an organizer subscribing to
+ * the event counters for a booth screen would otherwise hold every one of them on their
+ * device. The under-5 suppression on the dashboard is a render filter, not access control.
+ */
+export interface DemographicsShard {
   byCountry: Record<string, number>
   byInstitution: Record<string, number>
   bySchool: Record<string, number>
-  byDay: Record<string, { visitors?: number; stamps?: number }>
-  pointsBuckets?: Record<string, number>
+  byEthnicGroup: Record<string, number>
+  ethnicResponses: number
+  ethnicDeclines: number
+  crossSchool: Record<string, Record<string, number>>
 }
 
 export interface BoothStats {

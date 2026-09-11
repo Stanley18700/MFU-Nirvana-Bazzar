@@ -257,7 +257,16 @@ export const purgeEventData = onCall({ timeoutSeconds: 120 }, async (req) => {
   }
 
   switch (scope) {
-    case 'scans': await deletePage('scans'); break
+    // The award markers live or die with the scans they guard. A marker left behind would
+    // make the same visitor's re-scan after a purge create its stamp and then silently count
+    // nothing, because onScanCreate would take it for a redelivery. Same scope, so an admin
+    // cannot clear one without the other; scans first, then the markers.
+    case 'scans': {
+      await deletePage('scans')
+      if (deleted === 0) await deletePage('countedScans')
+      else remaining += (await db.collection('countedScans').count().get()).data().count
+      break
+    }
     case 'tierUnlocks': await deletePage('tierUnlocks'); break
     case 'stockAdjustments': await deletePage('stockAdjustments'); break
     case 'draws': await deletePage('draws'); break
@@ -331,10 +340,16 @@ export const purgeEventData = onCall({ timeoutSeconds: 120 }, async (req) => {
 
     case 'eventStats': {
       const batch = db.batch()
-      for (let i = 0; i < STATS_SHARDS; i++) batch.delete(db.doc(`stats/event/shards/${i}`))
+      for (let i = 0; i < STATS_SHARDS; i++) {
+        batch.delete(db.doc(`stats/event/shards/${i}`))
+        // The demographic shards are event counters too, just held apart for access (§4.1).
+        // Clearing one set and not the other would carry a finished event's visitors into
+        // the next one's dashboard.
+        batch.delete(db.doc(`stats/demographics/shards/${i}`))
+      }
       batch.delete(db.doc('stats/event'))
       await batch.commit()
-      deleted = STATS_SHARDS + 1
+      deleted = STATS_SHARDS * 2 + 1
       remaining = 0
       break
     }

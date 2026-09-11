@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useBooths, useBoothStats, useBuckets, useEvent, useEventStats, useTiers } from '../../lib/data'
+import { useBooths, useBoothStats, useBuckets, useDemographics, useEvent, useEventStats, useTiers } from '../../lib/data'
 import { countryName } from '../../lib/countries'
 import type { CsvRow } from '../../lib/csv'
 import { useRewardBooths } from '../../lib/points'
@@ -17,6 +17,9 @@ const VISITOR_TYPES = ['student', 'staff', 'alumni', 'guest'] as const
 export function useDashboardModel(day: DaySel) {
   const event = useEvent()
   const ev = useEventStats()
+  // Admin-only, and refused to an organizer by the rules (§4.1). Only admin screens may
+  // call useDashboardModel for that reason.
+  const demo = useDemographics()
   const booths = useRewardBooths(useBooths(true))
   const { data: bstats } = useBoothStats()
   const buckets = useBuckets(96)
@@ -40,11 +43,11 @@ export function useDashboardModel(day: DaySel) {
     .sort((a, b) => (a.startsAt as { toMillis(): number }).toMillis() - (b.startsAt as { toMillis(): number }).toMillis())
     .map((b) => ({ t: new Date((b.startsAt as { toMillis(): number }).toMillis()).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }), stamps: b.total })), [buckets, day])
 
-  const countries = useMemo(() => Object.entries(ev.totals.byCountry).sort((a, b) => b[1] - a[1]), [ev.totals.byCountry])
-  const thai = ev.totals.byCountry.TH ?? 0
+  const countries = useMemo(() => Object.entries(demo.totals.byCountry).sort((a, b) => b[1] - a[1]), [demo.totals.byCountry])
+  const thai = demo.totals.byCountry.TH ?? 0
   const intl = ev.totals.visitors - thai
-  const institutions = useMemo(() => Object.entries(ev.totals.byInstitution).sort((a, b) => b[1] - a[1]).slice(0, 10), [ev.totals.byInstitution])
-  const schools = useMemo(() => Object.entries(ev.totals.bySchool).sort((a, b) => b[1] - a[1]).slice(0, 10), [ev.totals.bySchool])
+  const institutions = useMemo(() => Object.entries(demo.totals.byInstitution).sort((a, b) => b[1] - a[1]).slice(0, 10), [demo.totals.byInstitution])
+  const schools = useMemo(() => Object.entries(demo.totals.bySchool).sort((a, b) => b[1] - a[1]).slice(0, 10), [demo.totals.bySchool])
   const visitorTypes = VISITOR_TYPES.map((k) => [k, ev.totals.byVisitorType[k] ?? 0] as [string, number])
   /**
    * A key for the screen and the English for the CSV. The exports are the raw material for the
@@ -62,18 +65,18 @@ export function useDashboardModel(day: DaySel) {
   // hidden until 20 visitors have consented.
   const ethnicFolded = useMemo(() => {
     const out: Record<string, number> = {}
-    for (const [k, v] of Object.entries(ev.totals.byEthnicGroup)) out[v < 5 ? 'Other' : k] = (out[v < 5 ? 'Other' : k] ?? 0) + v
+    for (const [k, v] of Object.entries(demo.totals.byEthnicGroup)) out[v < 5 ? 'Other' : k] = (out[v < 5 ? 'Other' : k] ?? 0) + v
     return Object.entries(out).sort((a, b) => b[1] - a[1])
-  }, [ev.totals.byEthnicGroup])
-  const ethnicVisible = ev.totals.ethnicResponses >= 20
-  const ethnicRate = Math.round((ev.totals.ethnicResponses / Math.max(1, ev.totals.ethnicResponses + ev.totals.ethnicDeclines)) * 100)
+  }, [demo.totals.byEthnicGroup])
+  const ethnicVisible = demo.totals.ethnicResponses >= 20
+  const ethnicRate = Math.round((demo.totals.ethnicResponses / Math.max(1, demo.totals.ethnicResponses + demo.totals.ethnicDeclines)) * 100)
 
   const stock = useMemo(() => tiers.filter((t) => t.active).map((t) => {
     const pct = t.stockTotal ? t.stockRemaining / t.stockTotal : 0
     return { id: t.id, name: t.name, remaining: t.stockRemaining, total: t.stockTotal, pct, tone: t.stockRemaining <= 5 ? '#D94A48' : pct < 0.2 ? '#DC8A2A' : '#4C764F' }
   }), [tiers])
 
-  const cross = useMemo(() => crossSchoolTable(ev.totals.crossSchool, booths), [ev.totals.crossSchool, booths])
+  const cross = useMemo(() => crossSchoolTable(demo.totals.crossSchool, booths), [demo.totals.crossSchool, booths])
 
   const csv = useMemo(() => ({
     leaderboard: board.map((b) => ({ booth: b.nameEn, stamps: b.stamps, points: b.rewardPoints, basePoints: b.points, zone: b.zone })) as CsvRow[],
@@ -98,7 +101,7 @@ export function useDashboardModel(day: DaySel) {
   return {
     event, ev, booths, tiers, scoped, board, max, lowest, timeline,
     countries, thai, intl, institutions, schools, visitorTypes, funnel,
-    ethnicFolded, ethnicVisible, ethnicRate, ethnicResponses: ev.totals.ethnicResponses,
+    ethnicFolded, ethnicVisible, ethnicRate, ethnicResponses: demo.totals.ethnicResponses,
     stock, cross, csv,
   }
 }
