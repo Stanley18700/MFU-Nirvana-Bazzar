@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, errorMessage, type EventRow, type PurgeScope } from '../../lib/api'
 import { Notice, Spinner, Toast, fmt, type Msg } from '../../components/ui'
 import { DateTimeField } from '../../components/DateTimeField'
-import { ZONE_LABEL } from '../../lib/labels'
+import { useLabels } from '../../lib/labels'
 import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import { dayOf, type Zone } from '../../../shared/model'
+import { useLocale } from '../../lib/locale'
+import type { StringKey } from '../../lib/strings'
 
 const ZONES: Zone[] = ['entrance', 'middle', 'far']
 
@@ -65,23 +67,25 @@ function fromRow(r: EventRow): Form {
  * `booths` — the deterministic id `scans/{uid}_{boothId}` is what would otherwise stop a
  * returning visitor re-stamping a reused booth id.
  */
-const CLEAR_STEPS: Array<{ scope: PurgeScope; label: string }> = [
-  { scope: 'scans', label: 'Stamps' },
-  { scope: 'tierUnlocks', label: 'Prize unlocks' },
-  { scope: 'stockAdjustments', label: 'Stock ledger' },
-  { scope: 'draws', label: 'Stage draws' },
-  { scope: 'buckets', label: 'Timeline' },
-  { scope: 'invites', label: 'Invitations' },
-  { scope: 'rateLimits', label: 'Rate limits' },
-  { scope: 'counters', label: 'Passport numbering' },
-  { scope: 'visitors', label: 'Visitor progress' },
+const CLEAR_STEPS: Array<{ scope: PurgeScope; label: StringKey }> = [
+  { scope: 'scans', label: 'event.scope.scans' },
+  { scope: 'tierUnlocks', label: 'event.scope.tierUnlocks' },
+  { scope: 'stockAdjustments', label: 'event.scope.stockAdjustments' },
+  { scope: 'draws', label: 'event.scope.draws' },
+  { scope: 'buckets', label: 'event.scope.buckets' },
+  { scope: 'invites', label: 'event.scope.invites' },
+  { scope: 'rateLimits', label: 'event.scope.rateLimits' },
+  { scope: 'counters', label: 'event.scope.counters' },
+  { scope: 'visitors', label: 'event.scope.visitors' },
   // `eventStats` is deliberately last, and repeated after a settle below: deleting a visitor
   // fires onUserWrite, which decrements the shards. Clearing them first lets those late
   // deltas recreate the shards at negative values, and the next event opens below zero.
-  { scope: 'eventStats', label: 'Event counters' },
+  { scope: 'eventStats', label: 'event.scope.eventStats' },
 ]
 
 export default function EventAdmin() {
+  const { t } = useLocale()
+  const { ZONE_LABEL } = useLabels()
   const [rows, setRows] = useState<EventRow[] | null>(null)
   const [liveId, setLiveId] = useState<string>('')
   const [form, setForm] = useState<Form | null>(null)
@@ -119,25 +123,25 @@ export default function EventAdmin() {
         days: form.days, qrPeriodSeconds: form.qrPeriodSeconds,
         passportPrefix: form.passportPrefix, zonePoints: form.zonePoints,
       }
-      if (form.id) { await api.updateEvent({ id: form.id, ...payload }); setMsg({ tone: 'green', text: 'Event saved.' }); setLoaded(JSON.stringify(form)) }
-      else { const r = await api.createEvent(payload); setForm({ ...form, id: r.id }); setMsg({ tone: 'green', text: `Created "${r.id}" as a draft. Add booths and a prize policy, then Go live.` }) }
+      if (form.id) { await api.updateEvent({ id: form.id, ...payload }); setMsg({ tone: 'green', text: t('event.saved') }); setLoaded(JSON.stringify(form)) }
+      else { const r = await api.createEvent(payload); setForm({ ...form, id: r.id }); setMsg({ tone: 'green', text: t('event.created', { id: r.id }) }) }
       await load()
     } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
   }
 
   async function goLive(id: string) {
     setBusy(true); setMsg(null)
-    try { await api.goLive({ id }); setMsg({ tone: 'green', text: 'This event is now live.' }); await load() }
+    try { await api.goLive({ id }); setMsg({ tone: 'green', text: t('event.nowLive') }); await load() }
     catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
   }
 
   async function deleteDraft(r: EventRow) {
-    if (!window.confirm(`Delete the draft "${r.nameEn}"? This cannot be undone.`)) return
+    if (!window.confirm(t('event.deleteDraftConfirm', { name: r.nameEn }))) return
     setBusy(true); setMsg(null)
     try {
       await api.deleteEvent({ id: r.id })
       if (form?.id === r.id) setForm(blank())
-      setMsg({ tone: 'green', text: `Draft "${r.id}" deleted.` })
+      setMsg({ tone: 'green', text: t('event.draftDeleted', { id: r.id }) })
       await load()
     } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
   }
@@ -149,12 +153,12 @@ export default function EventAdmin() {
   const periodOk = !!form && form.qrPeriodSeconds >= 10 && form.qrPeriodSeconds <= 120
   const zonesOk = !!form && ZONES.every((z) => form.zonePoints[z] >= 1 && form.zonePoints[z] <= 100)
 
-  if (!rows || !form) return <Spinner label="Loading events…" />
+  if (!rows || !form) return <Spinner label={t('event.loading')} />
 
   return (
     <div>
       <header>
-        <h1 className="text-2xl font-bold">Event</h1>
+        <h1 className="text-2xl font-bold">{t('event.title')}</h1>
         <p className="text-sm text-ink-soft">
           The app runs one event at a time. Its name, dates, days, QR period and default points live
           here; booths, prizes and people are set up on their own pages.
@@ -165,41 +169,41 @@ export default function EventAdmin() {
 
       <section className="card mt-5 grid gap-4 md:grid-cols-2">
         <h2 className="stamp-text text-ink-soft md:col-span-2">
-          {form.id === liveId ? 'The current event' : form.id ? `Draft · ${form.id}` : 'New event (starts as a draft)'}
+          {form.id === liveId ? t('event.current') : form.id ? t('event.draft', { id: form.id }) : t('event.newEvent')}
           {form.id !== liveId && live && (
-            <button className="btn-quiet btn-sm ml-3 normal-case tracking-normal" onClick={() => { setForm(fromRow(live)); setMsg(null) }}>Back to the current event</button>
+            <button className="btn-quiet btn-sm ml-3 normal-case tracking-normal" onClick={() => { setForm(fromRow(live)); setMsg(null) }}>{t('event.backToCurrent')}</button>
           )}
         </h2>
-        <label>Name (English)<input className="field mt-1" value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} /></label>
-        <label>Name (Thai, optional)<input className="field mt-1" value={form.nameTh} onChange={(e) => setForm({ ...form, nameTh: e.target.value })} /></label>
-        <div>Starts<div className="mt-1"><DateTimeField id="ev-starts" ariaLabel="Starts" value={form.startsAt} onChange={(v) => setDates(v, form.endsAt)} /></div></div>
-        <div>Ends<div className="mt-1"><DateTimeField id="ev-ends" ariaLabel="Ends" value={form.endsAt} onChange={(v) => setDates(form.startsAt, v)} /></div></div>
+        <label>{t('event.nameEn')}<input className="field mt-1" value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} /></label>
+        <label>{t('event.nameTh')}<input className="field mt-1" value={form.nameTh} onChange={(e) => setForm({ ...form, nameTh: e.target.value })} /></label>
+        <div>{t('event.starts')}<div className="mt-1"><DateTimeField id="ev-starts" ariaLabel={t('event.starts')} value={form.startsAt} onChange={(v) => setDates(v, form.endsAt)} /></div></div>
+        <div>{t('event.ends')}<div className="mt-1"><DateTimeField id="ev-ends" ariaLabel={t('event.ends')} value={form.endsAt} onChange={(v) => setDates(form.startsAt, v)} /></div></div>
 
         <fieldset className="md:col-span-2">
-          <legend className="stamp-text text-ink-soft">Days the event runs</legend>
+          <legend className="stamp-text text-ink-soft">{t('event.days')}</legend>
           <div className="mt-2 flex flex-wrap gap-3 text-sm">
             {(form.startsAt && form.endsAt ? daysBetween(new Date(form.startsAt).getTime(), new Date(form.endsAt).getTime()) : form.days).map((d, i) => (
               <label key={d} className="flex items-center gap-1">
                 <input type="checkbox" checked={form.days.includes(d)}
                   onChange={(e) => setForm({ ...form, days: e.target.checked ? [...form.days, d].sort() : form.days.filter((x) => x !== d) })} />
-                Day {i + 1} · {d}
+                {t('event.dayN', { n: i + 1 })} · {d}
               </label>
             ))}
           </div>
         </fieldset>
 
-        <label>QR rotation (seconds)
+        <label>{t('event.qrPeriod')}
           <input className={`field mt-1 ${periodOk ? '' : 'border-danger'}`} type="number" min={10} max={120} value={Number.isFinite(form.qrPeriodSeconds) ? form.qrPeriodSeconds : ''}
             onChange={(e) => setForm({ ...form, qrPeriodSeconds: e.target.value === '' ? NaN : Number(e.target.value) })} />
-          {!periodOk && <span className="text-xs text-danger-text">10 to 120 seconds</span>}
+          {!periodOk && <span className="text-xs text-danger-text">{t('event.qrRange')}</span>}
         </label>
-        <label>Passport prefix
+        <label>{t('event.prefix')}
           <input className="field mt-1" value={form.passportPrefix} onChange={(e) => setForm({ ...form, passportPrefix: e.target.value.toUpperCase() })} />
-          <span className="text-xs text-ink-soft">Numbers read {form.passportPrefix || 'MFU-GG'}-0001</span>
+          <span className="text-xs text-ink-soft">{t('event.prefixHint', { prefix: form.passportPrefix || 'MFU-GG' })}</span>
         </label>
 
         <fieldset className="md:col-span-2">
-          <legend className="stamp-text text-ink-soft">Default points per zone</legend>
+          <legend className="stamp-text text-ink-soft">{t('event.zonePoints')}</legend>
           <div className="mt-2 grid gap-3 sm:grid-cols-3">
             {ZONES.map((z) => (
               <label key={z} className="text-sm">{ZONE_LABEL[z]}
@@ -209,18 +213,17 @@ export default function EventAdmin() {
             ))}
           </div>
           <p className="mt-2 text-xs text-ink-soft">
-            Applies to booths created from now on. Existing booths keep their points, and points
-            already awarded are frozen at scan time.
+            {t('event.zoneNote')}
           </p>
         </fieldset>
 
         <div className="flex flex-wrap gap-2 md:col-span-2">
           <button className="btn-primary" disabled={busy || !form.nameEn.trim() || !form.startsAt || !form.endsAt || !periodOk || !zonesOk || (!!form.id && !dirty)} onClick={save}>
-            {busy ? 'Saving…' : form.id ? 'Save' : 'Create draft'}
+            {t(busy ? 'common.saving' : form.id ? 'common.save' : 'event.createDraft')}
           </button>
-          {dirty && form.id && <span className="self-center text-xs text-warn-text">Unsaved changes</span>}
+          {dirty && form.id && <span className="self-center text-xs text-warn-text">{t('event.unsaved')}</span>}
           {form.id && form.id !== liveId && (
-            <button className="btn-gold" disabled={busy} onClick={() => goLive(form.id!)}>Go live</button>
+            <button className="btn-gold" disabled={busy} onClick={() => goLive(form.id!)}>{t('event.goLive')}</button>
           )}
         </div>
       </section>
@@ -228,18 +231,15 @@ export default function EventAdmin() {
       {/* Everything about a *second* event stays folded away: day to day there is only the one above. */}
       <details className="reveal-host mt-8 rounded-2xl border rule p-4">
         <summary className="cursor-pointer rounded-lg transition hover:text-ink">
-          <span className="stamp-text text-ink-soft">After the event · archive this one, prepare the next</span>
+          <span className="stamp-text text-ink-soft">{t('event.after')}</span>
         </summary>
         <p className="mt-3 text-sm text-ink-soft">
-          Booths, prizes and accounts are shared, not copied per event. The way to move on is to
-          archive the current event (its totals are frozen), which clears stamps and progress, then
-          go live with the next one. A draft can be prepared here in advance, but only its own
-          settings: booths and prizes stay as they are until you archive.
+          {t('event.afterLead')}
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button className="btn-ghost" onClick={() => { setForm(blank()); setMsg(null); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>New draft event</button>
+          <button className="btn-ghost" onClick={() => { setForm(blank()); setMsg(null); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>{t('event.newDraft')}</button>
         </div>
-        <h2 className="stamp-text mt-5 text-ink-soft">All events</h2>
+        <h2 className="stamp-text mt-5 text-ink-soft">{t('event.all')}</h2>
         <ul className="mt-3 grid gap-3 md:grid-cols-2">
           {rows.map((r) => (
             <li key={r.id} className="card text-sm">
@@ -253,9 +253,9 @@ export default function EventAdmin() {
                 }`}>{r.status}</span>
               </div>
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                <button className="btn-quiet btn-sm" onClick={() => { setForm(fromRow(r)); setMsg(null) }}>Edit</button>
-                {r.status !== 'live' && <button className="btn-gold btn-sm" disabled={busy} onClick={() => goLive(r.id)}>Go live</button>}
-                {r.status === 'draft' && <button className="btn-danger-soft btn-sm" disabled={busy} onClick={() => deleteDraft(r)}>Delete draft</button>}
+                <button className="btn-quiet btn-sm" onClick={() => { setForm(fromRow(r)); setMsg(null) }}>{t('event.edit')}</button>
+                {r.status !== 'live' && <button className="btn-gold btn-sm" disabled={busy} onClick={() => goLive(r.id)}>{t('event.goLive')}</button>}
+                {r.status === 'draft' && <button className="btn-danger-soft btn-sm" disabled={busy} onClick={() => deleteDraft(r)}>{t('event.deleteDraft')}</button>}
               </div>
             </li>
           ))}
@@ -271,6 +271,7 @@ export default function EventAdmin() {
  * runs past the callable timeout on a full three-day dataset, and the admin can see progress.
  */
 function DangerZone({ live, onDone }: { live: EventRow; onDone: () => Promise<void> }) {
+  const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const [confirmName, setConfirmName] = useState('')
   const [keepBooths, setKeepBooths] = useState(true)
@@ -305,27 +306,27 @@ function DangerZone({ live, onDone }: { live: EventRow; onDone: () => Promise<vo
   async function run() {
     setRunning(true); setErr(null); setLog([]); setDone(false)
     try {
-      say('Freezing totals to the archive…')
+      say(t('event.freezing'))
       const a = await api.archiveEvent({ id: live.id, confirmName })
-      setLog((l) => [...l.slice(0, -1), `Archived — ${fmt(a.totals.visitors)} visitors, ${fmt(a.totals.stamps)} stamps, ${fmt(a.totals.redeemed)} prizes handed over`])
+      setLog((l) => [...l.slice(0, -1), t('event.archived', { visitors: fmt(a.totals.visitors), stamps: fmt(a.totals.stamps), prizes: fmt(a.totals.redeemed) })])
 
       for (const step of CLEAR_STEPS) {
-        await drain(step.scope, step.label, step.scope === 'visitors' && hardDelete)
+        await drain(step.scope, t(step.label), step.scope === 'visitors' && hardDelete)
       }
       if (keepBooths) {
-        await drain('boothStats', 'Reset booth counters')
-        await drain('rotateSecrets', 'New booth QR secrets')
+        await drain('boothStats', t('event.stepBoothStats'))
+        await drain('rotateSecrets', t('event.stepRotate'))
       } else {
-        await drain('booths', 'Booths and artwork')
+        await drain('booths', t('event.stepBooths'))
       }
-      if (keepTiers) await drain('resetTierStock', 'Restore prize stock')
-      else await drain('prizeTiers', 'Prize tiers')
+      if (keepTiers) await drain('resetTierStock', t('event.stepResetStock'))
+      else await drain('prizeTiers', t('event.stepTiers'))
 
       // Let any trailing onUserWrite / onScanCreate deltas land, then clear the counters again.
-      say('Settling counters…')
+      say(t('event.settling'))
       await new Promise((r) => setTimeout(r, 6000))
       await api.purgeEventData({ eventId: live.id, scope: 'eventStats' })
-      setLog((l) => [...l.slice(0, -1), 'Settling counters — done'])
+      setLog((l) => [...l.slice(0, -1), t('event.settled')])
 
       setDone(true)
       await onDone()
@@ -336,39 +337,37 @@ function DangerZone({ live, onDone }: { live: EventRow; onDone: () => Promise<vo
 
   return (
     <section className="mt-8 rounded-2xl border-2 border-danger/40 p-4">
-      <h2 className="stamp-text text-danger-text">Danger zone</h2>
+      <h2 className="stamp-text text-danger-text">{t('event.danger')}</h2>
       <p className="mt-2 text-sm text-ink-soft">
-        Archive <b>{live.nameEn}</b> and start a new event. Its totals are frozen to a read-only
-        archive first, then the stamps, prize unlocks, counters and visitor progress are cleared so
-        the next event starts from zero. This cannot be undone.
+        {t('event.dangerBefore')} <b>{live.nameEn}</b> {t('event.dangerAfter')}
       </p>
 
       {!open ? (
-        <button className="btn-danger mt-3" onClick={() => setOpen(true)}>Archive &amp; start a new event</button>
+        <button className="btn-danger mt-3" onClick={() => setOpen(true)}>{t('event.archiveStart')}</button>
       ) : (
         <div className="mt-4 grid gap-3">
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={keepBooths} onChange={(e) => setKeepBooths(e.target.checked)} disabled={running} />
-            Keep the booths (counters reset to zero and every QR secret is replaced)
+            {t('event.keepBooths')}
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={keepTiers} onChange={(e) => setKeepTiers(e.target.checked)} disabled={running} />
-            Keep the prize policy (stock restored to the full loaded-in figure)
+            {t('event.keepTiers')}
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={hardDelete} onChange={(e) => setHardDelete(e.target.checked)} disabled={running} />
-            Also delete visitor accounts outright (PDPA). Otherwise their progress is reset and the account kept.
+            {t('event.hardDelete')}
           </label>
 
-          <label className="text-sm">Type <b>{live.nameEn}</b> to confirm
+          <label className="text-sm">{t('event.typeToConfirm')} <b>{live.nameEn}</b> {t('event.toConfirm')}
             <input className="field mt-1" value={confirmName} onChange={(e) => setConfirmName(e.target.value)} disabled={running} />
           </label>
 
           <div className="flex flex-wrap gap-2">
             <button className="btn-danger" disabled={running || confirmName.trim().toLowerCase() !== live.nameEn.trim().toLowerCase()} onClick={run}>
-              {running ? 'Working…' : 'Archive and clear'}
+              {t(running ? 'event.working' : 'event.archiveClear')}
             </button>
-            <button className="btn-ghost" disabled={running} onClick={() => { setOpen(false); setLog([]); setErr(null) }}>Cancel</button>
+            <button className="btn-ghost" disabled={running} onClick={() => { setOpen(false); setLog([]); setErr(null) }}>{t('event.cancel')}</button>
           </div>
 
           {log.length > 0 && (
@@ -379,8 +378,7 @@ function DangerZone({ live, onDone }: { live: EventRow; onDone: () => Promise<vo
           {err && <Notice tone="red">{err}</Notice>}
           {done && (
             <Notice tone="green">
-              Cleared. The archive is at <code>archives/{live.id}</code>. Now create the next event
-              above{keepBooths ? '' : ', add its booths'}{keepTiers ? '' : ' and set a prize policy'}, then press <b>Go live</b>.
+              {t('event.clearedBefore')} <code>archives/{live.id}</code>. {t('event.clearedAfter')}{keepBooths ? '' : t('event.clearedBooths')}{keepTiers ? '' : t('event.clearedTiers')}{t('event.clearedThen')} <b>{t('event.goLive')}</b>.
             </Notice>
           )}
         </div>

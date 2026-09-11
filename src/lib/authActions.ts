@@ -1,7 +1,7 @@
 /**
  * Everything the sign-in / sign-up / account screens do to Firebase Auth, in one place.
  *
- * Three of these send mail, and none of it goes through the EmailJS path in
+ * Three of these send mail, and none of it goes through the Resend path in
  * functions/src/mailer.ts — Firebase Auth sends them itself from the templates under
  * Authentication → Templates (see SETUP.md):
  *   · sendVerification        → "Email address verification"

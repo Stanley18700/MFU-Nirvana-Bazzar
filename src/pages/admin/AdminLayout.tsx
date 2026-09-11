@@ -4,9 +4,15 @@ import { useEvent } from '../../lib/data'
 import { AccountMenu } from '../../components/AccountMenu'
 import { DataErrors, Icon } from '../../components/ui'
 import { useSlidingPill } from '../../lib/useSlidingPill'
+import { useLocale } from '../../lib/locale'
+import type { StringKey } from '../../lib/strings'
 import { UniversityMark } from '../auth/parts'
 
-type Item = { to: string; label: string; icon: ReactNode; end?: boolean; away?: boolean }
+/**
+ * Keys, not words: this table is module-level, evaluated once at import, so a translated label
+ * held here could never follow the language toggle. Resolved with `t()` at render instead.
+ */
+type Item = { to: string; label: StringKey; icon: ReactNode; end?: boolean; away?: boolean }
 
 /**
  * Four groups in the order an admin needs them: what you look at during the event, what you set up
@@ -18,24 +24,24 @@ type Item = { to: string; label: string; icon: ReactNode; end?: boolean; away?: 
  * by role is the one thing that must not happen to it. The `↗` says the chrome is about to change
  * rather than letting it surprise you.
  */
-const GROUPS: Array<{ title: string; items: Item[] }> = [
-  { title: 'Run', items: [
-    { to: '/admin', label: 'Dashboard', icon: Icon.dashboard, end: true },
-    { to: '/admin/draw', label: 'Stage draw', icon: Icon.draw },
+const GROUPS: Array<{ title: StringKey; items: Item[] }> = [
+  { title: 'admin.group.run', items: [
+    { to: '/admin', label: 'admin.nav.dashboard', icon: Icon.dashboard, end: true },
+    { to: '/admin/draw', label: 'admin.nav.draw', icon: Icon.draw },
   ] },
-  { title: 'Set up', items: [
-    { to: '/admin/event', label: 'Event', icon: Icon.event },
-    { to: '/admin/booths', label: 'Booths', icon: Icon.booths },
-    { to: '/admin/prizes', label: 'Prizes & stock', icon: Icon.prizes },
-    { to: '/admin/users', label: 'Users & invites', icon: Icon.users },
+  { title: 'admin.group.setup', items: [
+    { to: '/admin/event', label: 'admin.nav.event', icon: Icon.event },
+    { to: '/admin/booths', label: 'admin.nav.booths', icon: Icon.booths },
+    { to: '/admin/prizes', label: 'admin.nav.prizes', icon: Icon.prizes },
+    { to: '/admin/users', label: 'admin.nav.users', icon: Icon.users },
   ] },
-  { title: 'Records', items: [
-    { to: '/admin/audit', label: 'Audit log', icon: Icon.audit },
-    { to: '/admin/refdata', label: 'Reference lists', icon: Icon.lists },
+  { title: 'admin.group.records', items: [
+    { to: '/admin/audit', label: 'admin.nav.audit', icon: Icon.audit },
+    { to: '/admin/refdata', label: 'admin.nav.refdata', icon: Icon.lists },
   ] },
-  { title: 'Screens', items: [
-    { to: '/admin/wall', label: 'Hall screen', icon: Icon.screen, away: true },
-    { to: '/redeem', label: 'Prize desk', icon: Icon.desk, away: true },
+  { title: 'admin.group.screens', items: [
+    { to: '/admin/wall', label: 'admin.nav.wall', icon: Icon.screen, away: true },
+    { to: '/redeem', label: 'admin.nav.desk', icon: Icon.desk, away: true },
   ] },
 ]
 
@@ -54,6 +60,7 @@ function readCollapsed(): boolean {
 function SideNav({ collapsed, onToggle }: { collapsed: boolean; onToggle?: () => void }) {
   const event = useEvent()
   const nav = useSlidingPill<HTMLElement>()
+  const { t } = useLocale()
   return (
     <>
       {/*
@@ -87,11 +94,11 @@ function SideNav({ collapsed, onToggle }: { collapsed: boolean; onToggle?: () =>
         {/* One word, because two lines did not fit: at 15rem, minus the mark and the collapse
             button, the rail served "MFU INTERNATI…" over "Passport ad…". The event's full name is
             on the title attribute and on the Event page; the rail only has to say where you are. */}
-        {!collapsed && <div className="min-w-0 flex-1 truncate font-semibold" title={event.nameEn}>Admin</div>}
+        {!collapsed && <div className="min-w-0 flex-1 truncate font-semibold" title={event.nameEn}>{t('admin.rail.brand')}</div>}
         {onToggle && (
           <button
             type="button" onClick={onToggle} className="btn-dark btn-sm btn-icon-sm"
-            aria-label={collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'} aria-pressed={collapsed}
+            aria-label={t(collapsed ? 'admin.rail.expand' : 'admin.rail.collapse')} aria-pressed={collapsed}
           >
             <span aria-hidden className={`inline-block transition-transform ${collapsed ? 'rotate-180' : ''}`}>‹</span>
           </button>
@@ -105,15 +112,15 @@ function SideNav({ collapsed, onToggle }: { collapsed: boolean; onToggle?: () =>
       <nav ref={nav} className="tab-rail-v min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3">
         {GROUPS.map((g) => (
           <div key={g.title} className="mb-3">
-            {!collapsed && <div className="stamp-text px-3 pb-1 pt-2 text-[10px] text-on-chrome-soft">{g.title}</div>}
+            {!collapsed && <div className="stamp-text px-3 pb-1 pt-2 text-[10px] text-on-chrome-soft">{t(g.title)}</div>}
             {collapsed && <div className="mx-auto my-2 h-px w-6 bg-white/15" />}
             {g.items.map((n) => (
               <NavLink
-                key={n.to} to={n.to} end={n.end} title={collapsed ? n.label : undefined}
+                key={n.to} to={n.to} end={n.end} title={collapsed ? t(n.label) : undefined}
                 className={({ isActive }) => `relative z-[1] flex items-center gap-3 whitespace-nowrap rounded-full py-2 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foil/60 ${collapsed ? 'justify-center px-0' : 'px-3.5'} ${isActive ? 'font-semibold text-white' : 'text-on-chrome-soft hover:bg-white/10 hover:text-white'}`}
               >
                 <span aria-hidden className="shrink-0">{n.icon}</span>
-                {!collapsed && <span className="min-w-0 flex-1 truncate">{n.label}</span>}
+                {!collapsed && <span className="min-w-0 flex-1 truncate">{t(n.label)}</span>}
                 {!collapsed && n.away && <span aria-hidden className="shrink-0 text-xs text-on-chrome-soft">↗</span>}
               </NavLink>
             ))}
@@ -130,6 +137,7 @@ function SideNav({ collapsed, onToggle }: { collapsed: boolean; onToggle?: () =>
 
 export default function AdminLayout() {
   const loc = useLocation()
+  const { t } = useLocale()
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(readCollapsed)
   const dlg = useRef<HTMLDialogElement>(null)
@@ -155,7 +163,8 @@ export default function AdminLayout() {
     })
   }
 
-  const title = ALL.find((i) => (i.end ? loc.pathname === i.to : loc.pathname.startsWith(i.to)))?.label ?? 'Passport admin'
+  const here = ALL.find((i) => (i.end ? loc.pathname === i.to : loc.pathname.startsWith(i.to)))
+  const title = here ? t(here.label) : t('admin.title')
 
   return (
     <div className="flex min-h-full flex-col lg:flex-row">
@@ -180,7 +189,7 @@ export default function AdminLayout() {
       {/* Phone and tablet: the rail is a drawer, so the bar is what is always on screen. */}
       <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 bg-chrome px-3 text-white lg:hidden">
         <button
-          type="button" className="btn-dark btn-icon" aria-label="Menu"
+          type="button" className="btn-dark btn-icon" aria-label={t('admin.menu')}
           aria-expanded={open} aria-controls="admin-nav" onClick={() => setOpen(true)}
         >
           {Icon.menu}

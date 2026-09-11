@@ -345,6 +345,8 @@ export const Icon = {
    * corner brackets for full screen, because brackets would read as `scan` at this size.
    */
   fullscreen: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>,
+  /* Add to Home Screen: a handset with an arrow landing in it. Same 24px box and 1.8 stroke as
+     the rail glyphs, sized 15 to sit level with `fullscreen` in the kiosk header. */
   print: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M7 8V3h10v5" /><path d="M7 18H5a2 2 0 01-2-2v-3a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 01-2 2h-2" /><rect x="7" y="14" width="10" height="7" rx="1" /></svg>,
 }
 

@@ -18,7 +18,7 @@ to `spec/spec.md`. Anything listed in §6 *Known gaps* at the end is already kno
 | What | State |
 | --- | --- |
 | Project | `mfu-passport`, live at https://mfu-passport.web.app (HANDOVER.md §1) |
-| Invitations | `EMAILJS_PRIVATE_KEY` is the placeholder `none`, so **invites are not emailed**: the admin gets a copyable link instead (HANDOVER.md §2) |
+| Invitations | `RESEND_API_KEY` is not set, so **invites are not emailed**: the admin gets a copyable link instead (HANDOVER.md §2) |
 | Account emails | Sent by Firebase Auth itself (verification, password reset, address change). The action URL should point at `/auth/action` (SETUP.md §1a); if it does not, the links still work on Firebase's own page |
 | Data reset | There is none on production. Walk the loop once per fresh event, or finish with the Danger zone on `/admin/event` |
 
@@ -289,7 +289,7 @@ Still open by design or deferred:
 | G-2 | Hard delete | Removing a visitor decrements the visitor counters via `onUserWrite`; spec §10 says counters stay intact | accepted |
 | G-3 | Ranks | Recomputed every 1 min (Cloud Scheduler floor), spec says 30 s | accepted |
 | G-4 | App Check | Not enforced yet; turn on reCAPTCHA Enterprise before the real event | before event |
-| G-5 | Email | Invites are copyable links until the EmailJS private key is set; account mails come from `noreply@mfu-passport.firebaseapp.com` and may be filtered by university mail | before event |
+| G-5 | Email | Invites are copyable links until `RESEND_API_KEY` and a verified `RESEND_FROM` are set; account mails come from `noreply@mfu-passport.firebaseapp.com` and may be filtered by university mail | before event |
 | G-6 | Invite via email + password | Shows a password field, unlike spec §12.17's "no password field" (accounts replaced anonymous sign-in) | accepted |
 | G-7 | PWA / share | No manifest, service worker, or share sheet; "Add to Home Screen" is browser default only | not planned for v1 |
 | G-8 | Images | No Resize Images extension; the uploaded badge is used at its uploaded size (client cap 512 KB) | accepted |

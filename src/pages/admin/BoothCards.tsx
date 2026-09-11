@@ -3,19 +3,23 @@ import { BoothCard } from '../../components/BoothCard'
 import { Icon } from '../../components/ui'
 import { useBooths, useEvent } from '../../lib/data'
 import { APP_ORIGIN } from '../../lib/firebase'
+import { useLocale } from '../../lib/locale'
 
 /** Every active booth's table card (components/BoothCard), one per A4 page, printed through the browser. */
 export default function BoothCards() {
   const booths = useBooths()
   const event = useEvent()
+  const { t } = useLocale()
   return (
     <div className="min-h-full bg-white">
       <div className="mx-auto max-w-[190mm] p-6 print:p-0">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-ink/5 p-3 text-sm print:hidden">
-          <span>{booths.length} card{booths.length === 1 ? '' : 's'}, one per page. Print on A4, or choose “Save as PDF”.</span>
+          {/* Two keys rather than one with a count: English needs the plural 's' and Thai has no
+              plural at all, so the choice belongs in code, not inside a translated sentence. */}
+          <span>{t(booths.length === 1 ? 'boothCards.hintOne' : 'boothCards.hint', { count: booths.length })}</span>
           <div className="flex gap-2">
-            <button className="btn-primary" onClick={() => window.print()}>{Icon.print}Print all</button>
-            <Link to="/admin/booths" className="btn-ghost">Back</Link>
+            <button className="btn-primary" onClick={() => window.print()}>{Icon.print}{t('boothCards.printAll')}</button>
+            <Link to="/admin/booths" className="btn-ghost">{t('boothCards.back')}</Link>
           </div>
         </div>
         {booths.map((b) => (
@@ -23,7 +27,7 @@ export default function BoothCards() {
             <BoothCard booth={b} origin={APP_ORIGIN} period={event.qrPeriodSeconds} />
           </div>
         ))}
-        {booths.length === 0 && <p className="text-sm text-ink-soft">No active booths.</p>}
+        {booths.length === 0 && <p className="text-sm text-ink-soft">{t('boothCards.none')}</p>}
       </div>
     </div>
   )

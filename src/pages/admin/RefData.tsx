@@ -5,13 +5,16 @@ import { Toast, type Msg } from '../../components/ui'
 import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import { countryName } from '../../lib/countries'
 import { useSlidingPill } from '../../lib/useSlidingPill'
+import { useLocale } from '../../lib/locale'
+import type { StringKey } from '../../lib/strings'
 
 type Tab = 'institutions' | 'mfuSchools' | 'ethnicGroups'
 
-const TABS: Array<{ id: Tab; label: string; blurb: string }> = [
-  { id: 'institutions', label: 'Institutions', blurb: 'Universities offered in the registration form. Visitors can still type anything — this is a suggestion list.' },
-  { id: 'mfuSchools', label: 'MFU schools', blurb: 'Offered when a visitor picks MFU as their institution.' },
-  { id: 'ethnicGroups', label: 'Ethnic groups', blurb: 'Per country of origin. Sensitive data under PDPA s.26: optional for the visitor, gated behind its own consent, never shown per person, and suppressed below 5 in aggregate. The Office of International Affairs owns this wording.' },
+// Keys, not words: module-level, so a translated label here could not follow the toggle.
+const TABS: Array<{ id: Tab; label: StringKey; blurb: StringKey }> = [
+  { id: 'institutions', label: 'refData.tab.institutions', blurb: 'refData.blurb.institutions' },
+  { id: 'mfuSchools', label: 'refData.tab.schools', blurb: 'refData.blurb.schools' },
+  { id: 'ethnicGroups', label: 'refData.tab.ethnic', blurb: 'refData.blurb.ethnic' },
 ]
 
 /** One list per line, so a non-developer can paste from a spreadsheet. */
@@ -30,6 +33,7 @@ function Lines({ value, onChange, rows = 14 }: { value: string[]; onChange: (v: 
 
 /** §4.1 / §13 — edit the registration form's suggestion lists without a redeploy or a reseed. */
 export default function RefData() {
+  const { t } = useLocale()
   const tabs = useSlidingPill()
   const [tab, setTab] = useState<Tab>('institutions')
   const [msg, setMsg] = useState<Msg | null>(null)
@@ -48,11 +52,12 @@ export default function RefData() {
   const list = draftList ?? live
   const ethnicDraft = draftEthnic ?? ethnic
 
-  function switchTab(t: Tab) {
-    if (t === tab) return
+  // `next`, not `t`: `t` is the translate function in this scope now.
+  function switchTab(next: Tab) {
+    if (next === tab) return
     // Switching tabs used to throw the draft away silently.
-    if (dirty && !window.confirm('Discard the unsaved changes on this list?')) return
-    setTab(t); setDraftList(null); setDraftEthnic(null); setMsg(null)
+    if (dirty && !window.confirm(t('refData.discard'))) return
+    setTab(next); setDraftList(null); setDraftEthnic(null); setMsg(null)
   }
 
   async function save() {
@@ -60,33 +65,30 @@ export default function RefData() {
     try {
       if (tab === 'ethnicGroups') {
         const r = await api.saveRefData({ name: 'ethnicGroups', byCountry: ethnicDraft })
-        setMsg({ tone: 'green', text: `Saved ${r.countries} countries. The registration form picks this up immediately.` })
+        setMsg({ tone: 'green', text: t('refData.savedCountries', { count: r.countries ?? 0 }) })
         setDraftEthnic(null)
       } else {
         const r = await api.saveRefData({ name: tab, list })
-        setMsg({ tone: 'green', text: `Saved ${r.count} entries. The registration form picks this up immediately.` })
+        setMsg({ tone: 'green', text: t('refData.savedEntries', { count: r.count ?? 0 }) })
         setDraftList(null)
       }
     } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(false) }
   }
 
-  const meta = TABS.find((t) => t.id === tab)!
+  const meta = TABS.find((x) => x.id === tab)!
   useUnsavedGuard(dirty)
 
   return (
     <div className="page-in">
-      <h1 className="text-2xl font-bold">Reference lists</h1>
-      <p className="mt-1 text-sm text-ink-soft">
-        What the registration form suggests. Editable here so the lists can change during the
-        event without a redeploy — they used to be settable only by re-running the seed script.
-      </p>
+      <h1 className="text-2xl font-bold">{t('refData.title')}</h1>
+      <p className="mt-1 text-sm text-ink-soft">{t('refData.lead')}</p>
 
       {/* This row wraps, which is what --tab-y in the hook is for. */}
       <nav ref={tabs} className="tab-group mt-4 flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <button key={t.id} onClick={() => switchTab(t.id)} role="tab" aria-selected={tab === t.id}
+        {TABS.map((x) => (
+          <button key={x.id} onClick={() => switchTab(x.id)} role="tab" aria-selected={tab === x.id}
             className="tab px-4 py-2 text-sm">
-            {t.label}
+            {t(x.label)}
           </button>
         ))}
       </nav>
@@ -94,7 +96,7 @@ export default function RefData() {
       <Toast msg={msg} onClose={() => setMsg(null)} />
 
       <section className="card mt-4">
-        <p className="text-xs text-ink-soft">{meta.blurb}</p>
+        <p className="text-xs text-ink-soft">{t(meta.blurb)}</p>
 
         {tab === 'ethnicGroups' ? (
           <div className="mt-4 flex flex-col gap-4">
@@ -104,7 +106,7 @@ export default function RefData() {
                   <label className="stamp-text text-ink-soft">{cc} · {countryName(cc)} · {ethnicDraft[cc].length}</label>
                   <button className="btn-danger-soft btn-sm"
                     onClick={() => { const n = { ...ethnicDraft }; delete n[cc]; setDraftEthnic(n) }}>
-                    Remove country
+                    {t('refData.removeCountry')}
                   </button>
                 </div>
                 <Lines rows={Math.min(12, Math.max(4, ethnicDraft[cc].length + 1))} value={ethnicDraft[cc]}
@@ -112,35 +114,35 @@ export default function RefData() {
               </div>
             ))}
             <div className="flex flex-wrap items-end gap-2 border-t rule pt-4">
-              <label className="text-sm">Add a country (ISO code)
+              <label className="text-sm">{t('refData.addCountry')}
                 <input className="field mt-1 w-28 uppercase" maxLength={2} value={newCountry}
                   onChange={(e) => setNewCountry(e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))} placeholder="MM" />
               </label>
               <button className="btn-ghost" disabled={newCountry.length !== 2 || !!ethnicDraft[newCountry]}
                 onClick={() => { setDraftEthnic({ ...ethnicDraft, [newCountry]: [] }); setNewCountry('') }}>
-                Add {newCountry && countryName(newCountry)}
+                {t('refData.add')} {newCountry && countryName(newCountry)}
               </button>
             </div>
           </div>
         ) : (
           <>
-            <label className="mt-3 block text-sm">One per line · {list.length} entries
+            <label className="mt-3 block text-sm">{t('refData.onePerLine', { count: list.length })}
               <Lines value={list} onChange={setDraftList} />
             </label>
             <p className="mt-1 text-xs text-ink-soft">
-              Saved sorted alphabetically, with duplicates and blank lines dropped.
-              {tab === 'institutions' && ' Keep "Other" in the list — the form shows a free-text box when it is chosen.'}
+              {t('refData.sortNote')}
+              {tab === 'institutions' && ` ${t('refData.keepOther')}`}
             </p>
           </>
         )}
 
         <div className="mt-4 flex flex-wrap gap-2">
           <button className="btn-primary" disabled={busy || !dirty} onClick={save}>
-            {busy ? 'Saving…' : 'Save'}
+            {t(busy ? 'common.saving' : 'common.save')}
           </button>
           <button className="btn-ghost" disabled={busy || !dirty}
             onClick={() => { setDraftList(null); setDraftEthnic(null); setMsg(null) }}>
-            Discard changes
+            {t('common.discardChanges')}
           </button>
         </div>
       </section>

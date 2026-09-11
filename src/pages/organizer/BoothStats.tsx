@@ -9,7 +9,7 @@ import { useSlidingPill } from '../../lib/useSlidingPill'
 import { CsvButton, DataErrors, Fig, LiveDot, Notice, Spinner, fmt } from '../../components/ui'
 import { clock } from '../../lib/eventText'
 import { dayOf, hourOf } from '../../../shared/model'
-import { VISITOR_TYPE_LABEL } from '../../lib/labels'
+import { useLabels } from '../../lib/labels'
 import { onStage } from '../../lib/onStage'
 import { effectivePoints } from '../../../shared/points'
 import { rewardExpiry, usePointsClock } from '../../lib/points'
@@ -22,6 +22,7 @@ export default function BoothStats() {
   const boothId = role === 'admin' ? params.get('boothId') : claimBooth
   const booths = useBooths(true)
   const { t, pick } = useLocale()
+  const { VISITOR_TYPE_LABEL } = useLabels()
   const dayTabs = useSlidingPill()
   const { data: booth, loading } = useBooth(boothId)
   const { data: stat, fromCache } = useBoothStat(boothId)

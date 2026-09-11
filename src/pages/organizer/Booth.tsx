@@ -435,7 +435,7 @@ export default function Booth() {
           </div>
         </div>
         {/* Phone only: the one thing an organizer does with this screen is hold it up to someone. */}
-        <div className="w-full max-w-sm kiosk:hidden">
+        <div className="flex w-full max-w-sm flex-col gap-2 kiosk:hidden">
           <button type="button" onClick={openShow} className="btn-primary btn-lg w-full">
             {Icon.fullscreen}{t('booth.showCode')}
           </button>

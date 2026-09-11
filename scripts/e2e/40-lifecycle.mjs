@@ -65,6 +65,19 @@ export default async function lifecycle(ctx) {
   ok('the new event has 2 days derived from its dates', nowLive.docs[0].data().days.length === 2, JSON.stringify(nowLive.docs[0].data().days))
 
   section('The next event reuses the booth ids safely')
+  // A booth carries the id of the event it was created under, and `scan` refuses one that is
+  // not the live event's (§6.6). Carrying a booth over is therefore an explicit admin action
+  // rather than a side effect of going live: `updateBooth` re-stamps eventId from the live
+  // event, and clears any temporary reward along with it. Runs as the admin, before sign-out.
+  const newDays = nowLive.docs[0].data().days
+  const basePointsBefore = (await getDoc(doc(db, 'booths', 'booth-01'))).data().points
+  await call('updateBooth')({ id: 'booth-01', activeDays: newDays })
+  const carried = await getDoc(doc(db, 'booths', 'booth-01'))
+  ok('carrying a booth over re-points it at the live event', carried.data().eventId === created.id, carried.data().eventId)
+  ok('carrying a booth over keeps its base points and clears any temporary reward',
+    carried.data().points === basePointsBefore && carried.data().temporaryPoints == null && carried.data().pointsExpireAt == null,
+    `${carried.data().points} base (was ${basePointsBefore}), temporary ${carried.data().temporaryPoints}`)
+  ok('carrying a booth over adopts the new event days', JSON.stringify(carried.data().activeDays) === JSON.stringify(newDays), JSON.stringify(carried.data().activeDays))
   await signOut(auth); await signUpVerified('visitor2@example.com')
   const newSecret = await readSecret('booth-01')
   ok('booth secret was rotated', newSecret !== secrets['booth-01'])
