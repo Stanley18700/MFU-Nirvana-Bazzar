@@ -16,6 +16,8 @@ import { DataErrors, Icon, IconButton, LiveDot, Notice, Spinner, fmt } from '../
 import { APP_ORIGIN } from '../../lib/firebase'
 import { buildPayload, computeToken, counterFor, formatManualCode, msUntilRotation } from '../../../shared/token'
 import { dayOf, type BoothDoc } from '../../../shared/model'
+import { effectivePoints } from '../../../shared/points'
+import { rewardExpiry, usePointsClock } from '../../lib/points'
 
 interface Session { boothId: string; booth: BoothDoc; secret: string; period: number; skew: number }
 
@@ -110,6 +112,7 @@ function useAvail(ref: RefObject<HTMLElement | null>, minus: RefObject<HTMLEleme
 
 /** §5.1 — the booth screen. Runs all day with nothing to press; keeps rotating offline. */
 export default function Booth() {
+  const pointsNow = usePointsClock()
   const { role, boothId: claimBooth, user } = useAuth()
   const signOutAndGo = useSignOut()
   const [params, setParams] = useSearchParams()
@@ -392,7 +395,9 @@ export default function Booth() {
             {/* Eyebrow, title and manual code in the booth's own colour, as the design system has
                 them — the swatch dot they used to need is redundant once the line itself is the
                 colour. `onChrome` is what makes that safe for the dark-green booths. */}
-            <div className="stamp-text" style={{ color: accentSmall }}>{t('booth.worth', { location: b.location, points: b.points })}</div>
+          <div className="stamp-text" style={{ color: accentSmall }}>{t('booth.worth', { location: b.location, points: effectivePoints(b, pointsNow + session.skew) })}</div>
+          {rewardExpiry(b, pointsNow + session.skew) && <p className="text-xs">{rewardExpiry(b, pointsNow + session.skew)} (Bangkok)</p>}
+          <p className="text-xs">Points are set when your stamp is earned.</p>
             <h1 className="mt-1 text-[1.6em] font-extrabold leading-[1.08]" style={{ color: accent }}>{pick(b.nameEn, b.nameTh)}</h1>
             <div className="text-[0.6em] text-ink-soft">{b.hostUnit}</div>
           </div>

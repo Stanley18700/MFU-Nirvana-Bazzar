@@ -3,7 +3,7 @@ import {
   collection, doc, onSnapshot, orderBy, query, where, limit, type DocumentData, type Query, type DocumentReference,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import type { BoothDoc, BoothStats, BucketDoc, EventDoc, EventStatsShard, PrizeTierDoc, TierUnlockDoc } from '../../shared/model'
+import type { BoothDoc, BoothStats, BucketDoc, EventDoc, EventStatsShard, PrizeTierDoc, TierUnlockDoc, ScanDoc } from '../../shared/model'
 import { DEFAULT_PASSPORT_PREFIX, EVENT_DAYS, EVENT_ID, STATS_SHARDS, ZONE_POINTS } from '../../shared/model'
 
 export type WithId<T> = T & { id: string }
@@ -142,6 +142,11 @@ export function useTiersState() {
 
 export function useMyUnlocks(uid: string | undefined) {
   return useCollection<TierUnlockDoc>(uid ? query(collection(db, 'tierUnlocks'), where('visitorId', '==', uid)) : null, [uid], 'your prize unlocks').data
+}
+
+/** Historical awards come from immutable scans, never today's booth reward. */
+export function useMyScans(uid: string | undefined) {
+  return useCollection<ScanDoc>(uid ? query(collection(db, 'scans'), where('visitorId', '==', uid)) : null, [uid], 'your stamp awards')
 }
 
 /** §7.2 — the event counter is a 10-shard document, summed client-side. */

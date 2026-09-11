@@ -58,7 +58,7 @@ export default function Print() {
                     <td className="py-0.5 pr-1 text-right text-[#1F5A6B]">{i + 1}</td>
                     <td className="py-0.5"><span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: b.accentColor }} />{b.nameEn}</td>
                     <td className="py-0.5 text-right font-semibold">{fmt(b.stamps)}</td>
-                    <td className="py-0.5 pl-2 text-right text-[#1F5A6B]">{b.points} pts</td>
+                    <td className="py-0.5 pl-2 text-right text-[#1F5A6B]">{b.rewardPoints} pts</td>
                   </tr>
                 ))}
                 {m.board.length === 0 && <tr><td className="py-1 text-[#1F5A6B]">No booths</td></tr>}

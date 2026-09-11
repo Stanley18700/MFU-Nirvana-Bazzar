@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { effectivePoints } from './shared/points'
 import {
   db, auth, FieldValue, Timestamp, requireAuth, str, rateLimit, clientFingerprint, redemptionSecret, getActiveEvent,
   audit, toMillis,
@@ -159,20 +160,25 @@ export const scan = onCall(async (req): Promise<ScanResult> => {
 
   const scanId = `${uid}_${parsed.boothId}`
   const scanRef = db.doc(`scans/${scanId}`)
-  const now = new Date()
   const { uaHash, ipPrefix } = clientFingerprint(req)
+  let pointsAwarded = 0
 
   try {
     await db.runTransaction(async (tx) => {
       const s = await tx.get(scanRef)
       if (s.exists) throw new HttpsError('already-exists', 'already')
+      const freshBooth = await tx.get(boothSnap.ref)
+      const current = freshBooth.data() as BoothDoc | undefined
+      if (!current?.active || current.eventId !== event.id) throw new HttpsError('failed-precondition', 'Booth is no longer available.')
+      const now = new Date()
+      pointsAwarded = effectivePoints(current, now.getTime())
       tx.create(scanRef, {
         visitorId: uid,
         boothId: parsed.boothId,
         eventId: event.id,
         scannedAt: Timestamp.fromDate(now),
         day: dayOf(now),
-        pointsAwarded: booth.points, // frozen at scan time (§6.6)
+        pointsAwarded, // Frozen from the same transaction that creates this stamp.
         counter: parsed.counter,
         uaHash, ipPrefix,
         visitorType: user.visitorType ?? 'guest',
@@ -190,7 +196,7 @@ export const scan = onCall(async (req): Promise<ScanResult> => {
 
   // Counters are updated by the onScanCreate trigger; return an optimistic total so the
   // visitor sees "+N points" instantly. Tier unlocks are also created by the trigger.
-  const points = (user.points ?? 0) + booth.points
+  const points = (user.points ?? 0) + pointsAwarded
   const tiers = await db.collection('prizeTiers').where('active', '==', true).get()
   const unlockedTierIds = tiers.docs
     .filter((t) => {
@@ -202,7 +208,7 @@ export const scan = onCall(async (req): Promise<ScanResult> => {
   return {
     status: 'success',
     boothId: parsed.boothId,
-    pointsAwarded: booth.points,
+    pointsAwarded,
     points,
     stampCount: (user.stampCount ?? 0) + 1,
     unlockedTierIds,

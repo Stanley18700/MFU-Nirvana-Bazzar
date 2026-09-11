@@ -1,5 +1,6 @@
 import { httpsCallable } from 'firebase/functions'
 import { functions } from './firebase'
+import type { ApplyPointsInput, ApplyPointsResult, PointPreview } from '../../shared/points'
 import type { Role, ScanResult, SurveyAnswer, SurveyQuestion, VisitorType, Zone } from '../../shared/model'
 
 function call<Req, Res>(name: string) {
@@ -35,6 +36,9 @@ export const api = {
   confirmRedemption: call<RedemptionCred & { tierId: string }, ConfirmResult>('confirmRedemption'),
   voidRedemption: call<{ visitorId: string; tierId: string; reason: string }, { ok: true }>('voidRedemption'),
   // admin
+  previewPointAdjustments: call<Record<string, never>, PointPreview>('previewPointAdjustments'),
+  applyPointAdjustments: call<ApplyPointsInput, ApplyPointsResult>('applyPointAdjustments'),
+  resetPointAdjustments: call<Record<string, never>, { ok: true }>('resetPointAdjustments'),
   setUserRole: call<{ uid: string; role: Role; boothId?: string }, { ok: true }>('setUserRole'),
   /** `password` is optional; without one the account exists but cannot sign in. A visitor gets a passport number. */
   createUser: call<CreateUserInput, { uid: string; passportNo: string | null }>('createUser'),
@@ -169,6 +173,7 @@ export interface BoothInput {
   descriptionEn?: string
   accentColor?: string
   points?: number
+  adjustmentExcluded?: boolean
   zone?: Zone
   activeDays?: string[]
   isPrizeDesk?: boolean

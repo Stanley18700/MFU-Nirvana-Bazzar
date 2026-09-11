@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useBooths, useBoothStats, useBuckets, useEvent, useEventStats, useTiers } from '../../lib/data'
 import { countryName } from '../../lib/countries'
 import type { CsvRow } from '../../lib/csv'
+import { useRewardBooths } from '../../lib/points'
 
 /** `'all'` or one of the event's `YYYY-MM-DD` days. */
 export type DaySel = string
@@ -15,7 +16,7 @@ const VISITOR_TYPES = ['student', 'staff', 'alumni', 'guest'] as const
 export function useDashboardModel(day: DaySel) {
   const event = useEvent()
   const ev = useEventStats()
-  const booths = useBooths(true)
+  const booths = useRewardBooths(useBooths(true))
   const { data: bstats } = useBoothStats()
   const buckets = useBuckets(96)
   const tiers = useTiers()
@@ -67,7 +68,7 @@ export function useDashboardModel(day: DaySel) {
   const cross = useMemo(() => crossSchoolTable(ev.totals.crossSchool, booths), [ev.totals.crossSchool, booths])
 
   const csv = useMemo(() => ({
-    leaderboard: board.map((b) => ({ booth: b.nameEn, stamps: b.stamps, points: b.points, zone: b.zone })) as CsvRow[],
+    leaderboard: board.map((b) => ({ booth: b.nameEn, stamps: b.stamps, points: b.rewardPoints, basePoints: b.points, zone: b.zone })) as CsvRow[],
     timeline: timeline.map((t) => ({ time: t.t, stamps: t.stamps })) as CsvRow[],
     participation: [
       { metric: 'Thai', value: thai }, { metric: 'International', value: intl },

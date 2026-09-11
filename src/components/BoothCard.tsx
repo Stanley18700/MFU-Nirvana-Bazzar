@@ -18,9 +18,10 @@ export function BoothCard({ booth, origin, period = 20 }: { booth: BoothDoc; ori
         <h1 className="mt-2 text-4xl font-bold leading-tight">{booth.nameEn}</h1>
         {booth.nameTh && <div className="mt-1 text-xl text-[#1F5A6B]">{booth.nameTh}</div>}
         <div className="mt-4 inline-block rounded-full px-5 py-1.5 text-lg font-semibold text-white" style={{ background: booth.accentColor }}>
-          Worth {booth.points} points
+          Base reward: {booth.points} points
         </div>
       </div>
+      <p className="text-sm">Rewards may change during the event. Check the live booth screen for current points. Points are set when your stamp is earned.</p>
       <QR value={`${origin}/scan`} size={220} />
       <ol className="max-w-[130mm] text-left text-base leading-relaxed">
         <li><b>1.</b> Scan this code to open your passport scanner, or go to <b>{host}/scan</b>.</li>

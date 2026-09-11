@@ -98,6 +98,10 @@ export interface BoothDoc {
   accentColor: string
   points: number
   zone: Zone
+  /** Temporary rewards never replace the base `points` value. Times are epoch milliseconds. */
+  temporaryPoints?: number | null
+  pointsExpireAt?: number | null
+  adjustmentExcluded?: boolean
   badgeUrl?: string | null
   badgeThumbUrl?: string | null
   photoUrl?: string | null

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../lib/auth'
-import { useBooths, useEvent } from '../../lib/data'
+import { useBooths, useEvent, useMyScans } from '../../lib/data'
 import { Stamp } from '../../components/Stamp'
 import { stampMarks } from '../../lib/eventText'
 import { Spinner } from '../../components/ui'
 import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { dayOf, type BoothDoc } from '../../../shared/model'
+import { rewardExpiry, useRewardBooths } from '../../lib/points'
 
 function tiltFor(id: string) {
   let h = 0
@@ -21,38 +22,47 @@ function makeDayLabel(days: string[]) {
 }
 
 export default function Stamps() {
-  const { profile } = useAuth()
-  const booths = useBooths()
+  const { profile, user } = useAuth()
+  const booths = useRewardBooths(useBooths(true))
+  const scans = useMyScans(user?.uid).data
   const event = useEvent()
   const dayLabel = makeDayLabel(event.days)
   const marks = stampMarks(event)
-  const [open, setOpen] = useState<(BoothDoc & { id: string }) | null>(null)
-  const [full, setFull] = useState<(BoothDoc & { id: string }) | null>(null)
-  useBodyScrollLock(!!open)
+  const [openId, setOpen] = useState<string | null>(null)
+  const [fullId, setFull] = useState<string | null>(null)
+  useBodyScrollLock(!!openId)
   const today = dayOf(new Date())
 
   const { collected, remaining } = useMemo(() => {
     const have = new Set(profile?.stampedBoothIds ?? [])
-    const collected = booths.filter((b) => have.has(b.id))
+    const awards = new Map(scans.filter((s) => s.eventId === event.id).map((s) => [s.boothId, s.pointsAwarded]))
+    const collected = booths.filter((b) => b.eventId === event.id && have.has(b.id))
+      .map((b) => ({ ...b, displayPoints: awards.get(b.id) }))
     // §4.2 — uncollected sorted by value so the 20-point booths lead; this is what turns points into a route.
-    const remaining = booths.filter((b) => !have.has(b.id)).sort((a, b) => b.points - a.points || a.sortOrder - b.sortOrder)
+    const remaining = booths.filter((b) => b.eventId === event.id && b.active && !have.has(b.id))
+      .map((b) => ({ ...b, displayPoints: b.rewardPoints }))
+      .sort((a, b) => b.rewardPoints - a.rewardPoints || a.sortOrder - b.sortOrder)
     return { collected, remaining }
-  }, [booths, profile])
+  }, [booths, profile, scans, event.id])
+
+  const rows = [...collected, ...remaining]
+  const open = rows.find((b) => b.id === openId)
+  const full = collected.find((b) => b.id === fullId)
 
   if (!profile) return <Spinner />
   const have = !!open && (profile.stampedBoothIds?.includes(open.id) ?? false)
-  const remainingPoints = remaining.reduce((s, b) => s + b.points, 0)
+  const remainingPoints = remaining.reduce((s, b) => s + b.rewardPoints, 0)
 
   return (
     <main className="px-5 pt-6">
       <header>
         <div className="stamp-text text-ink-soft">Stamps</div>
         <div className="mt-1 flex items-baseline gap-3">
-          <h1 className="text-2xl font-bold">{collected.length} of {booths.length}</h1>
+          <h1 className="text-2xl font-bold">{collected.length} of {rows.length}</h1>
         </div>
         {/* "1 of 12" was the only account of progress on a page whose whole subject is progress. */}
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink/10" role="img" aria-label={`${collected.length} of ${booths.length} booths stamped`}>
-          <div className="h-full rounded-full bg-action transition-[width] duration-500 ease-out" style={{ width: `${booths.length ? (collected.length / booths.length) * 100 : 0}%` }} />
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink/10" role="img" aria-label={`${collected.length} of ${rows.length} booths stamped`}>
+          <div className="h-full rounded-full bg-action transition-[width] duration-500 ease-out" style={{ width: `${rows.length ? (collected.length / rows.length) * 100 : 0}%` }} />
         </div>
       </header>
 
@@ -70,11 +80,11 @@ export default function Stamps() {
           <ul className="mt-3 flex flex-col gap-3">
             {collected.map((b) => (
               <li key={b.id}>
-                <button onClick={() => setOpen(b)} className="press-row flex w-full cursor-pointer items-center gap-4 rounded-[20px] bg-white p-3 text-left shadow-card transition hover:shadow-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action/45">
-                  <Stamp booth={b} collected tilt={tiltFor(b.id)} size={132} points={b.points} {...marks} />
+                <button onClick={() => setOpen(b.id)} className="press-row flex w-full cursor-pointer items-center gap-4 rounded-[20px] bg-white p-3 text-left shadow-card transition hover:shadow-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action/45">
+                  <Stamp booth={b} collected tilt={tiltFor(b.id)} size={132} points={b.displayPoints} {...marks} />
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold leading-tight">{b.nameEn}</span>
-                    <span className="mt-1 block text-xs text-success-text">Stamped · +{b.points} pts</span>
+                    <span className="mt-1 block text-xs text-success-text">Stamped{b.displayPoints === undefined ? ' · Loading earned points…' : ` · +${b.displayPoints} pts`}</span>
                   </span>
                 </button>
               </li>
@@ -94,21 +104,23 @@ export default function Stamps() {
             <h2 className="stamp-text text-ink-soft">Still to collect</h2>
             <span className="text-xs text-ink-soft">{remainingPoints} points still on the floor</span>
           </div>
+          <p className="mt-2 text-xs text-ink-soft">Rewards may change. Points are set when your stamp is earned. Times shown are Bangkok time.</p>
           <ul className="mt-3 overflow-hidden rounded-[20px] bg-white shadow-card">
             {remaining.map((b) => {
               const notToday = !b.activeDays.includes(today) && event.days.includes(today)
               return (
                 <li key={b.id} className="border-t rule first:border-t-0">
-                  <button onClick={() => setOpen(b)} className="press-row flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left transition hover:bg-ink/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-action/45">
+                  <button onClick={() => setOpen(b.id)} className="press-row flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left transition hover:bg-ink/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-action/45">
                     {/* The visa itself, uncollected. Below 150px the component drops to its plain
                         variant, which is what a row-height preview wants — the shape and the booth's
                         own code, not the micro-print. */}
-                    <Stamp booth={b} collected={false} size={84} points={b.points} {...marks} />
+                    <Stamp booth={b} collected={false} size={84} points={b.displayPoints} {...marks} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm">{b.nameEn}</span>
+                      {rewardExpiry(b, Date.now()) && <span className="block text-xs text-ink-soft">{rewardExpiry(b, Date.now())}</span>}
                       {notToday && <span className="block text-[11px] text-warn-text">{b.activeDays.map(dayLabel).join(' · ')} only</span>}
                     </span>
-                    <span className="shrink-0 text-xs font-semibold tabular-nums text-ink">{b.points} pts</span>
+                    <span className="shrink-0 text-xs font-semibold tabular-nums text-ink">{b.displayPoints} pts</span>
                     <span aria-hidden className="shrink-0 text-ink-soft">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
                     </span>
@@ -124,9 +136,10 @@ export default function Stamps() {
         <div className="scrim-in fixed inset-0 z-40 flex items-end justify-center bg-ink/60 p-4 sm:items-center" onClick={() => setOpen(null)}>
           <div className="card card-static sheet-in w-full max-w-md bg-white" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start gap-4">
-              <Stamp booth={open} collected={have} size={152} points={open.points} {...marks} />
+              <Stamp booth={open} collected={have} size={152} points={open.displayPoints} {...marks} />
               <div className="min-w-0 flex-1">
-                <div className="stamp-text text-ink-soft">{open.location} · {open.points} points</div>
+                <div className="stamp-text text-ink-soft">{open.location} · {open.displayPoints ?? '…'} {have ? 'points earned' : 'points'}</div>
+                {!have && rewardExpiry(open, Date.now()) && <p className="text-xs text-ink-soft">{rewardExpiry(open, Date.now())}</p>}
                 <h3 className="text-lg font-bold leading-tight">{open.nameEn}</h3>
                 <div className="text-sm text-ink-soft">{open.hostUnit}</div>
               </div>
@@ -136,14 +149,14 @@ export default function Stamps() {
             <div className="mt-4 flex gap-2">
               {/* Only for a visa that has actually been issued — there is nothing to admire about
                   an unstamped one, and offering it would read as a way to claim it. */}
-              {have && <button className="btn-secondary flex-1" onClick={() => setFull(open)}>View full screen</button>}
+              {have && <button className="btn-secondary flex-1" onClick={() => setFull(open.id)}>View full screen</button>}
               <button className={`btn-ghost ${have ? '' : 'flex-1'} ${have ? 'px-5' : 'w-full'}`} onClick={() => setOpen(null)}>Close</button>
             </div>
           </div>
         </div>
       )}
 
-      {full && <StampViewer booth={full} marks={marks} onClose={() => setFull(null)} />}
+      {full && <StampViewer booth={full} points={full.displayPoints} marks={marks} onClose={() => setFull(null)} />}
     </main>
   )
 }
@@ -156,8 +169,9 @@ export default function Stamps() {
  * fills the screen the way a passport page does when you tilt it. The two widths are the same
  * expression with the axes swapped; 133 is 94 x the 105/74 ratio.
  */
-function StampViewer({ booth, marks, onClose }: {
+function StampViewer({ booth, points, marks, onClose }: {
   booth: BoothDoc & { id: string }
+  points?: number
   marks: { markTop: string; markBottom: string }
   onClose: () => void
 }) {
@@ -178,7 +192,7 @@ function StampViewer({ booth, marks, onClose }: {
           its right-hand third was cut off. */}
       <div className="relative h-full w-full overflow-hidden">
         <div className="absolute left-1/2 top-1/2 w-[min(94vw,133vh)] -translate-x-1/2 -translate-y-1/2 portrait:w-[min(94vh,133vw)] portrait:rotate-90">
-          <Stamp booth={booth} collected size={720} points={booth.points} className="!w-full" {...marks} />
+          <Stamp booth={booth} collected size={720} points={points} className="!w-full" {...marks} />
         </div>
       </div>
       {/* Outside the rotation, so the way back is upright wherever the phone is. */}

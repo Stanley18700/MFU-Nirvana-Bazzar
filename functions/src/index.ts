@@ -5,6 +5,7 @@ import { REGION } from './lib'
 setGlobalOptions({ region: REGION, maxInstances: 20, concurrency: 40, cpu: 1, memory: '512MiB', timeoutSeconds: 30 })
 
 export { join, scan, redemptionCode, syncAccount, requestErasure } from './visitor'
+export { previewPointAdjustments, applyPointAdjustments, resetPointAdjustments } from './points'
 export { boothSession, lookupRedemption, confirmRedemption, voidRedemption } from './organizer'
 export {
   setUserRole, createUser, updateUser, deleteUser, dismissErasureRequest,

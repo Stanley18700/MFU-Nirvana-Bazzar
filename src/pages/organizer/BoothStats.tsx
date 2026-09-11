@@ -11,9 +11,12 @@ import { clock } from '../../lib/eventText'
 import { dayOf, hourOf } from '../../../shared/model'
 import { VISITOR_TYPE_LABEL } from '../../lib/labels'
 import { onStage } from '../../lib/onStage'
+import { effectivePoints } from '../../../shared/points'
+import { rewardExpiry, usePointsClock } from '../../lib/points'
 
 /** §5.3 — the organizer sees their own booth only. */
 export default function BoothStats() {
+  const pointsNow = usePointsClock()
   const { role, boothId: claimBooth } = useAuth()
   const [params] = useSearchParams()
   const boothId = role === 'admin' ? params.get('boothId') : claimBooth
@@ -59,7 +62,8 @@ export default function BoothStats() {
       {/* `items-start`, as on the kiosk: the status sits at the top of the row, under Sign out. */}
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
         <div>
-          <div className="stamp-text text-ink-soft">{t('stats.worth', { location: booth.location, points: booth.points })}</div>
+          <div className="stamp-text text-ink-soft">{t('stats.worth', { location: booth.location, points: effectivePoints(booth, pointsNow) })}</div>
+          {rewardExpiry(booth, pointsNow) && <p className="text-xs text-ink-soft">{rewardExpiry(booth, pointsNow)} (Bangkok)</p>}
           <h1 className="text-2xl font-bold">{pick(booth.nameEn, booth.nameTh)}</h1>
         </div>
         <LiveDot state={fromCache ? 'stale' : 'live'}>{fromCache ? t('status.reconnecting') : t('status.live')}</LiveDot>

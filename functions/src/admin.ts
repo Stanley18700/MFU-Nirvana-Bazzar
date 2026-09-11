@@ -233,6 +233,7 @@ function boothFromData(ev: ActiveEvent, d: Record<string, unknown>, existing?: B
     descriptionTh: str(d.descriptionTh, 'descriptionTh', { required: false, max: 600 }) || existing?.descriptionTh || '',
     accentColor: str(d.accentColor, 'accentColor', { required: false, max: 7 }) || existing?.accentColor || ACCENTS[0],
     points: typeof d.points === 'number' ? num(d.points, 'points', { min: 1, max: 100 }) : existing?.points ?? ev.zonePoints[zone],
+    adjustmentExcluded: typeof d.adjustmentExcluded === 'boolean' ? d.adjustmentExcluded : existing?.adjustmentExcluded ?? false,
     zone,
     badgeUrl: image('badgeUrl'),
     badgeThumbUrl: image('badgeThumbUrl'),
@@ -272,12 +273,21 @@ export const updateBooth = onCall(async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
   const id = str(req.data?.id, 'id')
   const ref = db.doc(`booths/${id}`)
-  const snap = await ref.get()
-  if (!snap.exists) throw new HttpsError('not-found', 'Booth not found')
-  const before = snap.data() as BoothDoc
-  const after = boothFromData(await getActiveEvent(), req.data ?? {}, before)
-  await ref.set(after, { merge: true })
-  await audit(actor, 'updateBooth', 'booth', id, before, after)
+  const ev = await getActiveEvent(true)
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists) throw new HttpsError('not-found', 'Booth not found')
+    const before = snap.data() as BoothDoc
+    const after = boothFromData(ev, req.data ?? {}, before)
+    if (after.points !== before.points || after.adjustmentExcluded || !after.active || after.isPrizeDesk
+      || after.eventId !== before.eventId || JSON.stringify(after.activeDays) !== JSON.stringify(before.activeDays)) {
+      after.temporaryPoints = null
+      after.pointsExpireAt = null
+    }
+    tx.set(ref, after, { merge: true })
+    tx.create(db.collection('auditLog').doc(), { actorUid: actor, action: 'updateBooth', targetType: 'booth', targetId: id,
+      before, after, createdAt: FieldValue.serverTimestamp() })
+  })
   return { ok: true }
 })
 

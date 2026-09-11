@@ -10,6 +10,9 @@ import { stampMarks } from '../../lib/eventText'
 import { CopyButton, Notice, Toast, type Msg } from '../../components/ui'
 import { ZONE_LABEL } from '../../lib/labels'
 import { Select } from '../../components/Select'
+import { PointAdjustments } from './PointAdjustments'
+import { effectivePoints } from '../../../shared/points'
+import { rewardExpiry, usePointsClock } from '../../lib/points'
 import { numOpt } from '../../lib/form'
 import { ACCENTS, type BoothDoc, type InviteDoc, type UserDoc, type Zone } from '../../../shared/model'
 
@@ -19,6 +22,7 @@ const FILTER_FROM = 9
 
 /** §6.3 / §6.6 — booth CRUD, points, artwork, rotate secret, and the organizer for each booth (§6.4). */
 export default function Booths() {
+  const now = usePointsClock()
   const booths = useBooths(true)
   // Days and default zone points are the live event's, not constants (spec 7.1).
   const event = useEvent()
@@ -129,8 +133,9 @@ export default function Booths() {
           <div className="min-w-0 flex-1 text-sm">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0"><div className="truncate font-semibold">{b.nameEn}</div><div className="truncate text-xs text-ink-soft">{b.hostUnit}</div></div>
-              <span className="fig text-lg" style={{ color: b.accentColor }}>{b.points}</span>
+              <span className="fig text-lg" style={{ color: b.accentColor }}>{effectivePoints(b, now)}</span>
             </div>
+            {rewardExpiry(b, now) && <div className="mt-1 text-xs text-ink-soft">{rewardExpiry(b, now)} (Bangkok)</div>}
             <div className="mt-1 text-xs text-ink-soft">{b.location} · {ZONE_LABEL[b.zone]} · {b.activeDays.length}/{eventDays.length} days{b.isPrizeDesk ? ' · prize desk' : ''}{b.active ? '' : ' · inactive'}</div>
             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
               {stale ? (
@@ -181,7 +186,7 @@ export default function Booths() {
       <Toast msg={msg} onClose={() => setMsg(null)} />
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="stamp-text text-ink-soft">{event.nameEn} · {current.filter((b) => b.active).length} active booths · {totalPoints} points on the floor</div>
+          <div className="stamp-text text-ink-soft">{event.nameEn} · {current.filter((b) => b.active).length} active booths · {totalPoints} base points</div>
           <h1 className="text-2xl font-bold">Booths</h1>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -190,6 +195,8 @@ export default function Booths() {
         </div>
       </header>
       {missingArt > 0 && <div className="mt-3"><Notice tone="amber">{missingArt} booth{missingArt > 1 ? 's' : ''} still use the generated stamp. That is fine — uploading a badge is optional.</Notice></div>}
+
+      <PointAdjustments key={event.id} booths={current} />
 
       {editing && (
         <section ref={editorRef} className="card mt-4 grid gap-3 scroll-mt-4 md:grid-cols-2" aria-labelledby="booth-editor-title">
@@ -203,7 +210,7 @@ export default function Booths() {
             <div className="mt-1"><Select ariaLabel="Zone" value={editing.zone} onChange={(v) => { const z = v as Zone; setEditing({ ...editing, zone: z, points: zonePoints[z] }) }}
               options={(['entrance', 'middle', 'far'] as Zone[]).map((z) => ({ value: z, label: ZONE_LABEL[z], hint: `${zonePoints[z]} pts` }))} /></div>
           </div>
-          <label>Points (override)
+          <label>Base points (override)
             <input className={`field mt-1 ${pointsOk ? '' : 'border-danger'}`} type="number" min={1} max={100} value={Number.isFinite(editing.points) ? editing.points : ''} onChange={(e) => setEditing({ ...editing, points: e.target.value === '' ? NaN : Number(e.target.value) })} />
             {!pointsOk && <span className="text-xs text-danger-text">1 to 100</span>}
           </label>

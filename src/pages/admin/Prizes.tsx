@@ -102,7 +102,7 @@ export default function Prizes() {
     <div className="page-in">
       <Toast msg={msg} onClose={() => setMsg(null)} />
       <h1 className="text-2xl font-bold">Prizes & stock</h1>
-      <p className="mt-1 text-sm text-ink-soft">{floorLoading ? 'Counting the points on the floor…' : <>{available} points are on the floor across {booths.length} active booths. A threshold above that is refused, and one within 10 of it is flagged.</>}</p>
+      <p className="mt-1 text-sm text-ink-soft">{floorLoading ? 'Counting base points…' : <>{available} base points across {booths.length} active booths. A threshold above that is refused, and one within 10 of it is flagged. Temporary booth adjustments do not change this policy limit.</>}</p>
       {remoteChanged && (
         <div className="mt-3">
           <Notice tone="amber">

@@ -4,6 +4,7 @@ import { useBooths, useEvent, useTiers } from '../../lib/data'
 import { eventMark } from '../../lib/eventText'
 import { Crest, Spinner, fmt } from '../../components/ui'
 import { dayOf } from '../../../shared/model'
+import { rewardExpiry, useRewardBooths } from '../../lib/points'
 
 export function tierProgress<T extends { id: string; name: string; thresholdPoints: number }>(points: number, tiers: T[]) {
   const sorted = [...tiers].sort((a, b) => a.thresholdPoints - b.thresholdPoints)
@@ -17,7 +18,7 @@ export function tierProgress<T extends { id: string; name: string; thresholdPoin
 export default function Cover() {
   const { profile } = useAuth()
   const tiers = useTiers().filter((t) => t.active)
-  const booths = useBooths()
+  const booths = useRewardBooths(useBooths())
   const event = useEvent()
   if (!profile) return <Spinner />
   const points = profile.points ?? 0
@@ -31,8 +32,8 @@ export default function Cover() {
   const stamped = new Set(profile.stampedBoothIds ?? [])
   const today = dayOf(new Date())
   const nextBooth = booths
-    .filter((b) => !stamped.has(b.id) && (!event.days.includes(today) || b.activeDays.includes(today)))
-    .sort((a, b) => b.points - a.points || a.sortOrder - b.sortOrder)[0]
+    .filter((b) => b.eventId === event.id && !stamped.has(b.id) && (!event.days.includes(today) || b.activeDays.includes(today)))
+    .sort((a, b) => b.rewardPoints - a.rewardPoints || a.sortOrder - b.sortOrder)[0]
 
   return (
     <main className="px-5 pt-6">
@@ -126,9 +127,10 @@ export default function Cover() {
               <span className="stamp-text block text-ink-soft">Go here next</span>
               <span className="mt-1 block truncate text-lg font-semibold">{nextBooth.nameEn}</span>
               <span className="mt-0.5 block truncate text-xs text-ink-soft">{nextBooth.location}</span>
+              {rewardExpiry(nextBooth, Date.now()) && <span className="mt-1 block text-xs text-ink-soft">{rewardExpiry(nextBooth, Date.now())} (Bangkok)</span>}
             </span>
             <span className="shrink-0 text-right">
-              <span className="fig block text-2xl text-action">{nextBooth.points}</span>
+              <span className="fig block text-2xl text-action">{nextBooth.rewardPoints}</span>
               <span className="stamp-text block text-[10px] text-ink-soft">points</span>
             </span>
           </Link>
