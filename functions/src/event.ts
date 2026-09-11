@@ -257,7 +257,16 @@ export const purgeEventData = onCall({ timeoutSeconds: 120 }, async (req) => {
   }
 
   switch (scope) {
-    case 'scans': await deletePage('scans'); break
+    // The award markers live or die with the scans they guard. A marker left behind would
+    // make the same visitor's re-scan after a purge create its stamp and then silently count
+    // nothing, because onScanCreate would take it for a redelivery. Same scope, so an admin
+    // cannot clear one without the other; scans first, then the markers.
+    case 'scans': {
+      await deletePage('scans')
+      if (deleted === 0) await deletePage('countedScans')
+      else remaining += (await db.collection('countedScans').count().get()).data().count
+      break
+    }
     case 'tierUnlocks': await deletePage('tierUnlocks'); break
     case 'stockAdjustments': await deletePage('stockAdjustments'); break
     case 'draws': await deletePage('draws'); break

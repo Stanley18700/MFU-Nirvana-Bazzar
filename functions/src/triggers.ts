@@ -3,7 +3,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { db, FieldValue, Timestamp, shardRef, boothStatsRef, bucketRef, getActiveEvent, toMillis } from './lib'
 import { BoothStats, PrizeTierDoc, ScanDoc, UserDoc, hourOf } from './shared/model'
 
-/** §7.2 — one scan updates every counter in a single batched write, and creates tier unlocks. */
+/** §7.2 — one scan updates every counter in a single transaction, and creates tier unlocks. */
 export const onScanCreate = onDocumentCreated('scans/{scanId}', async (event) => {
   const scan = event.data?.data() as ScanDoc | undefined
   if (!scan) return
@@ -13,45 +13,68 @@ export const onScanCreate = onDocumentCreated('scans/{scanId}', async (event) =>
   const school = scan.institution === 'MFU' ? scan.school || 'Unknown school' : null
   const hostKey = `${scan.boothId}`
 
-  // Breakdowns are written as real nested maps, never as 'byDay.2026-09-16' keys. `set()`
-  // takes a dotted key as one literal field name — only `update()` splits it into a path —
-  // so a dotted key here would store a field called 'byDay.2026-09-16.stamps' that no reader
-  // can find. `merge: true` deep-merges these maps, so the increments still land per key.
-  const batch = db.batch()
-  batch.set(shardRef(), {
-    stamps: FieldValue.increment(1),
-    points: FieldValue.increment(scan.pointsAwarded),
-    byDay: { [scan.day]: { stamps: FieldValue.increment(1) } },
-    // cross-school matrix (§6.1): visitor school/institution x booth
-    crossSchool: { [key(school ?? inst)]: { [hostKey]: FieldValue.increment(1) } },
-  }, { merge: true })
-
-  batch.set(boothStatsRef(scan.boothId), {
-    boothId: scan.boothId,
-    stamps: FieldValue.increment(1),
-    byVisitorType: { [vt]: FieldValue.increment(1) },
-    byDay: { [scan.day]: FieldValue.increment(1) },
-    byHour: { [`${scan.day}T${hourOf(at)}`]: FieldValue.increment(1) },
-    lastStampAt: scan.scannedAt,
-    updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true })
-
   const { ref: bRef, startsAt } = bucketRef(scan.eventId, at)
-  batch.set(bRef, {
-    startsAt, day: scan.day,
-    total: FieldValue.increment(1),
-    perBooth: { [scan.boothId]: FieldValue.increment(1) },
-  }, { merge: true })
-
   const userRef = db.doc(`users/${scan.visitorId}`)
-  batch.update(userRef, {
-    stampCount: FieldValue.increment(1),
-    points: FieldValue.increment(scan.pointsAwarded),
-    stampedBoothIds: FieldValue.arrayUnion(scan.boothId),
-    daysAttended: FieldValue.arrayUnion(scan.day),
-    lastSeenAt: FieldValue.serverTimestamp(),
+  const shard = shardRef()
+
+  /**
+   * Firestore delivers a trigger *at least* once, so the same scan can arrive twice. The scan
+   * document itself cannot be created twice — `scan` uses a deterministic id and `tx.create`
+   * (visitor.ts) — but `FieldValue.increment` is not idempotent, so a redelivery would award
+   * the points and the stamp a second time. `arrayUnion` would not move, which is the
+   * signature: two stamps counted, one booth in `stampedBoothIds`.
+   *
+   * The marker is keyed by the scan document, not the delivery: the id is deterministic
+   * (`{uid}_{boothId}`), so it is stable across redeliveries *and* states the invariant we
+   * actually want — one scan awards its points exactly once. Writing it in the same
+   * transaction as the counters is what makes that hold. Deliberately an early return rather
+   * than letting the unlock pass below re-run: a missed unlock is recoverable (savePrizePolicy
+   * rebuilds them, and the desk reads through a callable), whereas double points corrupt the
+   * leaderboard and prize eligibility for the rest of the event.
+   *
+   * Breakdowns are real nested maps, never 'byDay.2026-09-16' keys. `set()` takes a dotted
+   * key as one literal field name — only `update()` splits it into a path — so a dotted key
+   * would store a field no reader can find. `merge: true` deep-merges these maps, so the
+   * per-key increments still accumulate.
+   */
+  const counted = await db.runTransaction(async (tx) => {
+    const doneRef = db.doc(`countedScans/${event.params.scanId}`)
+    if ((await tx.get(doneRef)).exists) return false
+    tx.create(doneRef, {
+      visitorId: scan.visitorId, boothId: scan.boothId, eventId: scan.eventId,
+      deliveryId: event.id ?? null, processedAt: FieldValue.serverTimestamp(),
+    })
+    tx.set(shard, {
+      stamps: FieldValue.increment(1),
+      points: FieldValue.increment(scan.pointsAwarded),
+      byDay: { [scan.day]: { stamps: FieldValue.increment(1) } },
+      // cross-school matrix (§6.1): visitor school/institution x booth
+      crossSchool: { [key(school ?? inst)]: { [hostKey]: FieldValue.increment(1) } },
+    }, { merge: true })
+    tx.set(boothStatsRef(scan.boothId), {
+      boothId: scan.boothId,
+      stamps: FieldValue.increment(1),
+      byVisitorType: { [vt]: FieldValue.increment(1) },
+      byDay: { [scan.day]: FieldValue.increment(1) },
+      byHour: { [`${scan.day}T${hourOf(at)}`]: FieldValue.increment(1) },
+      lastStampAt: scan.scannedAt,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true })
+    tx.set(bRef, {
+      startsAt, day: scan.day,
+      total: FieldValue.increment(1),
+      perBooth: { [scan.boothId]: FieldValue.increment(1) },
+    }, { merge: true })
+    tx.update(userRef, {
+      stampCount: FieldValue.increment(1),
+      points: FieldValue.increment(scan.pointsAwarded),
+      stampedBoothIds: FieldValue.arrayUnion(scan.boothId),
+      daysAttended: FieldValue.arrayUnion(scan.day),
+      lastSeenAt: FieldValue.serverTimestamp(),
+    })
+    return true
   })
-  await batch.commit()
+  if (!counted) return
 
   // Tier unlocks are recorded as facts at the moment they happen (§6.7).
   const [userSnap, tiers] = await Promise.all([
