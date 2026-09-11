@@ -72,6 +72,23 @@ export default async function organizer(ctx) {
   await auth.currentUser.getIdToken(true)
   if ((await claims()).role !== 'admin') throw new Error('could not elevate the second admin account through the Auth emulator')
   tokens.admin2 = await idToken()
+
+  /**
+   * §4.1 — the demographics moved to their own admin-only document. The rules side is asserted
+   * above: the organizer is refused. This is the other half — that the move did not quietly
+   * drop the data the admin dashboard draws.
+   *
+   * Read as the emulator owner rather than through the client. Elevating this account set a
+   * custom claim out of band, and the Firestore channel keeps the token it opened with until
+   * it reconnects, so a client read here would be testing token propagation rather than the
+   * data. The suite uses stored tokens for admin work for the same reason.
+   */
+  const demoShards = []
+  for (let i = 0; i < 10; i++) demoShards.push(await ownerDoc(`stats/demographics/shards/${i}`))
+  const live = demoShards.filter(Boolean)
+  const countryTotal = live.reduce((t, s) => t + Object.values(s.byCountry ?? {}).reduce((a, n) => a + n, 0), 0)
+  ok('the demographic shards are being written', live.length > 0, `${live.length} of 10 shards`)
+  ok('every registered visitor is counted by country', countryTotal === tally.visitors, `${countryTotal} counted vs ${tally.visitors} registered`)
   // Redemption codes are only good for a 30 s window, so fetch one right before use.
   const code = await rawCall(tokens.visitor1, 'redemptionCode', {})
   const before = (await getDoc(doc(db, 'prizeTiers', 'explorer'))).data().stockRemaining

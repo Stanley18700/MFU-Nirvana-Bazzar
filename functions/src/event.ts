@@ -127,15 +127,25 @@ export const goLive = onCall(async (req) => {
   if (!booths.data().count) throw new HttpsError('failed-precondition', 'Add at least one active booth before going live')
   if (!tiers.data().count) throw new HttpsError('failed-precondition', 'Set a prize policy before going live')
 
-  const others = await db.collection('events').where('status', '==', 'live').get()
-  const batch = db.batch()
-  for (const o of others.docs) {
-    if (o.id !== id) batch.set(o.ref, { status: 'archived', active: false, archivedAt: FieldValue.serverTimestamp() }, { merge: true })
-  }
-  batch.set(ref, { status: 'live', active: true, boothCount: booths.data().count }, { merge: true })
-  await batch.commit()
+  /**
+   * A transaction, not a batch. A batch is atomic but carries no read precondition, so two
+   * admins pressing Go live at the same moment both read the live set before either commits,
+   * each demotes only what it saw, and both write `status: 'live'` — leaving two live events,
+   * after which `getActiveEvent` silently picks one by document id (lib.ts). The whole point
+   * of this function is that exactly one event is live, so the read has to be part of the
+   * write.
+   */
+  const demoted = await db.runTransaction(async (tx) => {
+    const live = await tx.get(db.collection('events').where('status', '==', 'live'))
+    const others = live.docs.filter((o) => o.id !== id)
+    for (const o of others) {
+      tx.set(o.ref, { status: 'archived', active: false, archivedAt: FieldValue.serverTimestamp() }, { merge: true })
+    }
+    tx.set(ref, { status: 'live', active: true, boothCount: booths.data().count }, { merge: true })
+    return others.map((o) => o.id)
+  })
   clearEventCache()
-  await audit(actor, 'goLive', 'event', id, { demoted: others.docs.map((o) => o.id) }, null)
+  await audit(actor, 'goLive', 'event', id, { demoted }, null)
   return { ok: true }
 })
 
@@ -153,6 +163,12 @@ export const archiveEvent = onCall(async (req) => {
   const ev = snap.data() as EventDoc
   if (confirmName.trim().toLowerCase() !== ev.nameEn.trim().toLowerCase()) {
     throw new HttpsError('failed-precondition', 'Type the event name exactly to confirm')
+  }
+  // Archiving twice is not harmless: the totals below are read from the live counters, so
+  // running this again after a purge would overwrite a good archive with zeros — and the
+  // archive is the only copy once the scans are gone.
+  if (ev.status === 'archived') {
+    throw new HttpsError('failed-precondition', 'This event is already archived. Its totals are frozen at archives/' + id)
   }
 
   const [shards, boothStats, booths, tiers, draws, unlocks] = await Promise.all([

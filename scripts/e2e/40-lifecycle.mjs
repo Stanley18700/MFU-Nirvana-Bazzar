@@ -1,20 +1,12 @@
 import { signOut } from 'firebase/auth'
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore'
 import {
-  auth, db, call, ok, section, signUpVerified, rawCall, ownerDoc, readSecret, boothToken, nowCounter, sleep,
+  auth, db, call, ok, section, signUpVerified, rawCall, ownerDoc, readSecret, boothToken, nowCounter, sleep, fails,
 } from './lib.mjs'
 
 /** Archive, the PDPA hard delete, the purge, and the next event reusing the booth ids. Runs as the second admin. */
 export default async function lifecycle(ctx) {
   const { liveEvent, secrets, tokens, tally, visitorUid, visitor3Uid } = ctx
-
-  // §4.1 — the demographics moved to their own admin-only document. The admin dashboard still
-  // draws them, so check the split did not quietly drop the data on the floor.
-  section('Demographics stay readable by an admin')
-  const demoShards = await getDocs(collection(db, 'stats/demographics/shards'))
-  const countryTotal = demoShards.docs.reduce((t, d) => t + Object.values(d.data().byCountry ?? {}).reduce((a, n) => a + n, 0), 0)
-  ok('admin reads the demographic shards', demoShards.size > 0, `${demoShards.size} shards`)
-  ok('every registered visitor is counted by country', countryTotal === tally.visitors, `${countryTotal} counted vs ${tally.visitors} registered`)
 
   section('Archive freezes totals')
   const arch = await call('archiveEvent')({ id: liveEvent.id, confirmName: liveEvent.nameEn })
@@ -24,6 +16,10 @@ export default async function lifecycle(ctx) {
   ok('archives/{id} written', archDoc.exists() && archDoc.data().booths.length === 12, `${archDoc.data()?.booths?.length} booths`)
   ok('archive counts redemptions per tier', archDoc.data().tiers.find((t) => t.id === 'explorer')?.redeemed === 2, JSON.stringify(archDoc.data().tiers.map((t) => [t.id, t.redeemed])))
   ok('archive keeps the draws', archDoc.data().draws.length === 2)
+  // The totals above are read from the live counters, so a second archive after a purge would
+  // overwrite a good archive with zeros — and it is the only copy once the scans are gone.
+  ok('archiving the same event twice is refused',
+    await fails(call('archiveEvent')({ id: liveEvent.id, confirmName: liveEvent.nameEn }), /already archived/i))
 
   section('Hard delete is the PDPA erasure (§10)')
   await rawCall(tokens.admin, 'deleteUser', { uid: visitor3Uid, hard: true })
@@ -71,6 +67,23 @@ export default async function lifecycle(ctx) {
   ok('exactly one live event after go-live', nowLive.size === 1, nowLive.docs[0]?.id)
   ok('the new event is the live one', nowLive.docs[0].id === created.id)
   ok('the new event has 2 days derived from its dates', nowLive.docs[0].data().days.length === 2, JSON.stringify(nowLive.docs[0].data().days))
+
+  // Two admins pressing Go live at the same moment. Read-then-write with a batch would let
+  // both through — each demoting only the live set it saw — and leave two events live, after
+  // which getActiveEvent picks one by document id and the whole event runs on a coin toss.
+  const racer = await call('createEvent')({
+    nameEn: 'MFU Go Live Race', nameTh: '', startsAt: start, endsAt: start + 86400_000,
+    qrPeriodSeconds: 30, passportPrefix: 'MFU-RC', zonePoints: { entrance: 5, middle: 10, far: 15 },
+  })
+  await Promise.allSettled([call('goLive')({ id: created.id }), call('goLive')({ id: racer.id })])
+  const raced = await getDocs(query(collection(db, 'events'), where('status', '==', 'live')))
+  ok('two simultaneous go-lives still leave exactly one live event', raced.size === 1,
+    `${raced.size} live: ${raced.docs.map((d) => d.id).join(', ')}`)
+  // Put the intended event back in front, whichever way the race fell.
+  if (raced.docs[0]?.id !== created.id) await call('goLive')({ id: created.id })
+  const settled = await getDocs(query(collection(db, 'events'), where('status', '==', 'live')))
+  ok('the intended event is the live one again', settled.size === 1 && settled.docs[0].id === created.id,
+    settled.docs.map((d) => d.id).join(', '))
 
   section('The next event reuses the booth ids safely')
   // A booth carries the id of the event it was created under, and `scan` refuses one that is
