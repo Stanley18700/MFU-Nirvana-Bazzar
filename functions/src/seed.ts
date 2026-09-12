@@ -1,5 +1,6 @@
 /**
- * Seed the event, 12 booths (with secrets), the default prize policy and reference data.
+ * Seed the event, the 76 booths of the official booth sheet (with secrets), the single
+ * main-organiser prize and reference data.
  *
  *   npm run seed                 -> against the real project (needs `gcloud auth application-default login`
  *                                   or GOOGLE_APPLICATION_CREDENTIALS)
@@ -12,7 +13,10 @@ import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { FieldValue, getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { randomBytes } from 'node:crypto'
-import { ACCENTS, DEFAULT_PASSPORT_PREFIX, EVENT_DAYS, EVENT_ID, ZONE_POINTS, Zone } from './shared/model'
+import {
+  BOOTH_BASE_POINTS, DEFAULT_PASSPORT_PREFIX, DEFAULT_PRIZE_SESSIONS, EVENT_DAYS, EVENT_ID, ZONE_POINTS,
+} from './shared/model'
+import { SEED_BOOTHS } from './booths.data'
 
 const args = process.argv.slice(2)
 if (args.includes('--emulator')) {
@@ -33,26 +37,22 @@ function readFirebaserc(): string {
   }
 }
 
-const BOOTHS: Array<{ id: string; nameEn: string; nameTh: string; short: string; host: string; location: string; zone: Zone; prize?: boolean; days?: string[] }> = [
-  { id: 'booth-01', nameEn: 'Applied Digital Technology', nameTh: 'เทคโนโลยีดิจิทัลประยุกต์', short: 'ADT', host: 'School of Applied Digital Technology', location: 'Hall A · Entrance', zone: 'entrance', prize: true },
-  { id: 'booth-02', nameEn: 'Liberal Arts', nameTh: 'ศิลปศาสตร์', short: 'LA', host: 'School of Liberal Arts', location: 'Hall A · Entrance', zone: 'entrance' },
-  { id: 'booth-03', nameEn: 'Management', nameTh: 'การจัดการ', short: 'MGT', host: 'School of Management', location: 'Hall A · Entrance', zone: 'entrance' },
-  { id: 'booth-04', nameEn: 'Sinology', nameTh: 'จีนวิทยา', short: 'SINO', host: 'School of Sinology', location: 'Hall A · Middle', zone: 'middle' },
-  { id: 'booth-05', nameEn: 'Law', nameTh: 'นิติศาสตร์', short: 'LAW', host: 'School of Law', location: 'Hall A · Middle', zone: 'middle' },
-  { id: 'booth-06', nameEn: 'Cosmetic Science', nameTh: 'วิทยาศาสตร์เครื่องสำอาง', short: 'COS', host: 'School of Cosmetic Science', location: 'Hall A · Middle', zone: 'middle' },
-  { id: 'booth-07', nameEn: 'Health Science', nameTh: 'วิทยาศาสตร์สุขภาพ', short: 'HS', host: 'School of Health Science', location: 'Hall A · Middle', zone: 'middle' },
-  { id: 'booth-08', nameEn: 'Agro-Industry', nameTh: 'อุตสาหกรรมเกษตร', short: 'AGRO', host: 'School of Agro-Industry', location: 'Hall B · Far corner', zone: 'far', days: [EVENT_DAYS[0], EVENT_DAYS[1]] },
-  { id: 'booth-09', nameEn: 'Nursing', nameTh: 'พยาบาลศาสตร์', short: 'NUR', host: 'School of Nursing', location: 'Hall B · Far corner', zone: 'far' },
-  { id: 'booth-10', nameEn: 'Integrative Medicine', nameTh: 'การแพทย์บูรณาการ', short: 'IM', host: 'School of Integrative Medicine', location: 'Hall B · Far corner', zone: 'far' },
-  { id: 'booth-11', nameEn: 'Social Innovation', nameTh: 'นวัตกรรมสังคม', short: 'SI', host: 'School of Social Innovation', location: 'Hall B · Far corner', zone: 'far', days: [EVENT_DAYS[1], EVENT_DAYS[2]] },
-  { id: 'booth-12', nameEn: 'Office of International Affairs', nameTh: 'ส่วนพัฒนาความสัมพันธ์ระหว่างประเทศ', short: 'OIA', host: 'Office of International Affairs', location: 'Hall B · Stage', zone: 'far' },
-]
-
-const TIERS = [
-  { id: 'explorer', name: 'Explorer', thresholdPoints: 50, reward: 'A souvenir on the spot', stockTotal: 600, grantsDrawEntry: false },
-  { id: 'voyager', name: 'Voyager', thresholdPoints: 100, reward: 'A larger souvenir', stockTotal: 250, grantsDrawEntry: false },
-  { id: 'globetrotter', name: 'Globetrotter', thresholdPoints: 150, reward: 'Special souvenir + entry to the closing stage draw', stockTotal: 120, grantsDrawEntry: true },
-]
+/**
+ * One prize from the main organisers, at 100 points. Booths hand out their own small gifts
+ * themselves — those are deliberately outside the app, so nothing about them is modelled here.
+ *
+ * Stock is per SESSION, not per event: 50 gifts each morning and each afternoon, every day.
+ * Points are never reset by a session boundary, so a visitor who qualifies once the morning's
+ * 50 are gone simply collects after 12:00.
+ */
+const PRIZE = {
+  id: 'global-passport',
+  name: 'Global Passport Gift',
+  thresholdPoints: 100,
+  reward: 'The MFU Go Global gift, collected at the MFU Go Global booth (ED8)',
+  stockPerSession: 50,
+  grantsDrawEntry: false,
+}
 
 async function main() {
   console.log(`Seeding project ${projectId}${process.env.FIRESTORE_EMULATOR_HOST ? ' (emulator)' : ''}`)
@@ -61,21 +61,24 @@ async function main() {
     nameTh: 'เทศกาลนานาชาติ MFU 2026', nameEn: 'MFU International Festival 2026',
     startsAt: Timestamp.fromDate(new Date('2026-09-16T09:00:00+07:00')),
     endsAt: Timestamp.fromDate(new Date('2026-09-18T16:00:00+07:00')),
-    qrPeriodSeconds: 20, active: true, boothCount: BOOTHS.length, createdAt: FieldValue.serverTimestamp(),
+    qrPeriodSeconds: 20, active: true, boothCount: SEED_BOOTHS.length, createdAt: FieldValue.serverTimestamp(),
     // The event is data, not a constant, so an admin can archive it and create the next one
-    // from /admin/event without a redeploy.
+    // from /admin/event without a redeploy. The prize windows are data for the same reason:
+    // on the day, the desk opening times move.
     days: [...EVENT_DAYS], passportPrefix: DEFAULT_PASSPORT_PREFIX, zonePoints: { ...ZONE_POINTS }, status: 'live',
+    prizeSessions: DEFAULT_PRIZE_SESSIONS.map((s) => ({ ...s })),
   }, { merge: true })
 
-  for (const [i, b] of BOOTHS.entries()) {
+  for (const [i, b] of SEED_BOOTHS.entries()) {
     const ref = db.doc(`booths/${b.id}`)
     const exists = (await ref.get()).exists
     await ref.set({
-      eventId: EVENT_ID, nameEn: b.nameEn, nameTh: b.nameTh, shortName: b.short, hostUnit: b.host, location: b.location,
-      descriptionEn: `Visit the ${b.nameEn} booth to join a short activity and collect this stamp.`, descriptionTh: '',
-      accentColor: ACCENTS[i % ACCENTS.length], points: ZONE_POINTS[b.zone], zone: b.zone,
+      eventId: EVENT_ID, nameEn: b.nameEn, nameTh: b.nameTh, shortName: b.shortName, hostUnit: b.hostUnit,
+      location: b.location, category: b.category,
+      descriptionEn: b.descriptionEn, descriptionTh: '',
+      accentColor: b.accentColor, points: BOOTH_BASE_POINTS, zone: b.zone,
       badgeUrl: null, badgeThumbUrl: null, photoUrl: null, photoThumbUrl: null,
-      activeDays: b.days ?? [...EVENT_DAYS], isPrizeDesk: !!b.prize, active: true, sortOrder: i + 1,
+      activeDays: [...EVENT_DAYS], isPrizeDesk: b.isPrizeDesk, active: true, sortOrder: i + 1,
       ...(exists ? {} : { organizerUid: null, createdAt: FieldValue.serverTimestamp() }),
     }, { merge: true })
     const sRef = db.doc(`boothSecrets/${b.id}`)
@@ -85,16 +88,27 @@ async function main() {
     await db.doc(`stats/booths/items/${b.id}`).set({ boothId: b.id, stamps: FieldValue.increment(0), byVisitorType: {}, byDay: {}, byHour: {} }, { merge: true })
   }
 
-  for (const [i, t] of TIERS.entries()) {
-    const ref = db.doc(`prizeTiers/${t.id}`)
+  {
+    // Event-wide figures, kept for the audit trail and the archive. What the desk actually
+    // spends is the per-session stock below.
+    const sessionsPerEvent = EVENT_DAYS.length * DEFAULT_PRIZE_SESSIONS.length
+    const stockTotal = PRIZE.stockPerSession * sessionsPerEvent
+    const ref = db.doc(`prizeTiers/${PRIZE.id}`)
     const exists = (await ref.get()).exists
     await ref.set({
-      eventId: EVENT_ID, name: t.name, thresholdPoints: t.thresholdPoints, reward: t.reward, grantsDrawEntry: t.grantsDrawEntry,
-      active: true, sortOrder: i + 1, outOfStockNoteEn: 'This prize has run out — please ask at the Office of International Affairs booth.', outOfStockNoteTh: '',
-      ...(exists ? {} : { stockTotal: t.stockTotal, stockRemaining: t.stockTotal }),
+      eventId: EVENT_ID, name: PRIZE.name, thresholdPoints: PRIZE.thresholdPoints, reward: PRIZE.reward,
+      grantsDrawEntry: PRIZE.grantsDrawEntry, active: true, sortOrder: 1,
+      stockPerSession: PRIZE.stockPerSession,
+      outOfStockNoteEn: "This session's gifts have all been collected — your points stay on your passport, so come back for the next session.",
+      outOfStockNoteTh: '',
+      ...(exists ? {} : { stockTotal, stockRemaining: stockTotal, sessionRemaining: {} }),
     }, { merge: true })
     if (!exists) {
-      await db.collection('stockAdjustments').add({ tierId: t.id, delta: t.stockTotal, reason: 'load-in (seed)', actorUid: 'seed', kind: 'load-in', createdAt: FieldValue.serverTimestamp() })
+      await db.collection('stockAdjustments').add({
+        tierId: PRIZE.id, delta: stockTotal, actorUid: 'seed', kind: 'load-in',
+        reason: `load-in (seed): ${PRIZE.stockPerSession} per session x ${sessionsPerEvent} sessions`,
+        createdAt: FieldValue.serverTimestamp(),
+      })
     }
   }
 
@@ -132,7 +146,7 @@ async function main() {
     }, { merge: true })
     console.log(`Made ${uid} an admin`)
   }
-  console.log(`Seeded ${BOOTHS.length} booths, ${TIERS.length} tiers, reference data.`)
+  console.log(`Seeded ${SEED_BOOTHS.length} booths, 1 prize (${PRIZE.stockPerSession}/session), reference data.`)
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1) })

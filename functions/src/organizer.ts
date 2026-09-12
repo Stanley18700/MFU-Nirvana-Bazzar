@@ -1,8 +1,35 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
+import { FieldPath } from 'firebase-admin/firestore'
 import { db, FieldValue, requireRole, str, audit, getActiveEvent } from './lib'
 import { resolveRedemption } from './visitor'
-import { BoothDoc, PrizeTierDoc, TierUnlockDoc, UserDoc } from './shared/model'
+import {
+  ActiveSession, BoothDoc, DEFAULT_PRIZE_SESSIONS, EventDoc, PrizeTierDoc, TierUnlockDoc, UserDoc,
+  currentPrizeSession, minuteToHHMM, nextPrizeSession, sessionStockRemaining,
+} from './shared/model'
 import { DEFAULT_PERIOD_SECONDS } from './shared/token'
+
+/**
+ * The gift is stocked per session, not per event — 50 each morning and each afternoon. This
+ * resolves which window the desk is in right now. Null means the desk is closed: a different
+ * thing from "out of stock", and the two must never be shown to a visitor as the same message.
+ */
+function prizeWindow(event: EventDoc, now = Date.now()) {
+  const sessions = event.prizeSessions?.length ? event.prizeSessions : DEFAULT_PRIZE_SESSIONS
+  const days = event.days ?? []
+  const active = currentPrizeSession(days, sessions, now)
+  const next = active ? null : nextPrizeSession(days, sessions, now)
+  return {
+    active,
+    session: active ? { id: active.session.id, label: active.session.label, day: active.day } : null,
+    /** Where the desk should point someone it has to turn away. */
+    nextOpensAt: next ? { day: next.day, at: minuteToHHMM(next.session.startMinute), label: next.session.label } : null,
+  }
+}
+
+/** Gifts left in the open session — or null when the desk is closed. */
+function remainingNow(tier: PrizeTierDoc, active: ActiveSession | null) {
+  return sessionStockRemaining(tier, active)
+}
 
 /** §5.1 — the only path to a booth secret. Organizer gets their own booth; admin may name any. */
 export const boothSession = onCall(async (req) => {
@@ -32,23 +59,31 @@ export const lookupRedemption = onCall(async (req) => {
   await assertPrizeDesk(role, boothId)
   const v = await resolveRedemption(req.data)
   if (!v) return { status: 'invalid' as const }
-  const [userSnap, unlocks, tiers] = await Promise.all([
+  const [userSnap, unlocks, tiers, event] = await Promise.all([
     db.doc(`users/${v.uid}`).get(),
     db.collection('tierUnlocks').where('visitorId', '==', v.uid).get(),
     db.collection('prizeTiers').orderBy('sortOrder').get(),
+    getActiveEvent(),
   ])
   if (!userSnap.exists) return { status: 'invalid' as const }
   const u = userSnap.data() as UserDoc
+  const window = prizeWindow(event as EventDoc)
   // "Already handed over by whom" (UAT P-04): the desk cannot read users, so resolve names here.
   const names = await staffNames(unlocks.docs.map((x) => (x.data() as TierUnlockDoc).redeemedBy).filter((x): x is string => !!x))
   return {
     status: 'ok' as const,
     visitor: { uid: v.uid, displayName: u.displayName, passportNo: u.passportNo, points: u.points, stampCount: u.stampCount },
+    session: window.session,
+    nextOpensAt: window.nextOpensAt,
     tiers: tiers.docs.map((t) => {
       const tier = t.data() as PrizeTierDoc
       const un = unlocks.docs.find((x) => x.id === `${v.uid}_${t.id}`)?.data() as TierUnlockDoc | undefined
+      const sessionRemaining = remainingNow(tier, window.active)
       return {
         id: t.id, name: tier.name, reward: tier.reward, thresholdPoints: tier.thresholdPoints,
+        // What this desk can actually hand over right now. `stockRemaining`/`stockTotal` stay
+        // for the event-wide picture; `sessionRemaining` is null when the desk is closed.
+        sessionRemaining, stockPerSession: tier.stockPerSession ?? null,
         stockRemaining: tier.stockRemaining, stockTotal: tier.stockTotal,
         outOfStockNote: tier.outOfStockNoteEn ?? '',
         // A voided redemption reopens the tier (§6.7): the visitor still qualifies and can collect again.
@@ -70,6 +105,8 @@ export const confirmRedemption = onCall(async (req) => {
   const tierId = str(req.data?.tierId, 'tierId')
   const unlockRef = db.doc(`tierUnlocks/${v.uid}_${tierId}`)
   const tierRef = db.doc(`prizeTiers/${tierId}`)
+  const event = (await getActiveEvent()) as EventDoc
+  const window = prizeWindow(event)
 
   const result = await db.runTransaction(async (tx) => {
     const [un, tier] = await Promise.all([tx.get(unlockRef), tx.get(tierRef)])
@@ -79,9 +116,43 @@ export const confirmRedemption = onCall(async (req) => {
       return { status: 'already' as const, redeemedAt: (u.redeemedAt as { toMillis(): number }).toMillis(), redeemedBy: u.redeemedBy ?? null }
     }
     const t = tier.data() as PrizeTierDoc
-    if (t.stockRemaining <= 0) return { status: 'out_of_stock' as const, note: t.outOfStockNoteEn ?? '' }
+
+    // Per-session stock. Sessions gate the GIFT, never the points: a visitor turned away here
+    // keeps every point and collects in the next window, which is what `nextOpensAt` tells the
+    // desk to say. An admin who needs to hand over outside the window widens the session times
+    // in /admin/event rather than being blocked — that is why those times are data.
+    if (typeof t.stockPerSession === 'number') {
+      if (!window.active) {
+        return { status: 'desk_closed' as const, nextOpensAt: window.nextOpensAt }
+      }
+      const key = window.active.key
+      const remaining = t.sessionRemaining?.[key] ?? t.stockPerSession
+      if (remaining <= 0) {
+        return { status: 'out_of_stock' as const, note: t.outOfStockNoteEn ?? '', nextOpensAt: window.nextOpensAt }
+      }
+      // Written as an absolute value, not an increment: the first redemption of a session has no
+      // map entry yet, and increment(-1) on a missing key would set it to -1 rather than 49.
+      // The transaction is what makes the read-then-write safe.
+      tx.update(tierRef, new FieldPath('sessionRemaining', key), remaining - 1)
+      tx.update(tierRef, { stockRemaining: FieldValue.increment(-1) })
+      tx.update(unlockRef, {
+        redeemedAt: FieldValue.serverTimestamp(), redeemedBy: actor,
+        // Remembered so a void returns the gift to the session it came out of, not to whichever
+        // session happens to be open when someone notices the mistake.
+        redeemedSessionKey: key,
+        voidedAt: null, voidedBy: null, voidReason: null,
+      })
+      tx.create(db.collection('stockAdjustments').doc(), {
+        tierId, delta: -1, reason: `redeemed by ${v.uid} (${key})`, actorUid: actor, kind: 'redeem',
+        sessionKey: key, createdAt: FieldValue.serverTimestamp(),
+      })
+      return { status: 'redeemed' as const }
+    }
+
+    // Tiers with no per-session stock keep the original single-pool behaviour.
+    if (t.stockRemaining <= 0) return { status: 'out_of_stock' as const, note: t.outOfStockNoteEn ?? '', nextOpensAt: null }
     tx.update(tierRef, { stockRemaining: FieldValue.increment(-1) })
-    tx.update(unlockRef, { redeemedAt: FieldValue.serverTimestamp(), redeemedBy: actor, voidedAt: null, voidedBy: null, voidReason: null })
+    tx.update(unlockRef, { redeemedAt: FieldValue.serverTimestamp(), redeemedBy: actor, redeemedSessionKey: null, voidedAt: null, voidedBy: null, voidReason: null })
     tx.create(db.collection('stockAdjustments').doc(), {
       tierId, delta: -1, reason: `redeemed by ${v.uid}`, actorUid: actor, kind: 'redeem', createdAt: FieldValue.serverTimestamp(),
     })
@@ -115,13 +186,24 @@ export const voidRedemption = onCall(async (req) => {
   const tierId = str(req.data?.tierId, 'tierId')
   const reason = str(req.data?.reason, 'reason', { max: 300 })
   const unlockRef = db.doc(`tierUnlocks/${visitorId}_${tierId}`)
+  const tierRef = db.doc(`prizeTiers/${tierId}`)
   await db.runTransaction(async (tx) => {
-    const un = await tx.get(unlockRef)
+    const [un, tier] = await Promise.all([tx.get(unlockRef), tx.get(tierRef)])
     if (!un.exists || !un.data()!.redeemedAt || un.data()!.voidedAt) throw new HttpsError('failed-precondition', 'Nothing to void')
+    const u = un.data() as TierUnlockDoc
+    const t = tier.data() as PrizeTierDoc | undefined
     tx.update(unlockRef, { redeemedAt: null, redeemedBy: null, voidedAt: FieldValue.serverTimestamp(), voidedBy: actor, voidReason: reason })
-    tx.update(db.doc(`prizeTiers/${tierId}`), { stockRemaining: FieldValue.increment(1) })
+    tx.update(tierRef, { stockRemaining: FieldValue.increment(1) })
+    // Back to the session it was taken from, capped at that session's allowance so a void can
+    // never conjure a 51st gift into a session of 50.
+    const key = u.redeemedSessionKey
+    if (key && t && typeof t.stockPerSession === 'number') {
+      const back = Math.min(t.stockPerSession, (t.sessionRemaining?.[key] ?? t.stockPerSession) + 1)
+      tx.update(tierRef, new FieldPath('sessionRemaining', key), back)
+    }
     tx.create(db.collection('stockAdjustments').doc(), {
-      tierId, delta: 1, reason, actorUid: actor, kind: 'void', createdAt: FieldValue.serverTimestamp(),
+      tierId, delta: 1, reason, actorUid: actor, kind: 'void',
+      ...(key ? { sessionKey: key } : {}), createdAt: FieldValue.serverTimestamp(),
     })
   })
   await db.doc('stats/event/shards/0').set({ redeemed: FieldValue.increment(-1) }, { merge: true })

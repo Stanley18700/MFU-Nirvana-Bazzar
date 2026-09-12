@@ -18,7 +18,10 @@
     "e2e:auth": "npm run reset:emulator && npm run seed:emulator && node scripts/e2e-auth.mjs",
     "e2e:survey": "npm run reset:emulator && npm run seed:emulator && node scripts/e2e-survey.mjs",
     "test:points": "npm --prefix functions run build && node --test scripts/test-points.cjs",
-    "test:points:emulator": "npm --prefix functions run build && firebase emulators:exec --only firestore --project demo-point-adjustments \"node --test scripts/test-points-emulator.cjs\""
+    "test:sessions": "npm --prefix functions run build && node --test scripts/test-sessions.cjs",
+    "test:sessions:emulator": "npm --prefix functions run build && firebase emulators:exec --only firestore --project demo-prize-sessions \"node --test scripts/test-sessions-emulator.cjs\"",
+    "test:points:emulator": "npm --prefix functions run build && firebase emulators:exec --only firestore --project demo-point-adjustments \"node --test scripts/test-points-emulator.cjs\"",
+    "migrate:booths": "node scripts/migrate-booths.mjs"
   },
   "dependencies": {
     "firebase": "^11.10.0",

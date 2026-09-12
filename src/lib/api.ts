@@ -1,7 +1,7 @@
 import { httpsCallable } from 'firebase/functions'
 import { functions } from './firebase'
 import type { ApplyPointsInput, ApplyPointsResult, PointPreview } from '../../shared/points'
-import type { Role, ScanResult, SurveyAnswer, SurveyQuestion, VisitorType, Zone } from '../../shared/model'
+import type { PrizeSession, Role, ScanResult, SurveyAnswer, SurveyQuestion, VisitorType, Zone } from '../../shared/model'
 
 function call<Req, Res>(name: string) {
   const fn = httpsCallable<Req, Res>(functions, name)
@@ -135,6 +135,8 @@ export interface EventInput {
   qrPeriodSeconds?: number
   passportPrefix?: string
   zonePoints?: Record<Zone, number>
+  /** Omit to leave the windows alone; send the whole set to replace them. */
+  prizeSessions?: PrizeSession[]
 }
 
 export interface EventRow {
@@ -147,6 +149,7 @@ export interface EventRow {
   qrPeriodSeconds: number
   passportPrefix: string
   zonePoints: Record<Zone, number>
+  prizeSessions: PrizeSession[]
   status: 'draft' | 'live' | 'archived'
   boothCount: number
 }
@@ -202,18 +205,47 @@ export interface TierInput {
  */
 export type RedemptionCred = { payload: string } | { passportNo: string; code: string }
 
+/** The prize session that is open now — `null` when the desk is shut. */
+export type OpenSession = { id: string; label: string; day: string }
+/** When the desk next opens. `at` is 'HH:MM' in Asia/Bangkok, `day` is 'YYYY-MM-DD'. */
+export type NextOpening = { day: string; at: string; label: string }
+
+/**
+ * The desk's two refusals are deliberately separate, and neither may be shown as the other.
+ * `desk_closed` means the window is shut and says nothing about stock; `out_of_stock` means the
+ * window is open and this session's gifts are gone. Either way the visitor keeps every point.
+ *
+ * `nextOpensAt` is null on `out_of_stock` in practice: the server only computes a next opening
+ * when no session is active, and that branch requires an active one. The desk works out when to
+ * tell someone to come back with `nextPrizeSession` from shared/model.
+ */
 export type ConfirmResult =
   | { status: 'redeemed' }
   | { status: 'already'; redeemedAt: number; redeemedBy: string | null; redeemedByName: string | null }
-  | { status: 'out_of_stock'; note: string }
+  | { status: 'desk_closed'; nextOpensAt: NextOpening | null }
+  | { status: 'out_of_stock'; note: string; nextOpensAt: NextOpening | null }
 
 export type LookupResult =
   | { status: 'invalid' }
   | {
       status: 'ok'
       visitor: { uid: string; displayName: string; passportNo?: string; points: number; stampCount: number }
+      /**
+       * Mutually exclusive, though both keys are always sent: the server fills `nextOpensAt`
+       * only when nothing is open, so a non-null `session` always comes with a null
+       * `nextOpensAt`. Both null means the desk is shut and will not open again.
+       */
+      session: OpenSession | null
+      nextOpensAt: NextOpening | null
       tiers: Array<{
         id: string; name: string; reward: string; thresholdPoints: number; stockRemaining: number; stockTotal: number
+        /**
+         * Gifts left in the session that is open now — the number the desk actually spends.
+         * `null` means the desk is closed, which is NOT `0`: never render it as "0 left".
+         * `stockPerSession` is null for a tier that uses the single event-wide pool instead.
+         */
+        sessionRemaining: number | null
+        stockPerSession: number | null
         outOfStockNote: string; unlocked: boolean; redeemedAt: number | null; redeemedBy: string | null; redeemedByName: string | null
       }>
     }

@@ -5,6 +5,22 @@ export type VisitorType = 'student' | 'staff' | 'alumni' | 'guest'
 export type Zone = 'entrance' | 'middle' | 'far'
 
 /**
+ * What kind of booth this is, from the official booth sheet's grouping. With 76 booths the
+ * stamp grid is unreadable as one flat list, so the passport groups by this. It carries no
+ * points weight — every booth is worth the same base value (see `BOOTH_BASE_POINTS`).
+ */
+export type BoothCategory = 'educational' | 'cultural' | 'food' | 'market' | 'youth' | 'wellness'
+
+export const BOOTH_CATEGORY_LABELS: Record<BoothCategory, string> = {
+  educational: 'Educational & Study Abroad',
+  cultural: 'Cultural',
+  food: 'International Food & Culture',
+  market: 'Market',
+  youth: 'Youth Booths',
+  wellness: 'Wellness',
+}
+
+/**
  * Seed defaults and last-resort fallbacks only. The live event is a document —
  * `events/{id}` with `status: 'live'` — so the app can be run again for a new event
  * without a redeploy. Read it with `getActiveEvent()` (functions) or `useEvent()` (client).
@@ -13,13 +29,45 @@ export const EVENT_ID = 'mfu-go-global-2026'
 export const EVENT_DAYS = ['2026-09-16', '2026-09-17', '2026-09-18'] as const
 export type EventDay = (typeof EVENT_DAYS)[number]
 
-export const ZONE_POINTS: Record<Zone, number> = { entrance: 10, middle: 15, far: 20 }
+/** Every booth is worth this before the quiet/busy adjustment moves it (shared/points.ts). */
+export const BOOTH_BASE_POINTS = 10
+
+/**
+ * Zone weighting is switched off for 2026: with 76 booths spread over the whole hall,
+ * distance-based points made the far corners a chore rather than a draw, and the organisers
+ * chose a flat value instead. `zone` is still on every booth so the weighting can be turned
+ * back on for a future event by giving these three entries different values.
+ */
+export const ZONE_POINTS: Record<Zone, number> = {
+  entrance: BOOTH_BASE_POINTS, middle: BOOTH_BASE_POINTS, far: BOOTH_BASE_POINTS,
+}
 export const DEFAULT_PASSPORT_PREFIX = 'MFU-GG'
 export type EventStatus = 'draft' | 'live' | 'archived'
 
 export const ACCENTS = [
   '#EF5F5F', '#0FAFD0', '#4C764F', '#F5C63C', '#FF919C', '#F0A445', '#45CFC0', '#E08761', '#2F5D3E',
 ] as const
+
+/**
+ * A window during the day in which the main-organiser gift can be collected, each with its own
+ * stock. Minutes are from midnight Asia/Bangkok so an admin can shift a session on the day
+ * without a redeploy — the times are data, like the event itself.
+ *
+ * Sessions gate the STOCK, never the points: a visitor who reaches the threshold at 11:55 with
+ * the morning's gifts gone keeps every point and collects in the afternoon.
+ */
+export interface PrizeSession {
+  id: string
+  label: string
+  /** Minutes from midnight, Asia/Bangkok. 09:00 -> 540. */
+  startMinute: number
+  endMinute: number
+}
+
+export const DEFAULT_PRIZE_SESSIONS: PrizeSession[] = [
+  { id: 'am', label: 'Morning', startMinute: 9 * 60, endMinute: 12 * 60 },
+  { id: 'pm', label: 'Afternoon', startMinute: 12 * 60, endMinute: 16 * 60 },
+]
 
 export interface EventDoc {
   nameTh: string
@@ -35,6 +83,8 @@ export interface EventDoc {
   passportPrefix: string
   /** Default points offered per zone when a booth is created. */
   zonePoints: Record<Zone, number>
+  /** Prize-collection windows. Absent on events saved before sessions existed — treat as `DEFAULT_PRIZE_SESSIONS`. */
+  prizeSessions?: PrizeSession[]
   status: EventStatus
   /** Arc text on the generated fallback stamp (spec 2.5) — e.g. 'MFU INTERFEST'. */
   stampMarkTop?: string
@@ -95,6 +145,8 @@ export interface BoothDoc {
   location: string
   descriptionTh?: string
   descriptionEn?: string
+  /** Absent on booths saved before categories existed. */
+  category?: BoothCategory
   accentColor: string
   points: number
   zone: Zone
@@ -138,6 +190,14 @@ export interface PrizeTierDoc {
   reward: string
   stockTotal: number
   stockRemaining: number
+  /**
+   * How many gifts this tier gets in EACH prize session. When set, `sessionRemaining` — not
+   * `stockRemaining` — is what the redeem desk spends and what the passport shows; the two
+   * totals above become the event-wide audit figures.
+   */
+  stockPerSession?: number
+  /** Keyed by `sessionStockKey(day, sessionId)`. A key absent means that session is untouched. */
+  sessionRemaining?: Record<string, number>
   outOfStockNoteTh?: string
   outOfStockNoteEn?: string
   grantsDrawEntry: boolean
@@ -153,6 +213,8 @@ export interface TierUnlockDoc {
   stampCountAtUnlock: number
   redeemedAt?: unknown
   redeemedBy?: string | null
+  /** Which prize session the gift came out of, so a void returns it to that session's stock. */
+  redeemedSessionKey?: string | null
   redemptionNote?: string | null
   voidedAt?: unknown
   voidedBy?: string | null
@@ -248,6 +310,72 @@ export function hourOf(date: Date, tz = 'Asia/Bangkok'): string {
 
 export function passportNo(seq: number, prefix: string = DEFAULT_PASSPORT_PREFIX): string {
   return `${prefix}-${String(seq).padStart(4, '0')}`
+}
+
+// ---------- prize sessions ----------
+
+/** Minutes since midnight in Asia/Bangkok, whatever the caller's clock is set to. */
+export function minuteOfDay(date: Date, tz = 'Asia/Bangkok'): number {
+  const [h, m] = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false })
+    .format(date).split(':').map(Number)
+  return h * 60 + m
+}
+
+/** The document key a session's stock lives under, e.g. `2026-09-16#am`. */
+export function sessionStockKey(day: string, sessionId: string): string {
+  return `${day}#${sessionId}`
+}
+
+export interface ActiveSession { day: string; session: PrizeSession; key: string }
+
+/**
+ * Which prize session is open right now, or null outside the windows (before opening, in a gap
+ * between sessions, after close, or on a day the event does not run). Callers must treat null as
+ * "the desk is closed", not as "out of stock".
+ */
+export function currentPrizeSession(
+  days: string[], sessions: PrizeSession[], now: Date | number,
+): ActiveSession | null {
+  const at = typeof now === 'number' ? new Date(now) : now
+  const day = dayOf(at)
+  if (!days.includes(day)) return null
+  const minute = minuteOfDay(at)
+  const session = sessions.find((s) => minute >= s.startMinute && minute < s.endMinute)
+  return session ? { day, session, key: sessionStockKey(day, session.id) } : null
+}
+
+/** The next session to open after `now`, for the "collect from HH:MM" line on the passport. */
+export function nextPrizeSession(
+  days: string[], sessions: PrizeSession[], now: Date | number,
+): ActiveSession | null {
+  const at = typeof now === 'number' ? new Date(now) : now
+  const today = dayOf(at)
+  const minute = minuteOfDay(at)
+  const ordered = [...sessions].sort((a, b) => a.startMinute - b.startMinute)
+  if (days.includes(today)) {
+    const later = ordered.find((s) => s.startMinute > minute)
+    if (later) return { day: today, session: later, key: sessionStockKey(today, later.id) }
+  }
+  const nextDay = [...days].sort().find((d) => d > today)
+  return nextDay && ordered.length ? { day: nextDay, session: ordered[0], key: sessionStockKey(nextDay, ordered[0].id) } : null
+}
+
+/**
+ * Gifts left in the session that is open now. `null` when the desk is closed, so the passport can
+ * say "collect from 12:00" rather than "0 left" — the two mean very different things to a visitor
+ * standing in front of the desk.
+ */
+export function sessionStockRemaining(
+  tier: Pick<PrizeTierDoc, 'stockPerSession' | 'sessionRemaining' | 'stockRemaining'>,
+  active: ActiveSession | null,
+): number | null {
+  if (!active) return null
+  if (typeof tier.stockPerSession !== 'number') return tier.stockRemaining
+  return tier.sessionRemaining?.[active.key] ?? tier.stockPerSession
+}
+
+export function minuteToHHMM(minute: number): string {
+  return `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`
 }
 
 // ---------- booth surveys (§4.3 follow-on) ----------

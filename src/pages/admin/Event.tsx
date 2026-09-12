@@ -4,7 +4,7 @@ import { Notice, Spinner, Toast, fmt, type Msg } from '../../components/ui'
 import { DateTimeField } from '../../components/DateTimeField'
 import { useLabels } from '../../lib/labels'
 import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
-import { dayOf, type Zone } from '../../../shared/model'
+import { DEFAULT_PRIZE_SESSIONS, dayOf, minuteToHHMM, type PrizeSession, type Zone } from '../../../shared/model'
 import { useLocale } from '../../lib/locale'
 import type { StringKey } from '../../lib/strings'
 
@@ -20,6 +20,7 @@ type Form = {
   qrPeriodSeconds: number
   passportPrefix: string
   zonePoints: Record<Zone, number>
+  prizeSessions: PrizeSession[]
 }
 
 /** `<input type="datetime-local">` wants local wall-clock, not an ISO instant. */
@@ -50,6 +51,7 @@ function blank(): Form {
     days: daysBetween(start.getTime(), end.getTime()),
     qrPeriodSeconds: 20, passportPrefix: 'MFU-GG',
     zonePoints: { entrance: 10, middle: 15, far: 20 },
+    prizeSessions: DEFAULT_PRIZE_SESSIONS.map((x) => ({ ...x })),
   }
 }
 
@@ -59,7 +61,32 @@ function fromRow(r: EventRow): Form {
     startsAt: toLocalInput(r.startsAt), endsAt: toLocalInput(r.endsAt),
     days: r.days, qrPeriodSeconds: r.qrPeriodSeconds, passportPrefix: r.passportPrefix,
     zonePoints: r.zonePoints,
+    prizeSessions: (r.prizeSessions ?? DEFAULT_PRIZE_SESSIONS).map((x) => ({ ...x })),
   }
+}
+
+/** 'HH:MM' from an `<input type="time">` back to minutes from midnight. NaN when incomplete. */
+function minutesFromHHMM(v: string): number {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(v)
+  return m ? Number(m[1]) * 60 + Number(m[2]) : NaN
+}
+
+/**
+ * The same rules the server enforces, so the button goes grey instead of the save failing.
+ * Overlap matters: `currentPrizeSession` takes the first window that matches, so two that
+ * overlap would quietly spend one session's stock while the other looked untouched.
+ */
+function sessionsValid(list: PrizeSession[]): boolean {
+  if (!list.length || list.length > 6) return false
+  if (list.some((x) => !x.label.trim() || !Number.isInteger(x.startMinute) || !Number.isInteger(x.endMinute) || x.endMinute <= x.startMinute)) return false
+  const sorted = [...list].sort((a, b) => a.startMinute - b.startMinute)
+  return sorted.every((x, i) => i === 0 || x.startMinute >= sorted[i - 1].endMinute)
+}
+
+/** A short, stable key for a new window. Ids name the stock map, so they never change after. */
+function freeSessionId(taken: PrizeSession[]): string {
+  const used = new Set(taken.map((x) => x.id))
+  return ['am', 'pm', 'eve', 's4', 's5', 's6'].find((c) => !used.has(c)) ?? `s${taken.length + 1}`
 }
 
 /**
@@ -122,6 +149,7 @@ export default function EventAdmin() {
         endsAt: new Date(form.endsAt).getTime(),
         days: form.days, qrPeriodSeconds: form.qrPeriodSeconds,
         passportPrefix: form.passportPrefix, zonePoints: form.zonePoints,
+        prizeSessions: form.prizeSessions,
       }
       if (form.id) { await api.updateEvent({ id: form.id, ...payload }); setMsg({ tone: 'green', text: t('event.saved') }); setLoaded(JSON.stringify(form)) }
       else { const r = await api.createEvent(payload); setForm({ ...form, id: r.id }); setMsg({ tone: 'green', text: t('event.created', { id: r.id }) }) }
@@ -152,6 +180,7 @@ export default function EventAdmin() {
   // An emptied number field used to save as 0 (a QR period of 0 s, a zone worth 0 points).
   const periodOk = !!form && form.qrPeriodSeconds >= 10 && form.qrPeriodSeconds <= 120
   const zonesOk = !!form && ZONES.every((z) => form.zonePoints[z] >= 1 && form.zonePoints[z] <= 100)
+  const sessionsOk = !!form && sessionsValid(form.prizeSessions)
 
   if (!rows || !form) return <Spinner label={t('event.loading')} />
 
@@ -217,8 +246,56 @@ export default function EventAdmin() {
           </p>
         </fieldset>
 
+        {/*
+          * The windows the main gift can be collected in, each with its own stock. These are
+          * data rather than constants precisely so they can be moved on the day: if the desk
+          * has to hand over outside a window, the answer is to widen the window here, not to
+          * work around the guard. Labels and times are editable; the id behind each row is not,
+          * because it names that session's stock and renaming one would start it full again.
+          */}
+        <fieldset className="md:col-span-2">
+          <legend className="stamp-text text-ink-soft">{t('event.prizeSessions')}</legend>
+          <div className="mt-2 flex flex-col gap-2">
+            {form.prizeSessions.map((ps, i) => {
+              const set = (patch: Partial<PrizeSession>) => setForm({
+                ...form,
+                prizeSessions: form.prizeSessions.map((x, j) => (j === i ? { ...x, ...patch } : x)),
+              })
+              const bad = !Number.isInteger(ps.startMinute) || !Number.isInteger(ps.endMinute) || ps.endMinute <= ps.startMinute
+              return (
+                <div key={ps.id} className="flex flex-wrap items-end gap-2 rounded-2xl bg-ink/5 p-3">
+                  <label className="min-w-[9rem] flex-1 text-sm">{t('event.sessionLabel')}
+                    <input className="field mt-1" maxLength={40} value={ps.label} onChange={(e) => set({ label: e.target.value })} />
+                  </label>
+                  <label className="text-sm">{t('event.sessionFrom')}
+                    <input className={`field mt-1 ${bad ? 'border-danger' : ''}`} type="time" value={Number.isInteger(ps.startMinute) ? minuteToHHMM(ps.startMinute) : ''}
+                      onChange={(e) => set({ startMinute: minutesFromHHMM(e.target.value) })} />
+                  </label>
+                  <label className="text-sm">{t('event.sessionTo')}
+                    <input className={`field mt-1 ${bad ? 'border-danger' : ''}`} type="time" value={Number.isInteger(ps.endMinute) ? minuteToHHMM(ps.endMinute) : ''}
+                      onChange={(e) => set({ endMinute: minutesFromHHMM(e.target.value) })} />
+                  </label>
+                  {form.prizeSessions.length > 1 && (
+                    <button type="button" className="btn-ghost" onClick={() => setForm({ ...form, prizeSessions: form.prizeSessions.filter((_, j) => j !== i) })}>
+                      {t('event.removeSession')}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {form.prizeSessions.length < 6 && (
+            <button type="button" className="btn-ghost mt-2" onClick={() => setForm({
+              ...form,
+              prizeSessions: [...form.prizeSessions, { id: freeSessionId(form.prizeSessions), label: '', startMinute: NaN, endMinute: NaN }],
+            })}>{t('event.addSession')}</button>
+          )}
+          {!sessionsOk && <p className="mt-2 text-xs text-danger-text">{t('event.sessionOverlap')}</p>}
+          <p className="mt-2 text-xs text-ink-soft">{t('event.prizeSessionsNote')}</p>
+        </fieldset>
+
         <div className="flex flex-wrap gap-2 md:col-span-2">
-          <button className="btn-primary" disabled={busy || !form.nameEn.trim() || !form.startsAt || !form.endsAt || !periodOk || !zonesOk || (!!form.id && !dirty)} onClick={save}>
+          <button className="btn-primary" disabled={busy || !form.nameEn.trim() || !form.startsAt || !form.endsAt || !periodOk || !zonesOk || !sessionsOk || (!!form.id && !dirty)} onClick={save}>
             {t(busy ? 'common.saving' : form.id ? 'common.save' : 'event.createDraft')}
           </button>
           {dirty && form.id && <span className="self-center text-xs text-warn-text">{t('event.unsaved')}</span>}

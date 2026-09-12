@@ -4,7 +4,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase'
 import type { BoothDoc, BoothStats, BucketDoc, DemographicsShard, EventDoc, EventStatsShard, PrizeTierDoc, TierUnlockDoc, ScanDoc } from '../../shared/model'
-import { DEFAULT_PASSPORT_PREFIX, EVENT_DAYS, EVENT_ID, STATS_SHARDS, ZONE_POINTS } from '../../shared/model'
+import { DEFAULT_PASSPORT_PREFIX, DEFAULT_PRIZE_SESSIONS, EVENT_DAYS, EVENT_ID, STATS_SHARDS, ZONE_POINTS } from '../../shared/model'
 
 export type WithId<T> = T & { id: string }
 
@@ -90,6 +90,7 @@ const FALLBACK_EVENT: LiveEvent = {
   days: [...EVENT_DAYS],
   passportPrefix: DEFAULT_PASSPORT_PREFIX,
   zonePoints: { ...ZONE_POINTS },
+  prizeSessions: DEFAULT_PRIZE_SESSIONS.map((x) => ({ ...x })),
   status: 'live',
 }
 
@@ -108,6 +109,7 @@ export function useEvent(): LiveEvent {
       ...ev,
       days: Array.isArray(ev.days) && ev.days.length ? ev.days : FALLBACK_EVENT.days,
       zonePoints: ev.zonePoints ?? FALLBACK_EVENT.zonePoints,
+      prizeSessions: ev.prizeSessions?.length ? ev.prizeSessions : FALLBACK_EVENT.prizeSessions,
       passportPrefix: ev.passportPrefix || FALLBACK_EVENT.passportPrefix,
     }
   }, [ev])

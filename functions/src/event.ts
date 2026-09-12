@@ -14,8 +14,8 @@ import {
   getActiveEvent, clearEventCache, randomSecretB64, toMillis,
 } from './lib'
 import {
-  ACCENTS, ArchiveDoc, BoothDoc, BoothStats, DEFAULT_PASSPORT_PREFIX, EventDoc, EventStatsShard,
-  PrizeTierDoc, STATS_SHARDS, Zone, ZONE_POINTS, dayOf,
+  ACCENTS, ArchiveDoc, BoothDoc, BoothStats, DEFAULT_PASSPORT_PREFIX, DEFAULT_PRIZE_SESSIONS,
+  EventDoc, EventStatsShard, PrizeSession, PrizeTierDoc, STATS_SHARDS, Zone, ZONE_POINTS, dayOf,
 } from './shared/model'
 
 const ZONES: Zone[] = ['entrance', 'middle', 'far']
@@ -35,6 +35,50 @@ function daysBetween(startMs: number, endMs: number): string[] {
 function slugify(s: string): string {
   const base = s.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
   return base || `event-${Date.now()}`
+}
+
+/**
+ * The windows in which the main gift can be collected. Data rather than constants so an admin
+ * can move them on the day: if the desk has to hand over outside a window, the answer is to
+ * widen the window, not to work around the guard.
+ *
+ * Overlaps are refused rather than tolerated. `currentPrizeSession` takes the FIRST window that
+ * matches the clock, so two overlapping ones would silently spend one session's stock while the
+ * other looked untouched.
+ *
+ * Ids are the stock map's keys (`2026-09-16#am`), so renaming one starts that session from a
+ * full allowance again. The admin editor therefore keeps ids fixed and edits only labels and
+ * times; anything hand-crafted against this callable should do the same.
+ */
+function prizeSessionsFromData(d: Record<string, unknown>, existing?: EventDoc): PrizeSession[] {
+  if (!Array.isArray(d.prizeSessions)) {
+    return (existing?.prizeSessions ?? DEFAULT_PRIZE_SESSIONS).map((x) => ({ ...x }))
+  }
+  const raw = d.prizeSessions as Record<string, unknown>[]
+  if (!raw.length || raw.length > 6) {
+    throw new HttpsError('invalid-argument', 'An event needs between one and six prize sessions')
+  }
+  const seen = new Set<string>()
+  const parsed = raw.map((r, i) => {
+    const id = str(r.id, `prizeSessions[${i}].id`, { max: 20 }).toLowerCase()
+    if (!/^[a-z0-9-]+$/.test(id)) throw new HttpsError('invalid-argument', `Bad session id: ${id}`)
+    if (seen.has(id)) throw new HttpsError('invalid-argument', `Two sessions share the id "${id}"`)
+    seen.add(id)
+    const label = str(r.label, `prizeSessions[${i}].label`, { max: 40 })
+    const startMinute = num(r.startMinute, `prizeSessions[${i}].startMinute`, { min: 0, max: 1440 })
+    const endMinute = num(r.endMinute, `prizeSessions[${i}].endMinute`, { min: 0, max: 1440 })
+    if (!Number.isInteger(startMinute) || !Number.isInteger(endMinute)) {
+      throw new HttpsError('invalid-argument', `"${label}" needs whole minutes`)
+    }
+    if (endMinute <= startMinute) throw new HttpsError('invalid-argument', `"${label}" ends before it starts`)
+    return { id, label, startMinute, endMinute }
+  }).sort((a, b) => a.startMinute - b.startMinute)
+  for (let i = 1; i < parsed.length; i++) {
+    if (parsed[i].startMinute < parsed[i - 1].endMinute) {
+      throw new HttpsError('invalid-argument', `"${parsed[i].label}" overlaps "${parsed[i - 1].label}"`)
+    }
+  }
+  return parsed
 }
 
 function eventFromData(d: Record<string, unknown>, existing?: EventDoc): Omit<EventDoc, 'createdAt'> {
@@ -63,6 +107,7 @@ function eventFromData(d: Record<string, unknown>, existing?: EventDoc): Omit<Ev
     passportPrefix: (str(d.passportPrefix, 'passportPrefix', { required: false, max: 12 }) || existing?.passportPrefix || DEFAULT_PASSPORT_PREFIX)
       .toUpperCase().replace(/[^A-Z0-9-]/g, ''),
     zonePoints,
+    prizeSessions: prizeSessionsFromData(d, existing),
     active: existing?.active ?? true,
     boothCount: existing?.boothCount ?? 0,
     status: existing?.status ?? 'draft',
@@ -475,6 +520,7 @@ export const listEvents = onCall(async (req) => {
         days: e.days ?? [], qrPeriodSeconds: e.qrPeriodSeconds ?? 20,
         passportPrefix: e.passportPrefix ?? DEFAULT_PASSPORT_PREFIX,
         zonePoints: e.zonePoints ?? ZONE_POINTS,
+        prizeSessions: (e.prizeSessions ?? DEFAULT_PRIZE_SESSIONS).map((x) => ({ ...x })),
         status: e.status ?? (d.id === live.id ? 'live' : 'archived'),
         boothCount: e.boothCount ?? 0,
       }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../lib/auth'
 import { useMyUnlocks, useTiers } from '../../lib/data'
+import { minuteToHHMM } from '../../../shared/model'
+import { prizeStock, usePrizeSession } from '../../lib/prizeSession'
 import { api } from '../../lib/api'
 import { setServerTime } from '../../lib/serverClock'
 import { QR } from '../../components/QR'
@@ -40,6 +42,7 @@ export default function Prize() {
   const { profile } = useAuth()
   const tiers = useTiers().filter((t) => t.active).sort((a, b) => a.thresholdPoints - b.thresholdPoints)
   const unlocks = useMyUnlocks(profile?.id)
+  const { active: activeSession, next: nextSession } = usePrizeSession()
   const anyUnlockedUnredeemed = unlocks.some((u) => !u.redeemedAt && !u.voidedAt) || unlocks.some((u) => !!u.voidedAt)
   const code = useRedemptionCode(anyUnlockedUnredeemed)
   if (!profile) return <Spinner />
@@ -76,7 +79,12 @@ export default function Prize() {
           const unlocked = points >= t.thresholdPoints || (!!u && !u.voidedAt)
           const redeemed = !!u?.redeemedAt && !u?.voidedAt
           const isNext = t.id === nextId
-          const lowStock = t.stockTotal > 0 && t.stockRemaining / t.stockTotal < 0.2
+          // Per-session stock where the tier has it, the single event pool where it does not.
+          // `closed` is not `gone` — the desk being shut says nothing about whether there are
+          // gifts left — so the state is named rather than inferred from a number. The prize
+          // desk reads the same three states from the same helper (lib/prizeSession).
+          const perSession = typeof t.stockPerSession === 'number'
+          const stock = prizeStock(t, activeSession)
           /*
            * Four states that used to look like one. Every tier was the same card with the same four
            * grey lines, so the one you can actually reach next — the only one worth walking for —
@@ -97,9 +105,27 @@ export default function Prize() {
               <p className="mt-0.5 text-sm text-ink-soft">{t.reward}</p>
               {t.grantsDrawEntry && <p className="mt-1 text-xs text-foil">+ entry to the closing stage draw</p>}
               {/* Stock is the organisers' fact, not yours, so it sits apart from your own gap. */}
-              {!redeemed && t.stockTotal > 0 && (
-                <p className={`mt-2 text-right text-xs ${t.stockRemaining <= 0 ? 'text-danger-text' : lowStock ? 'text-warn-text' : 'text-ink-soft'}`}>
-                  {t.stockRemaining <= 0 ? (t.outOfStockNoteEn || 'This prize has run out') : `${fmt(t.stockRemaining)} left`}
+              {!redeemed && stock.state !== 'closed' && stock.capacity > 0 && (
+                <p className={`mt-2 text-right text-xs ${
+                  stock.state === 'gone' ? 'text-danger-text'
+                  : stock.low ? 'text-warn-text' : 'text-ink-soft'}`}>
+                  {stock.state === 'gone'
+                    ? (t.outOfStockNoteEn || 'This prize has run out')
+                    : `${fmt(stock.remaining)} left${perSession && activeSession ? ` this ${activeSession.session.label.toLowerCase()}` : ''}`}
+                </p>
+              )}
+              {!redeemed && stock.state === 'closed' && (
+                <p className="mt-2 text-right text-xs text-ink-soft">
+                  {nextSession
+                    ? `Collect from ${minuteToHHMM(nextSession.session.startMinute)}`
+                    : 'The prize desk is closed'}
+                </p>
+              )}
+              {/* Points outlive a session. Someone who qualifies at 11:58 with none left must be
+                  told that plainly, or they will assume they missed it and go home. */}
+              {!redeemed && unlocked && perSession && stock.state === 'gone' && nextSession && (
+                <p className="mt-1 text-right text-xs text-ink-soft">
+                  Your points stay — collect from {minuteToHHMM(nextSession.session.startMinute)}.
                 </p>
               )}
             </li>
