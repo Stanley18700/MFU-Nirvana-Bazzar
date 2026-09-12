@@ -1,7 +1,8 @@
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth'
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, orderBy, query, where } from 'firebase/firestore'
 import {
   auth, db, call, ok, section, signUpVerified, signInAs, idToken, claims, rawCall, ownerDoc, readSecret, fails,
+  bkkDay, windowAroundNow,
 } from './lib.mjs'
 
 /** Admin bootstrap, event and reference data, booth CRUD, desk-made accounts, the first invitation. */
@@ -19,9 +20,34 @@ export default async function adminSetup(ctx) {
   const liveEvent = ctx.liveEvent = { id: evs.docs[0].id, ...evs.docs[0].data() }
   ok('event carries days[]', Array.isArray(liveEvent.days) && liveEvent.days.length === 3, JSON.stringify(liveEvent.days))
   ok('event carries passportPrefix', liveEvent.passportPrefix === 'MFU-GG')
-  ok('event carries zonePoints', liveEvent.zonePoints?.far === 20)
+  // Flat points since the booth count went from 12 to 76: distance weighting was designed for
+  // two halls, and across 76 booths it made the far corners a chore rather than a draw.
+  ok('event carries flat zonePoints', liveEvent.zonePoints?.far === 10 && liveEvent.zonePoints?.entrance === liveEvent.zonePoints?.far,
+    JSON.stringify(liveEvent.zonePoints))
+  ok('event carries prize sessions', Array.isArray(liveEvent.prizeSessions) && liveEvent.prizeSessions.length === 2,
+    JSON.stringify(liveEvent.prizeSessions?.map((s) => s.id)))
   const listed = await call('listEvents')({})
   ok('listEvents returns the live one', listed.liveId === liveEvent.id, listed.liveId)
+
+  /*
+   * Booth ids are the organisers' own sheet codes now (ED8, FD26, OPEN3 …) and will change
+   * again for the next event, so the suite picks booths by the job it needs them for rather
+   * than naming them. The prize desk is whichever booth is flagged as one.
+   */
+  const allBooths = (await getDocs(query(collection(db, 'booths'), orderBy('sortOrder')))).docs.map((d) => ({ id: d.id, ...d.data() }))
+  const desks = allBooths.filter((b) => b.isPrizeDesk)
+  ok('the seed marks exactly one prize desk', desks.length === 1, desks.map((b) => b.id).join(',') || 'none')
+  const others = allBooths.filter((b) => !b.isPrizeDesk)
+  ctx.booths = {
+    all: allBooths.map((b) => b.id),
+    desk: desks[0].id,
+    organizer: others[0].id,
+    staff: others[1].id,
+    // Ten is what a visitor needs for the 100-point gift at a flat ten a booth.
+    stampable: others.slice(2, 12).map((b) => b.id),
+    spare: others[12].id,
+  }
+  ok('76 booths seeded from the sheet', allBooths.length === 76, `${allBooths.length} booths`)
 
   section('Event and reference data are editable')
   // Only the Thai name: the scan counters below depend on qrPeriodSeconds staying put.
@@ -29,6 +55,23 @@ export default async function adminSetup(ctx) {
   const ev1 = (await getDoc(doc(db, 'events', liveEvent.id))).data()
   ok('updateEvent writes the field', ev1.nameTh === 'e2e ทดสอบ')
   ok('updateEvent keeps days[] and the QR period', ev1.days.length === 3 && ev1.qrPeriodSeconds === liveEvent.qrPeriodSeconds)
+
+  /*
+   * The prize desk only opens on a day the event runs, inside one of its windows — so a suite
+   * that must pass on any day has to move the event to itself. This also exercises the session
+   * editor's server half, which is the only way these times can be changed.
+   */
+  const today = bkkDay()
+  await call('updateEvent')({ id: liveEvent.id, days: [today], prizeSessions: windowAroundNow() })
+  const ev2 = (await getDoc(doc(db, 'events', liveEvent.id))).data()
+  ok('the event can be moved onto today', ev2.days.length === 1 && ev2.days[0] === today, ev2.days.join(','))
+  ok('and its prize window with it', ev2.prizeSessions?.length === 1 && ev2.prizeSessions[0].endMinute > ev2.prizeSessions[0].startMinute,
+    JSON.stringify(ev2.prizeSessions))
+  ok('overlapping windows are refused', await fails(call('updateEvent')({
+    id: liveEvent.id,
+    prizeSessions: [{ id: 'am', label: 'A', startMinute: 540, endMinute: 720 }, { id: 'pm', label: 'B', startMinute: 700, endMinute: 960 }],
+  }), /overlaps/i))
+  ctx.liveEvent = { ...liveEvent, days: ev2.days, prizeSessions: ev2.prizeSessions }
 
   const rd = await call('saveRefData')({ name: 'institutions', list: ['  Zeta U', 'Alpha U', '', 'Alpha U', 'MFU', 'Other'] })
   const inst = (await getDoc(doc(db, 'refData', 'institutions'))).data().list
@@ -46,31 +89,34 @@ export default async function adminSetup(ctx) {
   await call('deleteEvent')({ id: draft.id })
   ok('deleteEvent removes a draft', !(await getDoc(doc(db, 'events', draft.id))).exists())
 
-  section('Booth CRUD (before any scans, so the booth count stays at 12)')
+  section('Booth CRUD (before any scans, so the booth count comes back to where it started)')
   const countBefore = (await getDoc(doc(db, 'events', liveEvent.id))).data().boothCount
   const cb = await call('createBooth')({ nameEn: 'E2E Booth', zone: 'far' })
-  ok('createBooth allocates the next id', cb.id === 'booth-13', cb.id)
-  const b13 = (await getDoc(doc(db, 'booths', 'booth-13'))).data()
-  ok('new booth takes the zone default points and is active', b13.points === liveEvent.zonePoints.far && b13.active === true)
-  ok('new booth has a secret', typeof (await readSecret('booth-13')) === 'string')
-  ok('new booth has a stats doc', (await getDoc(doc(db, 'stats/booths/items/booth-13'))).exists())
+  // A booth added by hand is still numbered booth-NN from the count, which cannot collide with
+  // the sheet's ED/CL/FD/OPEN codes. The id is taken from the result rather than predicted.
+  const adhoc = cb.id
+  ok('createBooth allocates a booth-NN id that cannot clash with the sheet', /^booth-\d+$/.test(adhoc), adhoc)
+  const nb = (await getDoc(doc(db, 'booths', adhoc))).data()
+  ok('new booth takes the zone default points and is active', nb.points === liveEvent.zonePoints.far && nb.active === true)
+  ok('new booth has a secret', typeof (await readSecret(adhoc)) === 'string')
+  ok('new booth has a stats doc', (await getDoc(doc(db, `stats/booths/items/${adhoc}`))).exists())
   ok('event boothCount incremented', (await getDoc(doc(db, 'events', liveEvent.id))).data().boothCount === countBefore + 1)
-  await call('updateBooth')({ id: 'booth-13', points: 25, location: 'Test corner' })
-  const b13b = (await getDoc(doc(db, 'booths', 'booth-13'))).data()
-  ok('updateBooth patches the sent fields and keeps the rest', b13b.points === 25 && b13b.location === 'Test corner' && b13b.nameEn === 'E2E Booth')
-  const s13 = await readSecret('booth-13')
-  await call('rotateBoothSecret')({ id: 'booth-13' })
-  ok('rotateBoothSecret replaces the secret', (await readSecret('booth-13')) !== s13)
-  const del = await call('deleteBooth')({ id: 'booth-13' })
+  await call('updateBooth')({ id: adhoc, points: 25, location: 'Test corner' })
+  const nb2 = (await getDoc(doc(db, 'booths', adhoc))).data()
+  ok('updateBooth patches the sent fields and keeps the rest', nb2.points === 25 && nb2.location === 'Test corner' && nb2.nameEn === 'E2E Booth')
+  const sAd = await readSecret(adhoc)
+  await call('rotateBoothSecret')({ id: adhoc })
+  ok('rotateBoothSecret replaces the secret', (await readSecret(adhoc)) !== sAd)
+  const del = await call('deleteBooth')({ id: adhoc })
   ok('an unscanned booth is deleted outright', del.deactivated === false)
-  ok('booth doc gone', !(await getDoc(doc(db, 'booths', 'booth-13'))).exists())
-  ok('booth secret gone', (await ownerDoc('boothSecrets/booth-13')) === null)
+  ok('booth doc gone', !(await getDoc(doc(db, 'booths', adhoc))).exists())
+  ok('booth secret gone', (await ownerDoc(`boothSecrets/${adhoc}`)) === null)
   ok('event boothCount back', (await getDoc(doc(db, 'events', liveEvent.id))).data().boothCount === countBefore)
 
   section('Accounts made at the desk (§6.2)')
   const walk = await call('createUser')({ displayName: 'Walk-up Guest', contact: 'walkup@example.com', role: 'visitor', password: 'passw0rd!!', countryCode: 'TH', visitorType: 'guest' })
   ok('createUser issues a visitor a passport number', /^MFU-GG-\d{4}$/.test(walk.passportNo ?? ''), walk.passportNo)
-  const staff = await call('createUser')({ displayName: 'Desk Staff', contact: 'staff@example.com', role: 'organizer', boothId: 'booth-03', password: 'passw0rd!!' })
+  const staff = await call('createUser')({ displayName: 'Desk Staff', contact: 'staff@example.com', role: 'organizer', boothId: ctx.booths.staff, password: 'passw0rd!!' })
   ok('createUser refuses a duplicate contact', await fails(call('createUser')({ displayName: 'Dup', contact: 'walkup@example.com', role: 'visitor' }), /already has an account/))
   ok('an organizer without a booth is refused', await fails(call('createUser')({ displayName: 'X', contact: 'x@example.com', role: 'organizer' }), /needs a booth/))
 
@@ -82,7 +128,7 @@ export default async function adminSetup(ctx) {
   ctx.tally.visitors++ // onUserWrite counts a visitor document
 
   await signInAs('staff@example.com', 'passw0rd!!')
-  ok('admin-created organizer opens their booth', (await call('boothSession')({})).boothId === 'booth-03')
+  ok('admin-created organizer opens their booth', (await call('boothSession')({})).boothId === ctx.booths.staff)
   await rawCall(ctx.tokens.admin, 'updateUser', { uid: staff.uid, displayName: 'Desk Staff 2', countryCode: 'mm' })
   const sdoc = (await getDoc(doc(db, 'users', staff.uid))).data()
   ok('updateUser patches fields and derives isInternational', sdoc.displayName === 'Desk Staff 2' && sdoc.countryCode === 'MM' && sdoc.isInternational === true)
@@ -98,7 +144,7 @@ export default async function adminSetup(ctx) {
   await signInAs('admin@example.com')
 
   section('Invite expiry follows the event (was a hardcoded 2026-09-18)')
-  const inv = await call('inviteOrganizer')({ invites: [{ name: 'Test Organizer', email: 'organizer@example.com', boothId: 'booth-02' }] })
+  const inv = await call('inviteOrganizer')({ invites: [{ name: 'Test Organizer', email: 'organizer@example.com', boothId: ctx.booths.organizer }] })
   ctx.inviteId = inv.results[0].inviteId
   const invDoc = await getDoc(doc(db, 'invites', ctx.inviteId))
   const expMs = invDoc.data().expiresAt.toMillis()

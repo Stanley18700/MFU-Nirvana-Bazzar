@@ -477,7 +477,14 @@ export const purgeEventData = onCall({ timeoutSeconds: 120 }, async (req) => {
       const batch = db.batch()
       snap.docs.forEach((d) => {
         const t = d.data() as PrizeTierDoc
-        batch.set(d.ref, { stockRemaining: t.stockTotal ?? 0 }, { merge: true })
+        batch.set(d.ref, {
+          stockRemaining: t.stockTotal ?? 0,
+          // The map, not just the pool: `sessionRemaining` is what the desk actually spends, so
+          // restoring only `stockRemaining` left a reset event with its sessions still empty.
+          // Deleted rather than set to {} — a merge with an empty map leaves the old keys, and
+          // an absent key is what "untouched, therefore full" is written as everywhere else.
+          sessionRemaining: FieldValue.delete(),
+        }, { merge: true })
       })
       await batch.commit()
       deleted = snap.size

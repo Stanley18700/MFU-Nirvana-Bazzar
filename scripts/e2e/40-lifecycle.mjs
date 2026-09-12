@@ -6,16 +6,19 @@ import {
 
 /** Archive, the PDPA hard delete, the purge, and the next event reusing the booth ids. Runs as the second admin. */
 export default async function lifecycle(ctx) {
-  const { liveEvent, secrets, tokens, tally, visitorUid, visitor3Uid } = ctx
+  const { liveEvent, secrets, tokens, tally, visitorUid, visitor3Uid, booths } = ctx
+  const GIFT = (await getDocs(collection(db, 'prizeTiers'))).docs[0].id
 
   section('Archive freezes totals')
   const arch = await call('archiveEvent')({ id: liveEvent.id, confirmName: liveEvent.nameEn })
   ok('archive records the totals', arch.totals.stamps === tally.stamps && arch.totals.redeemed === tally.redeemed && arch.totals.visitors === tally.visitors,
     `${JSON.stringify(arch.totals)} expected ${JSON.stringify(tally)}`)
   const archDoc = await getDoc(doc(db, 'archives', liveEvent.id))
-  ok('archives/{id} written', archDoc.exists() && archDoc.data().booths.length === 12, `${archDoc.data()?.booths?.length} booths`)
-  ok('archive counts redemptions per tier', archDoc.data().tiers.find((t) => t.id === 'explorer')?.redeemed === 2, JSON.stringify(archDoc.data().tiers.map((t) => [t.id, t.redeemed])))
-  ok('archive keeps the draws', archDoc.data().draws.length === 2)
+  ok('archives/{id} written', archDoc.exists() && archDoc.data().booths.length === 76, `${archDoc.data()?.booths?.length} booths`)
+  ok('archive counts redemptions for the gift', archDoc.data().tiers.find((t) => t.id === GIFT)?.redeemed === tally.redeemed,
+    JSON.stringify(archDoc.data().tiers.map((t) => [t.id, t.redeemed])))
+  // One draw is run, against the empty pool the retired stage draw now leaves behind.
+  ok('archive keeps the draws', archDoc.data().draws.length === 1, String(archDoc.data().draws.length))
   // The totals above are read from the live counters, so a second archive after a purge would
   // overwrite a good archive with zeros — and it is the only copy once the scans are gone.
   ok('archiving the same event twice is refused',
@@ -48,10 +51,13 @@ export default async function lifecycle(ctx) {
   ok('no counter shards left behind', shardsAfter.size === 0, `${shardsAfter.size} shards`)
   ok('scans cleared', (await getDocs(collection(db, 'scans'))).size === 0)
   ok('tierUnlocks cleared', (await getDocs(collection(db, 'tierUnlocks'))).size === 0)
-  ok('booths kept', (await getDocs(collection(db, 'booths'))).size === 12)
-  ok('prize stock restored', (await getDoc(doc(db, 'prizeTiers', 'explorer'))).data().stockRemaining === 600)
-  const voy = (await getDoc(doc(db, 'prizeTiers', 'voyager'))).data()
-  ok('adjusted tier restored to its own total', voy.stockRemaining === voy.stockTotal, `${voy.stockRemaining}/${voy.stockTotal}`)
+  ok('booths kept', (await getDocs(collection(db, 'booths'))).size === 76)
+  const gift = (await getDoc(doc(db, 'prizeTiers', GIFT))).data()
+  ok('prize stock restored to its own total', gift.stockRemaining === gift.stockTotal, `${gift.stockRemaining}/${gift.stockTotal}`)
+  // The pool is the audit figure; the sessions are what the desk spends. A reset that restored
+  // only the pool would hand the next event a morning that was already empty.
+  ok('and the session stock with it', !gift.sessionRemaining || Object.keys(gift.sessionRemaining).length === 0,
+    JSON.stringify(gift.sessionRemaining))
   const v = await getDoc(doc(db, 'users', visitorUid))
   ok('visitor progress reset', (v.data().points ?? 0) === 0 && (v.data().stampCount ?? 0) === 0, `${v.data().points} points`)
 
@@ -101,20 +107,21 @@ export default async function lifecycle(ctx) {
   // rather than a side effect of going live: `updateBooth` re-stamps eventId from the live
   // event, and clears any temporary reward along with it. Runs as the admin, before sign-out.
   const newDays = nowLive.docs[0].data().days
-  const basePointsBefore = (await getDoc(doc(db, 'booths', 'booth-01'))).data().points
-  await call('updateBooth')({ id: 'booth-01', activeDays: newDays })
-  const carried = await getDoc(doc(db, 'booths', 'booth-01'))
+  const carryBooth = booths.desk
+  const basePointsBefore = (await getDoc(doc(db, 'booths', carryBooth))).data().points
+  await call('updateBooth')({ id: carryBooth, activeDays: newDays })
+  const carried = await getDoc(doc(db, 'booths', carryBooth))
   ok('carrying a booth over re-points it at the live event', carried.data().eventId === created.id, carried.data().eventId)
   ok('carrying a booth over keeps its base points and clears any temporary reward',
     carried.data().points === basePointsBefore && carried.data().temporaryPoints == null && carried.data().pointsExpireAt == null,
     `${carried.data().points} base (was ${basePointsBefore}), temporary ${carried.data().temporaryPoints}`)
   ok('carrying a booth over adopts the new event days', JSON.stringify(carried.data().activeDays) === JSON.stringify(newDays), JSON.stringify(carried.data().activeDays))
   await signOut(auth); await signUpVerified('visitor2@example.com')
-  const newSecret = await readSecret('booth-01')
-  ok('booth secret was rotated', newSecret !== secrets['booth-01'])
+  const newSecret = await readSecret(carryBooth)
+  ok('booth secret was rotated', newSecret !== secrets[carryBooth])
   const nextPassport = await call('join')({ displayName: 'Second Event Visitor', visitorType: 'guest', institution: 'MFU', countryCode: 'TH', consent: true })
   await auth.currentUser.getIdToken(true) // the app calls refreshClaims() here
-  const reScan = await call('scan')({ payload: boothToken(newSecret, 'booth-01', nowCounter(30)) })
-  ok('booth-01 can be stamped again in the new event', reScan.status === 'success', reScan.status)
+  const reScan = await call('scan')({ payload: boothToken(newSecret, carryBooth, nowCounter(30)) })
+  ok('the carried booth can be stamped again in the new event', reScan.status === 'success', reScan.status)
   ok('passport numbering restarted with the new event prefix', nextPassport.passportNo === 'MFU-OH-0001', nextPassport.passportNo)
 }

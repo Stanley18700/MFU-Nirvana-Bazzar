@@ -139,3 +139,28 @@ export const denied = (p) => p.then(() => false, (e) => e.code === 'permission-d
 /** Resolves true when the promise rejects with a message matching `re`. */
 export const fails = (p, re) => p.then(() => false, (e) => re.test(e.message ?? ''))
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+// ---------- the event's clock ----------
+
+/**
+ * Today and the minute of the day in Asia/Bangkok, whatever the machine's clock is set to.
+ *
+ * The prize desk only opens on a day the event runs, inside one of its windows, so a suite that
+ * has to pass on any day of the year has to move the event to itself. These are the two figures
+ * that takes. They mirror `dayOf`/`minuteOfDay` in shared/model rather than importing them,
+ * because that module is TypeScript and this suite runs straight off the source.
+ */
+export const bkkDay = (d = new Date()) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d)
+
+export const bkkMinute = (d = new Date()) => {
+  const [h, m] = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false })
+    .format(d).split(':').map(Number)
+  return h * 60 + m
+}
+
+/** A prize window around now, clamped to the day, so the desk is open while the suite runs. */
+export function windowAroundNow(label = 'Test window') {
+  const m = bkkMinute()
+  return [{ id: 'am', label, startMinute: Math.max(0, m - 60), endMinute: Math.min(1440, m + 60) }]
+}
