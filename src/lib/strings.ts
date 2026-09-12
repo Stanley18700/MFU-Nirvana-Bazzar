@@ -14,6 +14,7 @@
  * reporting vocabulary) stays English.
  */
 import { adminEn, adminTh } from './strings.admin'
+import { visitorEn, visitorTh } from './strings.visitor'
 
 const staffEn = {
   'lang.label': 'Language',
@@ -125,7 +126,7 @@ const staffEn = {
   'common.saving': 'Saving…',
 } as const
 
-export const en = { ...staffEn, ...adminEn }
+export const en = { ...staffEn, ...adminEn, ...visitorEn }
 
 export type StringKey = keyof typeof en
 
@@ -234,4 +235,4 @@ const staffTh: Record<keyof typeof staffEn, string> = {
   'common.saving': 'กำลังบันทึก…',
 }
 
-export const th: Record<StringKey, string> = { ...staffTh, ...adminTh }
+export const th: Record<StringKey, string> = { ...staffTh, ...adminTh, ...visitorTh }

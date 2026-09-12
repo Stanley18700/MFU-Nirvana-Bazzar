@@ -594,6 +594,14 @@ details[open] > .pop-up { animation-name: pop-in-up; }
 .seg-dark { @apply bg-white/8; }
 .seg-dark::before { @apply bg-white; }
 .seg-dark .seg-item { @apply text-on-chrome-soft hover:bg-white/14 hover:text-white focus-visible:ring-foil/60; }
+/*
+ * The switch when it floats on the sky rather than sitting inside a card — the landing page and
+ * the signed-out screens. `.seg-light` is a 6% ink tint, which is a surface on white and invisible
+ * over artwork; this gives it the same white slip the auth foot link stands on. Declared after
+ * `.seg-light` so it wins the background.
+ */
+.seg-floating { @apply bg-white/90 shadow-card backdrop-blur-sm; }
+.seg-floating .seg-item { @apply text-ink-soft hover:bg-ink/5 hover:text-ink; }
 /* The current item is text colour only — the pill carries the fill. Resetting its hover stops the
  * item painting its own background over the pill it is sitting on. */
 .seg .seg-item[aria-current="page"],
