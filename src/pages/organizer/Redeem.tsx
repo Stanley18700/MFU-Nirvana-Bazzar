@@ -5,6 +5,8 @@ import { api, friendlyError, type LookupResult, type RedemptionCred } from '../.
 import { useBooth, useBooths, useEvent, useTiersState } from '../../lib/data'
 import { OrganizerPage } from '../../components/OrganizerPage'
 import { DataErrors, fmt, LiveDot, type Msg, Notice, Spinner } from '../../components/ui'
+import { prizeStock, usePrizeSession } from '../../lib/prizeSession'
+import { minuteToHHMM } from '../../../shared/model'
 import { useAuth } from '../../lib/auth'
 import { clock } from '../../lib/eventText'
 
@@ -19,6 +21,9 @@ export default function Redeem() {
   const { role, boothId: claimBooth } = useAuth()
   const event = useEvent()
   const tiersState = useTiersState()
+  // Same hook and the same three states as the visitor's Prize page, so the desk and the
+  // passport can never disagree about whether the window is open.
+  const { active: activeSession, next: nextSession } = usePrizeSession()
   const tiers = tiersState.data.filter((t) => t.active)
   const desks = useBooths().filter((b) => b.isPrizeDesk)
   // An organizer's own booth decides whether this screen is theirs at all; the server checks too.
@@ -75,6 +80,11 @@ export default function Redeem() {
     void onCred({ passportNo: passport.trim(), code: c })
   }
 
+  /** When the desk next opens, for a refusal the server could not date itself. */
+  function nextOpening(): { at: string } | null {
+    return nextSession ? { at: minuteToHHMM(nextSession.session.startMinute) } : null
+  }
+
   async function confirm(tierId: string) {
     if (!cred || !lookup) return
     if (armed !== tierId) { setArmed(tierId); return }
@@ -90,7 +100,31 @@ export default function Redeem() {
         if (l && l.status === 'ok') setLookup(l)
       } else if (r.status === 'already') {
         setMsg({ tone: 'amber', text: `Already handed over at ${clock(r.redeemedAt)}${r.redeemedByName ? ` by ${r.redeemedByName}` : ''}.` })
-      } else setMsg({ tone: 'red', text: `Out of stock. ${r.note}` })
+      } else if (r.status === 'desk_closed') {
+        // A shut window is not an empty one, and staff must not tell a visitor they missed out
+        // when they only have to come back. This used to fall through the branch below and
+        // render "Out of stock. undefined" in red.
+        const opens = r.nextOpensAt ?? nextOpening()
+        setMsg({
+          tone: 'amber',
+          text: opens
+            ? `The desk is closed until ${opens.at}. Their points are safe — ask them to come back then.`
+            : 'The desk is closed for today. Their points are safe.',
+        })
+      } else {
+        // Open, but this session's gifts are gone. The server cannot say when to come back here
+        // — it only works out a next opening when nothing is open — so the desk works it out.
+        const opens = r.nextOpensAt ?? nextOpening()
+        const note = r.note.trim()
+        setMsg({
+          tone: 'red',
+          text: [
+            'Out of stock for this session.',
+            note,
+            opens ? `Their points stay — they can collect from ${opens.at}.` : 'Their points stay.',
+          ].filter(Boolean).join(' '),
+        })
+      }
     } catch (e) {
       const text = friendlyError(e)
       if (/expired/i.test(text)) { setStale(true); setMsg({ tone: 'amber', text: 'That code has expired. Ask the visitor for the new 8-character code and enter it below.' }) }
@@ -157,17 +191,32 @@ export default function Redeem() {
         </LiveDot>
       </div>
       {/* Chips that wrap, not a three-column grid: on a phone three tiers at 110px each clipped
-          the figures, and the desk only ever glances at this while a visitor waits. */}
+          the figures, and the desk only ever glances at this while a visitor waits.
+
+          The figure is the SESSION's, not the event pool's — the pool is the audit total and
+          spending it is not what the desk does. Showing "300 / 300" while the server counted
+          down from 50 would have had staff promising gifts that were already gone. */}
       <div className="mt-1 flex flex-wrap gap-2">
         {tiers.map((t) => {
-          const pct = t.stockTotal ? t.stockRemaining / t.stockTotal : 0
+          const stock = prizeStock(t, activeSession)
           // The `-text` values, not the on-chrome ones: this strip sits on the sky now, where the
           // pale on-chrome green measured 1.6:1. Those three were written for a dark ground.
-          const tone = t.stockRemaining <= 5 ? 'text-danger-text' : pct < 0.2 ? 'text-warn-text' : 'text-success-text'
+          const tone = stock.state === 'closed' ? 'text-ink-soft'
+            : stock.state === 'gone' ? 'text-danger-text'
+            : stock.low ? 'text-warn-text' : 'text-success-text'
           return (
             <div key={t.id} className="glass flex min-w-0 items-baseline gap-2 px-3 py-2">
               <span className="stamp-text truncate text-ink-soft">{t.name}</span>
-              <span className={`fig text-lg ${tone}`}>{fmt(t.stockRemaining)}<span className="text-xs text-ink-soft"> / {fmt(t.stockTotal)}</span></span>
+              {stock.state === 'closed' ? (
+                /* Closed is not zero. A shut window says nothing about how many gifts are left,
+                   and staff who read "0" will turn people away for the rest of the day. */
+                <span className={`text-sm ${tone}`}>{nextSession ? `Opens ${minuteToHHMM(nextSession.session.startMinute)}` : 'Desk closed'}</span>
+              ) : (
+                <span className={`fig text-lg ${tone}`}>
+                  {fmt(stock.state === 'gone' ? 0 : stock.remaining)}
+                  <span className="text-xs text-ink-soft"> / {fmt(stock.capacity)}{activeSession ? ` this ${activeSession.session.label.toLowerCase()}` : ''}</span>
+                </span>
+              )}
             </div>
           )
         })}
@@ -203,11 +252,20 @@ export default function Redeem() {
                       // Capped: an armed "Confirm Gold — festival tote" otherwise pushed the tier's
                       // own description off a phone.
                       className={`${armed === t.id ? 'btn-gold' : 'btn-primary'} max-w-[48%] shrink-0`}
-                      disabled={busy || stale || t.stockRemaining <= 0}
+                      // The server's own reading of the window, from this lookup — not the
+                      // tablet's clock. Whatever decides the label here is what will accept or
+                      // refuse the confirm a second later, so the two cannot disagree.
+                      // `sessionRemaining` is null for a shut desk, which is not zero.
+                      disabled={busy || stale || t.sessionRemaining === null || t.sessionRemaining <= 0}
                       onClick={() => confirm(t.id)}
                       aria-live="polite"
                     >
-                      <span className="min-w-0 truncate">{t.stockRemaining <= 0 ? 'Out of stock' : armed === t.id ? `Confirm ${t.name}` : 'Hand over'}</span>
+                      <span className="min-w-0 truncate">{
+                        t.sessionRemaining === null
+                          ? (lookup.nextOpensAt ? `Opens ${lookup.nextOpensAt.at}` : 'Desk closed')
+                          : t.sessionRemaining <= 0 ? 'Out of stock'
+                          : armed === t.id ? `Confirm ${t.name}` : 'Hand over'
+                      }</span>
                     </button>
                   )
                   : <span className="shrink-0 text-xs text-ink-soft">{t.thresholdPoints - lookup.visitor.points} pts short</span>}

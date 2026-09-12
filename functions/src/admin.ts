@@ -5,7 +5,10 @@ import {
   db, auth, FieldValue, Timestamp, requireRole, requireAuth, str, num, sha256, randomToken, randomSecretB64, audit,
   getActiveEvent, toMillis, type ActiveEvent,
 } from './lib'
-import { ACCENTS, BoothDoc, InviteDoc, PrizeTierDoc, Role, UserDoc, VisitorType, Zone, dayOf, passportNo } from './shared/model'
+import {
+  ACCENTS, BoothDoc, DEFAULT_PRIZE_SESSIONS, InviteDoc, PrizeTierDoc, Role, UserDoc, VisitorType, Zone,
+  currentPrizeSession, dayOf, minuteToHHMM, nextPrizeSession, passportNo,
+} from './shared/model'
 import { APP_ORIGIN, RESEND_API_KEY, mailConfigured, sendInvite } from './mailer'
 import { recomputeRanks } from './triggers'
 
@@ -434,23 +437,67 @@ export const savePrizePolicy = onCall({ timeoutSeconds: 120 }, async (req) => {
   return { ok: true, preview, available, unlocksCreated: created }
 })
 
-/** §6.7 — stock is only ever adjusted with a reason, never typed over. */
+/**
+ * §6.7 — stock is only ever adjusted with a reason, never typed over.
+ *
+ * For a tier stocked per session, the adjustment lands on the session that is open now and
+ * nowhere else: a box of ten that turns up at half past ten is ten more gifts this morning, not
+ * a standing rise in every session's allowance. `stockPerSession` is deliberately untouched, so
+ * the afternoon still starts from its own fifty.
+ *
+ * This used to move `stockTotal`/`stockRemaining` only. Those are the event-wide audit figures,
+ * and the desk does not spend them — so an admin could add twenty gifts, be told it worked, and
+ * change nothing about what the desk could hand out.
+ */
 export const adjustStock = onCall(async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
   const tierId = str(req.data?.tierId, 'tierId')
   const delta = num(req.data?.delta, 'delta', { min: -100_000, max: 100_000 })
   const reason = str(req.data?.reason, 'reason', { max: 300 })
   const kind = (str(req.data?.kind, 'kind', { required: false }) || 'restock') as 'load-in' | 'restock' | 'correction'
+  const ev = await getActiveEvent(true)
+  const sessions = ev.prizeSessions?.length ? ev.prizeSessions : DEFAULT_PRIZE_SESSIONS
+  let sessionKey: string | null = null
+
   await db.runTransaction(async (tx) => {
     const ref = db.doc(`prizeTiers/${tierId}`)
     const t = (await tx.get(ref)).data() as PrizeTierDoc | undefined
     if (!t) throw new HttpsError('not-found', 'Tier not found')
     if (t.stockRemaining + delta < 0) throw new HttpsError('invalid-argument', 'Would take remaining stock below zero')
+
+    if (typeof t.stockPerSession === 'number') {
+      const now = Date.now()
+      const active = currentPrizeSession(ev.days ?? [], sessions, now)
+      if (!active) {
+        // Refused rather than guessed at. "This session" has no meaning with no session open,
+        // and silently choosing the next one would hand someone a surprise at nine tomorrow.
+        const next = nextPrizeSession(ev.days ?? [], sessions, now)
+        throw new HttpsError('failed-precondition', next
+          ? `This prize is stocked per session and the desk is closed, so there is no session to adjust. It opens at ${minuteToHHMM(next.session.startMinute)} on ${next.day}.`
+          : 'This prize is stocked per session and the desk is closed for the rest of the event, so there is no session to adjust.')
+      }
+      sessionKey = active.key
+      const before = t.sessionRemaining?.[active.key] ?? t.stockPerSession
+      const after = before + delta
+      if (after < 0) {
+        throw new HttpsError('invalid-argument', `Would take this session below zero — ${before} left this ${active.session.label.toLowerCase()}`)
+      }
+      // Absolute, not an increment: an untouched session has no map entry yet, and an increment
+      // against a missing key writes the delta rather than the allowance plus it. The
+      // transaction is what makes the read-then-write safe. Same reasoning as confirmRedemption.
+      tx.update(ref, new FieldPath('sessionRemaining', active.key), after)
+    }
+
+    // The event-wide figures follow either way: they are the audit trail and what the archive
+    // reports, even when they are not what the desk spends.
     tx.update(ref, { stockTotal: FieldValue.increment(delta), stockRemaining: FieldValue.increment(delta) })
-    tx.create(db.collection('stockAdjustments').doc(), { tierId, delta, reason, actorUid: actor, kind, createdAt: FieldValue.serverTimestamp() })
+    tx.create(db.collection('stockAdjustments').doc(), {
+      tierId, delta, reason, actorUid: actor, kind, createdAt: FieldValue.serverTimestamp(),
+      ...(sessionKey ? { sessionKey } : {}),
+    })
   })
-  await audit(actor, 'adjustStock', 'prizeTier', tierId, null, { delta, reason, kind })
-  return { ok: true }
+  await audit(actor, 'adjustStock', 'prizeTier', tierId, null, { delta, reason, kind, sessionKey })
+  return { ok: true, sessionKey }
 })
 
 /** §6.7 — stage draw. */
