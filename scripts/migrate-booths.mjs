@@ -10,7 +10,8 @@
  * output before adding --commit.
  *
  * What it removes, and why each one:
- *   booths/booth-NN            the placeholder booths, replaced by ED*/CL*/FD*/OPEN* ids
+ *   booths/booth-NN            the placeholder booths, replaced by the sheet's own codes
+ *                              (ED, CL, FD and OPEN, numbered as the sheet numbers them)
  *   boothSecrets/booth-NN      their QR secrets — dead once the booth is gone, and a live
  *                              secret for a booth nobody can scan is just a loose key
  *   stats/booths/items/*       their counters, so the dashboard does not rank ghosts
@@ -21,8 +22,6 @@
  * simply stop resolving to a booth — and keeping them means the migration is recoverable.
  * If you want a genuinely clean slate, use the admin Danger Zone instead, which is built for it.
  */
-import { initializeApp } from 'firebase-admin/app'
-import { getFirestore } from 'firebase-admin/firestore'
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -43,8 +42,18 @@ function projectFromRc() {
   }
 }
 const projectId = process.env.GCLOUD_PROJECT ?? process.env.FIREBASE_PROJECT ?? projectFromRc()
-initializeApp({ projectId })
-const db = getFirestore()
+process.env.GCLOUD_PROJECT ??= projectId
+
+/**
+ * The admin SDK lives in functions/node_modules, and an ESM bare import resolves from this
+ * file's own folder — so `firebase-admin` is not reachable from scripts/. Borrowing the
+ * functions' own already-initialised Firestore handle is how the .cjs tests in this folder do
+ * it, and it means one place decides how the app is set up.
+ *
+ * Imported dynamically because that module initialises on load: a static import is hoisted
+ * above the env vars set just above, and --emulator would silently point at the live project.
+ */
+const { db } = await import('../functions/lib/lib.js')
 
 const OLD_BOOTH_IDS = Array.from({ length: 12 }, (_, i) => `booth-${String(i + 1).padStart(2, '0')}`)
 const OLD_TIER_IDS = ['explorer', 'voyager', 'globetrotter']
