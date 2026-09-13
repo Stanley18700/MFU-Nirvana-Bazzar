@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../lib/auth'
+import { useLocale } from '../../lib/locale'
 import { useBooths, useEvent, useMyScans } from '../../lib/data'
 import { Stamp } from '../../components/Stamp'
 import { stampMarks } from '../../lib/eventText'
@@ -53,13 +54,14 @@ export default function Stamps() {
   if (!profile) return <Spinner />
   const have = !!open && (profile.stampedBoothIds?.includes(open.id) ?? false)
   const remainingPoints = remaining.reduce((s, b) => s + b.rewardPoints, 0)
+  const { t, pick } = useLocale()
 
   return (
     <main className="px-5 pt-6">
       <header>
-        <div className="stamp-text text-ink-soft">Stamps</div>
+        <div className="stamp-text text-ink-soft">{t('stamps.title')}</div>
         <div className="mt-1 flex items-baseline gap-3">
-          <h1 className="text-2xl font-bold">{collected.length} of {rows.length}</h1>
+          <h1 className="text-2xl font-bold">{t('stamps.ofTotal', { done: collected.length, total: rows.length })}</h1>
         </div>
         {/* "1 of 12" was the only account of progress on a page whose whole subject is progress. */}
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink/10" role="img" aria-label={`${collected.length} of ${rows.length} booths stamped`}>
@@ -74,9 +76,9 @@ export default function Stamps() {
         * reading; the two-up grid put a detailed document at thumbnail size.
         */}
       <section className="mt-7">
-        <h2 className="stamp-text text-ink-soft">Your stamps</h2>
+        <h2 className="stamp-text text-ink-soft">{t('stamps.yours')}</h2>
         {collected.length === 0 ? (
-          <p className="mt-3 rounded-[20px] bg-white p-6 text-center text-sm text-ink-soft shadow-card">No stamps yet. Tap <b>Scan</b> at your first booth.</p>
+          <p className="mt-3 rounded-[20px] bg-white p-6 text-center text-sm text-ink-soft shadow-card">{t('stamps.none')} <b>{t('scan.title')}</b> {t('stamps.noneAfter')}</p>
         ) : (
           <ul className="mt-3 flex flex-col gap-3">
             {collected.map((b) => (
@@ -102,10 +104,10 @@ export default function Stamps() {
       {remaining.length > 0 && (
         <section className="mt-8">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-            <h2 className="stamp-text text-ink-soft">Still to collect</h2>
-            <span className="text-xs text-ink-soft">{remainingPoints} points still on the floor</span>
+            <h2 className="stamp-text text-ink-soft">{t('stamps.stillToCollect')}</h2>
+            <span className="text-xs text-ink-soft">{t('stamps.pointsOnFloor', { n: remainingPoints })}</span>
           </div>
-          <p className="mt-2 text-xs text-ink-soft">Rewards may change. Points are set when your stamp is earned. Times shown are Bangkok time.</p>
+          <p className="mt-2 text-xs text-ink-soft">{t('stamps.note')}</p>
           <ul className="mt-3 overflow-hidden rounded-[20px] bg-white shadow-card">
             {remaining.map((b) => {
               const notToday = !b.activeDays.includes(today) && event.days.includes(today)
@@ -145,13 +147,13 @@ export default function Stamps() {
                 <div className="text-sm text-ink-soft">{open.hostUnit}</div>
               </div>
             </div>
-            {open.descriptionEn && <p className="mt-3 text-sm">{open.descriptionEn}</p>}
-            <p className="mt-2 text-xs text-ink-soft">Present: {open.activeDays.map(dayLabel).join(', ')}</p>
+            {pick(open.descriptionEn, open.descriptionTh) && <p className="mt-3 text-sm">{pick(open.descriptionEn, open.descriptionTh)}</p>}
+            <p className="mt-2 text-xs text-ink-soft">{t('stamps.present', { days: open.activeDays.map(dayLabel).join(', ') })}</p>
             <div className="mt-4 flex gap-2">
               {/* Only for a visa that has actually been issued — there is nothing to admire about
                   an unstamped one, and offering it would read as a way to claim it. */}
-              {have && <button className="btn-secondary flex-1" onClick={() => setFull(open.id)}>View full screen</button>}
-              <button className={`btn-ghost ${have ? '' : 'flex-1'} ${have ? 'px-5' : 'w-full'}`} onClick={() => setOpen(null)}>Close</button>
+              {have && <button className="btn-secondary flex-1" onClick={() => setFull(open.id)}>{t('stamps.fullScreen')}</button>}
+              <button className={`btn-ghost ${have ? '' : 'flex-1'} ${have ? 'px-5' : 'w-full'}`} onClick={() => setOpen(null)}>{t('stamps.close')}</button>
             </div>
           </div>
         </div>

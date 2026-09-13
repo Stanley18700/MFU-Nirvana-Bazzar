@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../lib/auth'
+import { useLocale } from '../../lib/locale'
 import { useMyUnlocks, useTiers } from '../../lib/data'
 import { minuteToHHMM } from '../../../shared/model'
 import { prizeStock, usePrizeSession } from '../../lib/prizeSession'
@@ -39,6 +40,9 @@ function useRedemptionCode(enabled: boolean) {
 }
 
 export default function Prize() {
+  // `tiers.map((t) => …)` shadows the translator with the tier, so the rows use this alias.
+  const { t } = useLocale()
+  const t2 = t
   const { profile } = useAuth()
   const tiers = useTiers().filter((t) => t.active).sort((a, b) => a.thresholdPoints - b.thresholdPoints)
   const unlocks = useMyUnlocks(profile?.id)
@@ -53,15 +57,15 @@ export default function Prize() {
 
   return (
     <main className="px-5 pt-6">
-      <div className="stamp-text text-ink-soft">Prize</div>
-      <h1 className="text-2xl font-bold">{fmt(points)} points</h1>
+      <div className="stamp-text text-ink-soft">{t('prize.title')}</div>
+      <h1 className="text-2xl font-bold">{t('prize.pointsTitle', { n: fmt(points) })}</h1>
 
       <TierRoad points={points} tiers={tiers} />
       {anyUnlockedUnredeemed && (
         <section className="relative mt-5 overflow-hidden rounded-3xl border-2 border-foil bg-white p-5 text-center shadow-xl shadow-foil/20">
-          <div className="stamp-text text-foil">Entry visa · show this at the prize desk</div>
+          <div className="stamp-text text-foil">{t('prize.entryVisa')}</div>
           <div className="mt-3 flex justify-center">
-            {code ? <QR value={`${APP_ORIGIN}/r/${code.payload}`} size={200} /> : <div className="grid aspect-square w-[min(200px,60vw)] place-items-center text-sm text-ink-soft">Preparing your code…</div>}
+            {code ? <QR value={`${APP_ORIGIN}/r/${code.payload}`} size={200} /> : <div className="grid aspect-square w-[min(200px,60vw)] place-items-center text-sm text-ink-soft">{t('prize.preparing')}</div>}
           </div>
           {/* The desk can also type these two: the code alone cannot name a visitor (§4.4). */}
           <div className="mt-4 font-mono text-sm tracking-widest text-foil">{profile.passportNo}</div>
@@ -92,33 +96,33 @@ export default function Prize() {
            */
           return (
             <li key={t.id} className={`card ${redeemed ? 'opacity-70' : ''} ${isNext ? 'ring-2 ring-action' : unlocked && !redeemed ? 'ring-2 ring-foil' : ''}`}>
-              {isNext && <div className="stamp-text mb-1 text-action">Next</div>}
+              {isNext && <div className="stamp-text mb-1 text-action">{t2('prize.next')}</div>}
               <div className="flex items-baseline justify-between gap-3">
                 <h2 className="min-w-0 truncate font-semibold">{t.name}</h2>
                 {/* One state, one phrase, on the right of the row it belongs to — not a fourth
                     grey line under three others. */}
-                {redeemed ? <span className="shrink-0 text-xs font-medium text-success-text">Collected</span>
-                  : unlocked ? <span className="shrink-0 text-xs font-semibold text-foil">Ready to collect</span>
-                  : isNext ? <span className="shrink-0 text-sm font-semibold text-action">{fmt(t.thresholdPoints - points)} to go</span>
-                  : <span className="shrink-0 text-xs tabular-nums text-ink-soft">{t.thresholdPoints} pts</span>}
+                {redeemed ? <span className="shrink-0 text-xs font-medium text-success-text">{t2('prize.collected')}</span>
+                  : unlocked ? <span className="shrink-0 text-xs font-semibold text-foil">{t2('prize.ready')}</span>
+                  : isNext ? <span className="shrink-0 text-sm font-semibold text-action">{t2('prize.toGo', { n: fmt(t.thresholdPoints - points) })}</span>
+                  : <span className="shrink-0 text-xs tabular-nums text-ink-soft">{t2('prize.pts', { n: t.thresholdPoints })}</span>}
               </div>
               <p className="mt-0.5 text-sm text-ink-soft">{t.reward}</p>
-              {t.grantsDrawEntry && <p className="mt-1 text-xs text-foil">+ entry to the closing stage draw</p>}
+              {t.grantsDrawEntry && <p className="mt-1 text-xs text-foil">{t2('prize.drawEntry')}</p>}
               {/* Stock is the organisers' fact, not yours, so it sits apart from your own gap. */}
               {!redeemed && stock.state !== 'closed' && stock.capacity > 0 && (
                 <p className={`mt-2 text-right text-xs ${
                   stock.state === 'gone' ? 'text-danger-text'
                   : stock.low ? 'text-warn-text' : 'text-ink-soft'}`}>
                   {stock.state === 'gone'
-                    ? (t.outOfStockNoteEn || 'This prize has run out')
-                    : `${fmt(stock.remaining)} left${perSession && activeSession ? ` this ${activeSession.session.label.toLowerCase()}` : ''}`}
+                    ? (t.outOfStockNoteEn || t2('prize.outOfStock'))
+                    : perSession && activeSession ? t2('prize.leftSession', { n: fmt(stock.remaining), session: activeSession.session.label.toLowerCase() }) : t2('prize.left', { n: fmt(stock.remaining) })}
                 </p>
               )}
               {!redeemed && stock.state === 'closed' && (
                 <p className="mt-2 text-right text-xs text-ink-soft">
                   {nextSession
-                    ? `Collect from ${minuteToHHMM(nextSession.session.startMinute)}`
-                    : 'The prize desk is closed'}
+                    ? t2('prize.collectFrom', { time: minuteToHHMM(nextSession.session.startMinute) })
+                    : t2('prize.deskClosed')}
                 </p>
               )}
               {/* Points outlive a session. Someone who qualifies at 11:58 with none left must be
@@ -133,7 +137,7 @@ export default function Prize() {
         })}
       </ul>
 
-      {!anyUnlockedUnredeemed && <div className="mt-6"><Notice>Your redemption code appears here the moment a tier unlocks. Show it at the prize desk.</Notice></div>}
+      {!anyUnlockedUnredeemed && <div className="mt-6"><Notice>{t('prize.codeLater')}</Notice></div>}
     </main>
   )
 }

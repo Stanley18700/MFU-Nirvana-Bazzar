@@ -100,7 +100,7 @@ export function Stamp({
             <text x={VB_W - 28} y="52" textAnchor="end" style={{ ...mono, fill: collected ? accent : inkSoft }} fontSize="15" letterSpacing="1">{num}</text>
             <line x1="28" y1="72" x2={VB_W - 28} y2="72" stroke={line} strokeWidth="1" opacity=".6" />
 
-            <text x="28" y="94" style={label} fontSize="8">VALID FOR / VALABLE POUR</text>
+            <text x="28" y="94" style={label} fontSize="8">VALID FOR </text>
             <text x="28" y="112" style={value} fontSize="15">{(validFor || markTop).slice(0, 17)}</text>
             <text x="28" y="138" style={label} fontSize="8">FROM – UNTIL / DU – AU</text>
             <text x="28" y="155" style={mono} fontSize="12.5">16–18 SEP 2026</text>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, errorMessage, type SurveyOffer } from '../../lib/api'
+import { useLocale } from '../../lib/locale'
 import { useBooth } from '../../lib/data'
 import { SurveyForm, useAnswers, useMissing } from '../../components/SurveyForm'
 import { BackLink, Notice, Spinner } from '../../components/ui'
@@ -14,6 +15,7 @@ import { FestivalBackdrop } from '../auth/parts'
  * survey that feels compulsory at a busy booth is a survey people resent answering.
  */
 export default function Survey() {
+  const { t, pick } = useLocale()
   const { boothId = '' } = useParams()
   const nav = useNavigate()
   const { data: booth } = useBooth(boothId)
@@ -52,8 +54,8 @@ export default function Survey() {
   const shell = (children: React.ReactNode) => (
     <><FestivalBackdrop hills={false} /><main className="relative mx-auto flex min-h-full max-w-md flex-col text-ink">
       <header className="flex items-center justify-between gap-2 px-5 py-4">
-        <BackLink to="/passport/stamps">Passport</BackLink>
-        <div className="stamp-text truncate text-ink">{booth?.nameEn ?? 'Booth'}</div>
+        <BackLink to="/passport/stamps">{t('pp.passport')}</BackLink>
+        <div className="stamp-text truncate text-ink">{pick(booth?.nameEn, booth?.nameTh) || t('vsurvey.booth')}</div>
         <span className="w-16" />
       </header>
       <div className="flex-1 px-5 pb-8">{children}</div>
@@ -61,18 +63,18 @@ export default function Survey() {
   )
 
   if (err && !offer) return shell(<Notice tone="red">{err}</Notice>)
-  if (!offer) return shell(<Spinner label="Opening the questions…" />)
+  if (!offer) return shell(<Spinner label={t('vsurvey.opening')} />)
 
   if (done) {
     return shell(
       <div className="flex flex-col items-center gap-4 py-10 text-center page-in">
         <div className="text-5xl" aria-hidden>✓</div>
         <div>
-          <div className="stamp-text text-ink">Thank you</div>
-          <p className="mt-1 text-ink-soft">{booth?.nameEn} has your answers.</p>
+          <div className="stamp-text text-ink">{t('vsurvey.thankYou')}</div>
+          <p className="mt-1 text-ink-soft">{t('vsurvey.hasAnswers', { booth: pick(booth?.nameEn, booth?.nameTh) })}</p>
         </div>
-        <Link to="/scan" className="btn-primary w-full py-3.5 text-lg">Scan another booth</Link>
-        <Link to="/passport/stamps" className="text-sm text-ink-soft underline">My stamps</Link>
+        <Link to="/scan" className="btn-primary w-full py-3.5 text-lg">{t('vsurvey.scanAnother')}</Link>
+        <Link to="/passport/stamps" className="text-sm text-ink-soft underline">{t('vsurvey.myStamps')}</Link>
       </div>,
     )
   }
@@ -82,10 +84,10 @@ export default function Survey() {
       <div className="flex flex-col gap-4 py-6 page-in">
         <Notice tone="info">
           {offer.status === 'done'
-            ? 'You have already answered this booth\'s questions. Thank you.'
-            : 'This booth is not asking anything at the moment.'}
+            ? t('vsurvey.already')
+            : t('vsurvey.nothing')}
         </Notice>
-        <Link to="/scan" className="btn-primary">Scan another booth</Link>
+        <Link to="/scan" className="btn-primary">{t('vsurvey.scanAnother')}</Link>
       </div>,
     )
   }
@@ -110,16 +112,16 @@ export default function Survey() {
       {err && <div className="mt-4"><Notice tone="red">{err}</Notice></div>}
       {tried && missing.length > 0 && (
         <div className="mt-4"><Notice tone="amber">
-          {missing.length} required question{missing.length === 1 ? '' : 's'} still to answer.
+          {missing.length === 1 ? t('vsurvey.missingOne') : t('vsurvey.missing', { n: missing.length })}
         </Notice></div>
       )}
 
       <div className="mt-5 flex flex-col gap-2">
         <button className="btn-gold py-3.5 text-lg" onClick={submit} disabled={busy}>
-          {busy ? 'Sending…' : 'Submit'}
+          {busy ? t('vsurvey.sending') : t('vsurvey.submit')}
         </button>
         <button className="text-sm text-ink-soft underline" onClick={() => nav('/scan', { replace: true })}>
-          Skip — I would rather keep scanning
+          {t('vsurvey.skip')}
         </button>
       </div>
     </div>,

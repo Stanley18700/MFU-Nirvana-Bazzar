@@ -95,13 +95,13 @@ export function Stamp({ booth, collected, size = 148, tilt = 0, animate = false,
             <text x="28" y="44" style={display} fontSize="30" letterSpacing="1.5">VISA</text>
             <text x="106" y="43" lang="th" style={{ fontFamily: 'Mitr, var(--font-sans)', fill: inkSoft }} fontSize="17">วีซ่า</text>
             <text x="28" y="60" style={label} fontSize="8">{markTop} · PASSPORT</text>
-            <text x={VB_W - 28} y="33" textAnchor="end" style={label} fontSize="8">VISA NO. / N° DU VISA</text>
+            <text x={VB_W - 28} y="33" textAnchor="end" style={label} fontSize="8">VISA NO.</text>
             <text x={VB_W - 28} y="52" textAnchor="end" style={{ ...mono, fill: collected ? accent : inkSoft }} fontSize="15" letterSpacing="1">{num}</text>
             <line x1="28" y1="72" x2={VB_W - 28} y2="72" stroke={line} strokeWidth="1" opacity=".6" />
 
-            <text x="28" y="94" style={label} fontSize="8">VALID FOR / VALABLE POUR</text>
+            <text x="28" y="94" style={label} fontSize="8">VALID FOR</text>
             <text x="28" y="112" style={value} fontSize="15">{(booth.nameEn || markTop).slice(0, 17)}</text>
-            <text x="28" y="138" style={label} fontSize="8">FROM – UNTIL / DU – AU</text>
+            <text x="28" y="138" style={label} fontSize="8">FROM – UNTIL</text>
             <text x="28" y="155" style={mono} fontSize="12.5">{validFor}</text>
             <text x="28" y="181" style={label} fontSize="8">ISSUED IN / ON</text>
             <text x="28" y="197" style={{ ...mono, fill: inkSoft }} fontSize="10.5">{markBottom}</text>
@@ -109,7 +109,7 @@ export function Stamp({ booth, collected, size = 148, tilt = 0, animate = false,
             <text x="186" y="112" style={mono} fontSize="12.5">B</text>
             <text x="186" y="138" style={label} fontSize="8">ENTRIES</text>
             <text x="186" y="155" style={mono} fontSize="12.5">01</text>
-            <text x="186" y="181" style={label} fontSize="8">STAY / SÉJOUR</text>
+            <text x="186" y="181" style={label} fontSize="8">STAY</text>
             <text x="186" y="197" style={mono} fontSize="12.5">3 DAYS</text>
             {!badge && (
               <text x={emblemX} y="134" textAnchor="middle" style={display} fontSize={az(shortName).length > 3 ? 34 : 42} letterSpacing="1">{shortName}</text>

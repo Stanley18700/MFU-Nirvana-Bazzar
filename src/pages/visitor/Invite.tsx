@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
+import { useLocale } from '../../lib/locale'
 import { api, friendlyError } from '../../lib/api'
 import { authError, signInWithGoogle } from '../../lib/authActions'
 import { Notice, Spinner } from '../../components/ui'
@@ -8,12 +9,13 @@ import { AuthShell, GoogleButton } from '../auth/parts'
 
 type Info = Awaited<ReturnType<typeof api.inviteInfo>>
 
-const DEAD: Record<string, string> = {
-  accepted: 'This invitation has already been used. If that was you, sign in on that device — or ask the admin to resend it.',
-  expired: 'This invitation has expired. Ask the admin to resend it.',
-  revoked: 'This invitation was withdrawn.',
-  invalid: 'This link is not a valid invitation.',
-}
+/** Why a link cannot be used. Keys match `inviteInfo`'s status, values are dictionary keys. */
+const DEAD = {
+  accepted: 'inv.accepted',
+  expired: 'inv.expired',
+  revoked: 'inv.revoked',
+  invalid: 'inv.invalid',
+} as const
 
 /**
  * §6.4 — a booth organizer opens the emailed link and lands on their booth screen.
@@ -25,6 +27,7 @@ const DEAD: Record<string, string> = {
  * — so a staff member's first sight of the product was a screen belonging to no other part of it.
  */
 export default function Invite() {
+  const { t } = useLocale()
   const { token = '' } = useParams()
   const { ready, user, role, refreshClaims } = useAuth()
   const nav = useNavigate()
@@ -51,15 +54,15 @@ export default function Invite() {
 
   // No back link on any of these: the page is opened from an email, so there is no history behind
   // it and no shell to escape into. Each dead end offers its own way on instead.
-  if (!info && !err) return <AuthShell back={null} title="Reading your invitation…"><div className="mt-4"><Spinner /></div></AuthShell>
+  if (!info && !err) return <AuthShell back={null} title={t('inv.reading')}><div className="mt-4"><Spinner /></div></AuthShell>
 
-  const dead = err ?? (info && info.status !== 'ok' ? DEAD[info.status] : null)
+  const dead = err ?? (info && info.status !== 'ok' ? t(DEAD[info.status]) : null)
   if (dead || !info || info.status !== 'ok') {
     return (
-      <AuthShell back={null} title="This invitation cannot be used" lead={dead ?? DEAD.invalid}>
+      <AuthShell back={null} title={t('inv.unusable')} lead={dead ?? t('inv.invalid')}>
         <div className="mt-5 flex flex-col gap-2">
-          <Link to="/signin" className="btn-primary">Sign in</Link>
-          <Link to="/" className="btn-quiet">Back to the start</Link>
+          <Link to="/signin" className="btn-primary">{t('inv.signIn')}</Link>
+          <Link to="/" className="btn-quiet">{t('inv.backToStart')}</Link>
         </div>
       </AuthShell>
     )
@@ -74,20 +77,20 @@ export default function Invite() {
       back={null}
       title={`Hello ${info.displayName}`}
       lead={<>
-        You are invited to run {info.role === 'admin' ? <b className="text-ink">the admin dashboard</b> : <>the booth screen for <b className="text-ink">{info.boothName}</b></>}.
+        {info.role === 'admin' ? t('inv.invitedAdmin') : t('inv.invitedBooth', { booth: info.boothName })}
         Use the tablet or laptop that will sit on the booth.
       </>}
     >
       <p className="mt-2 text-xs text-ink-soft">Sent to {invited}. The link works once.</p>
 
-      {!ready ? <div className="mt-6"><Spinner label="Checking this device…" /></div>
+      {!ready ? <div className="mt-6"><Spinner label={t('inv.checking')} /></div>
         : !user ? (
           <div className="mt-6 flex flex-col gap-3">
-            <p className="text-sm text-ink-soft">Sign in as <b className="text-ink">{invited}</b> to accept.</p>
-            <GoogleButton onClick={google} busy={busy} label="Continue with Google" />
-            <Link to="/signin" state={{ from: `/invite/${token}`, email: invited }} className="btn-quiet">Use an email and password</Link>
+            <p className="text-sm text-ink-soft">{t('inv.signInAs', { email: invited })}</p>
+            <GoogleButton onClick={google} busy={busy} label={t('inv.google')} />
+            <Link to="/signin" state={{ from: `/invite/${token}`, email: invited }} className="btn-quiet">{t('inv.useEmail')}</Link>
             <Link to="/signup" state={{ from: `/invite/${token}`, email: invited }}
-              className="link self-center text-center text-xs text-ink-soft hover:text-ink">No account for that address yet? Create one</Link>
+              className="link self-center text-center text-xs text-ink-soft hover:text-ink">{t('inv.noAccount')}</Link>
           </div>
         ) : wrongAccount ? (
           <div className="mt-6 flex flex-col gap-3">
@@ -102,9 +105,9 @@ export default function Invite() {
             {role && role !== 'visitor' && (
               <Notice tone="amber">This account is already {role}. Accepting will switch it to this invitation.</Notice>
             )}
-            <p className="text-sm text-ink-soft">Signed in as <b className="text-ink">{signedInAs}</b>.</p>
+            <p className="text-sm text-ink-soft">{t('inv.signedInAs', { email: signedInAs ?? '' })}</p>
             <button className="btn-gold w-full py-3.5 text-lg" onClick={accept} disabled={busy}>
-              {busy ? 'Setting up…' : info.role === 'admin' ? 'Accept and open the dashboard' : 'Accept and open my booth'}
+              {busy ? t('inv.settingUp') : info.role === 'admin' ? t('inv.acceptAdmin') : t('inv.acceptBooth')}
             </button>
             <SignOutButton />
           </div>
@@ -114,6 +117,7 @@ export default function Invite() {
 }
 
 function SignOutButton() {
+  const { t } = useLocale()
   const { signOut } = useAuth()
-  return <button className="btn-quiet btn-sm self-center" onClick={() => void signOut()}>Sign out of this device</button>
+  return <button className="btn-quiet btn-sm self-center" onClick={() => void signOut()}>{t('inv.signOutDevice')}</button>
 }
