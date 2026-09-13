@@ -397,7 +397,7 @@ export default function Booth() {
                 colour. `onChrome` is what makes that safe for the dark-green booths. */}
           <div className="stamp-text" style={{ color: accentSmall }}>{t('booth.worth', { location: b.location, points: effectivePoints(b, pointsNow + session.skew) })}</div>
           {rewardExpiry(b, pointsNow + session.skew) && <p className="text-xs">{rewardExpiry(b, pointsNow + session.skew)} (Bangkok)</p>}
-          <p className="text-xs">Points are set when your stamp is earned.</p>
+          <p className="text-xs">{t('booth.pointsWhenEarned')}</p>
             <h1 className="mt-1 text-[1.6em] font-extrabold leading-[1.08]" style={{ color: accent }}>{pick(b.nameEn, b.nameTh)}</h1>
             <div className="text-[0.6em] text-ink-soft">{b.hostUnit}</div>
           </div>

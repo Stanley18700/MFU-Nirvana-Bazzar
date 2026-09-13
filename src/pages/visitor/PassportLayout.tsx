@@ -2,10 +2,12 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { DataErrors, Icon, LiveDot, TabBar } from '../../components/ui'
 import { FestivalBackdrop } from '../auth/parts'
 import { useOnline } from '../../lib/useOnline'
+import { useLocale } from '../../lib/locale'
 
 export default function PassportLayout() {
   const loc = useLocation()
   const online = useOnline()
+  const { t } = useLocale()
   return (
     <><FestivalBackdrop hills={false} /><div className="mx-auto min-h-full max-w-md" style={{
         /*
@@ -22,8 +24,8 @@ export default function PassportLayout() {
         */}
       {!online && (
         <div className="mx-4 mt-3 rounded-2xl bg-white/90 px-4 py-3 shadow-card">
-          <LiveDot state="offline" size="sm">Offline — your stamps are saved</LiveDot>
-          <p className="mt-1 text-xs text-ink-soft">This page will catch up on its own. You will need a connection to collect a new stamp.</p>
+          <LiveDot state="offline" size="sm">{t('pp.offline')}</LiveDot>
+          <p className="mt-1 text-xs text-ink-soft">{t('pp.offlineNote')}</p>
         </div>
       )}
       <DataErrors className="mx-4 mt-3" />
@@ -31,10 +33,10 @@ export default function PassportLayout() {
         <Outlet />
       </div>
       <TabBar scanTo="/scan" tabs={[
-        { to: '/passport', label: 'Cover', icon: Icon.cover, end: true },
-        { to: '/passport/stamps', label: 'Stamps', icon: Icon.stamps },
-        { to: '/passport/prize', label: 'Prize', icon: Icon.prize },
-        { to: '/passport/account', label: 'Profile', icon: Icon.person },
+        { to: '/passport', label: t('cover.tab'), icon: Icon.cover, end: true },
+        { to: '/passport/stamps', label: t('stamps.title'), icon: Icon.stamps },
+        { to: '/passport/prize', label: t('prize.title'), icon: Icon.prize },
+        { to: '/passport/account', label: t('pp.profile'), icon: Icon.person },
       ]} />
     </div></>
   )

@@ -15,6 +15,7 @@
  */
 import { adminEn, adminTh } from './strings.admin'
 import { visitorEn, visitorTh } from './strings.visitor'
+import { orgEn, orgTh } from './strings.organizer'
 
 const staffEn = {
   'lang.label': 'Language',
@@ -126,7 +127,7 @@ const staffEn = {
   'common.saving': 'Saving…',
 } as const
 
-export const en = { ...staffEn, ...adminEn, ...visitorEn }
+export const en = { ...staffEn, ...adminEn, ...visitorEn, ...orgEn }
 
 export type StringKey = keyof typeof en
 
@@ -235,4 +236,4 @@ const staffTh: Record<keyof typeof staffEn, string> = {
   'common.saving': 'กำลังบันทึก…',
 }
 
-export const th: Record<StringKey, string> = { ...staffTh, ...adminTh, ...visitorTh }
+export const th: Record<StringKey, string> = { ...staffTh, ...adminTh, ...visitorTh, ...orgTh }

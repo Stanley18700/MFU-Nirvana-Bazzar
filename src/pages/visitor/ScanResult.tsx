@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { stampMarks } from '../../lib/eventText'
+import { useLocale } from '../../lib/locale'
 import { doc } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { useAuth } from '../../lib/auth'
@@ -12,6 +13,7 @@ import type { ScanResult } from '../../../shared/model'
 export function ScanResultView({ result, onRetry }: { result: ScanResult; onRetry: () => void }) {
   const booths = useBooths()
   const marks = stampMarks(useEvent())
+  const { t, pick } = useLocale()
   const booth = 'boothId' in result ? booths.find((b) => b.id === result.boothId) : undefined
 
   if (result.status === 'success') {
@@ -19,16 +21,16 @@ export function ScanResultView({ result, onRetry }: { result: ScanResult; onRetr
       <div className="flex flex-col items-center gap-4 p-6 text-center page-in">
         {booth && <Stamp booth={booth} collected animate tilt={(Math.random() * 8 - 4) | 0 || 5} size={300} {...marks} />}
         <div>
-          <div className="stamp-text text-ink-soft">Stamp collected</div>
-          <div className="fig mt-1 text-4xl text-ink">+{result.pointsAwarded} points</div>
-          <div className="mt-1 text-sm text-ink-soft">{booth?.nameEn} · {result.points} points total · {result.stampCount} stamps</div>
+          <div className="stamp-text text-ink-soft">{t('res.collected')}</div>
+          <div className="fig mt-1 text-4xl text-ink">{t('res.plusPoints', { n: result.pointsAwarded })}</div>
+          <div className="mt-1 text-sm text-ink-soft">{t('res.totalLine', { booth: pick(booth?.nameEn, booth?.nameTh), points: result.points, stamps: result.stampCount })}</div>
         </div>
-        {result.unlockedTierIds.length > 0 && <Notice tone="green">You just unlocked a prize tier. Check the Prize page.</Notice>}
+        {result.unlockedTierIds.length > 0 && <Notice tone="green">{t('res.unlocked')}</Notice>}
         {/* Offered only once the stamp is safely in the passport, and never in the way of it. */}
         <SurveyOffer boothId={result.boothId} accent={booth?.accentColor} />
         <div className="flex w-full gap-2">
-          <button className="btn-ghost flex-1" onClick={onRetry}>Scan another</button>
-          <Link to="/passport/stamps" className="btn-primary flex-1">My stamps</Link>
+          <button className="btn-ghost flex-1" onClick={onRetry}>{t('res.another')}</button>
+          <Link to="/passport/stamps" className="btn-primary flex-1">{t('res.myStamps')}</Link>
         </div>
       </div>
     )
@@ -37,25 +39,25 @@ export function ScanResultView({ result, onRetry }: { result: ScanResult; onRetr
     return (
       <div className="flex flex-col items-center gap-4 p-6 text-center page-in">
         {booth && <Stamp booth={booth} collected size={240} className="pulse-once" {...marks} />}
-        <div className="font-semibold">Already stamped here</div>
-        <div className="text-sm text-ink-soft">{booth?.nameEn} is in your passport. Try a booth you have not visited.</div>
+        <div className="font-semibold">{t('res.already')}</div>
+        <div className="text-sm text-ink-soft">{t('res.alreadyLine', { booth: pick(booth?.nameEn, booth?.nameTh) })}</div>
         <div className="flex w-full gap-2">
-          <button className="btn-ghost flex-1" onClick={onRetry}>Scan another</button>
-          <Link to="/passport/stamps" className="btn-primary flex-1">See what's left</Link>
+          <button className="btn-ghost flex-1" onClick={onRetry}>{t('res.another')}</button>
+          <Link to="/passport/stamps" className="btn-primary flex-1">{t('res.seeLeft')}</Link>
         </div>
       </div>
     )
   }
   const map = {
-    expired: { tone: 'amber' as const, text: 'That code has expired — the booth screen changes every 20 seconds. Scan it again.' },
-    invalid: { tone: 'red' as const, text: 'Invalid code. Point your camera at the booth screen, or type the 6 characters shown under the QR.' },
-    rate_limited: { tone: 'amber' as const, text: 'Too fast — give it a few seconds and try again.' },
-    not_registered: { tone: 'amber' as const, text: 'Create your passport first, then scan.' },
+    expired: { tone: 'amber' as const, text: t('res.expired') },
+    invalid: { tone: 'red' as const, text: t('res.invalid') },
+    rate_limited: { tone: 'amber' as const, text: t('res.rateLimited') },
+    not_registered: { tone: 'amber' as const, text: t('res.notRegistered') },
   }[result.status]
   return (
     <div className="flex flex-col gap-4 p-6 page-in">
       <Notice tone={map.tone}>{map.text}</Notice>
-      {result.status === 'not_registered' ? <Link to="/join" className="btn-primary">Create my passport</Link> : <button className="btn-primary" onClick={onRetry}>Try again</button>}
+      {result.status === 'not_registered' ? <Link to="/join" className="btn-primary">{t('res.createPassport')}</Link> : <button className="btn-primary" onClick={onRetry}>{t('res.tryAgain')}</button>}
     </div>
   )
 }
@@ -72,6 +74,7 @@ export function ScanResultView({ result, onRetry }: { result: ScanResult; onRetr
  * rules let a visitor read only their own marker.
  */
 function SurveyOffer({ boothId, accent }: { boothId: string; accent?: string }) {
+  const { t } = useLocale()
   const { user } = useAuth()
   const { data: survey } = useDoc<SurveyDoc>(doc(db, 'surveys', boothId), [boothId])
   const { data: taken } = useDoc(user ? doc(db, 'surveyTaken', `${user.uid}_${boothId}`) : null, [user?.uid, boothId])
@@ -81,11 +84,11 @@ function SurveyOffer({ boothId, accent }: { boothId: string; accent?: string }) 
 
   return (
     <div className="w-full rounded-xl border border-ink/10 bg-sky-100 p-4 text-left">
-      <div className="stamp-text" style={{ color: accent }}>{survey.title || 'A few questions'}</div>
+      <div className="stamp-text" style={{ color: accent }}>{survey.title || t('res.surveyTitle')}</div>
       <p className="mt-1 text-sm text-ink-soft">
-        {count} question{count === 1 ? '' : 's'} from this booth. Optional — your points are already saved.
+        {count === 1 ? t('res.surveyCountOne') : t('res.surveyCount', { n: count })}
       </p>
-      <Link to={`/survey/${boothId}`} className="btn-primary mt-3 w-full">Answer</Link>
+      <Link to={`/survey/${boothId}`} className="btn-primary mt-3 w-full">{t('res.answer')}</Link>
     </div>
   )
 }
