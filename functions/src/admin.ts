@@ -251,10 +251,20 @@ function boothFromData(ev: ActiveEvent, d: Record<string, unknown>, existing?: B
   }
 }
 
-export const createBooth = onCall(async (req) => {
-  const { uid: actor } = requireRole(req, 'admin')
-  const d = req.data ?? {}
-  const ev = await getActiveEvent(true)
+/**
+ * Everything creating a booth entails, in one place.
+ *
+ * A booth is four documents, not one: the booth, its HMAC secret, its stats row, and the event's
+ * `boothCount`. `decideStaffRequest` also creates booths — for a host whose booth was never on the
+ * sheet — and a second copy of this would drift from it, most likely by forgetting the secret and
+ * leaving a booth whose screen cannot start.
+ *
+ * Exported rather than local so that path calls exactly this, and the audit row names the real
+ * action ('createBooth' or the approval) rather than a shared euphemism.
+ */
+export async function createBoothDoc(
+  ev: ActiveEvent, d: Record<string, unknown>, actor: string,
+): Promise<{ id: string; booth: ReturnType<typeof boothFromData> }> {
   const count = (await db.collection('booths').count().get()).data().count
   const booth = boothFromData(ev, d)
   if (!d.accentColor) booth.accentColor = ACCENTS[count % ACCENTS.length]
@@ -275,6 +285,13 @@ export const createBooth = onCall(async (req) => {
   batch.set(db.doc(`stats/booths/items/${id}`), { boothId: id, stamps: 0, byVisitorType: {}, byDay: {}, byHour: {} }, { merge: true })
   batch.set(db.doc(`events/${ev.id}`), { boothCount: FieldValue.increment(1) }, { merge: true })
   await batch.commit()
+  return { id, booth }
+}
+
+export const createBooth = onCall(async (req) => {
+  const { uid: actor } = requireRole(req, 'admin')
+  const ev = await getActiveEvent(true)
+  const { id, booth } = await createBoothDoc(ev, req.data ?? {}, actor)
   await audit(actor, 'createBooth', 'booth', id, null, booth)
   return { id }
 })

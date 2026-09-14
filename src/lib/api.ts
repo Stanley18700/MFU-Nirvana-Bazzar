@@ -62,6 +62,9 @@ export const api = {
     | { name: 'ethnicGroups'; byCountry: Record<string, string[]> },
     { ok: true; count?: number; countries?: number }
   >('saveRefData'),
+  /** Ask to run a booth when nobody has your email address. Grants nothing — an admin decides. */
+  requestBoothAccess: call<{ boothId?: string; newBoothName?: string; note?: string }, { ok: true; status: 'pending' }>('requestBoothAccess'),
+  decideStaffRequest: call<{ uid: string; approve: boolean; boothId?: string; decisionNote?: string }, { ok: true; approved: boolean; boothId?: string; boothName?: string; createdBooth?: string | null }>('decideStaffRequest'),
   runDraw: call<{ count: number }, { winners: Array<{ uid: string; displayName: string; passportNo: string }>; poolSize: number }>('runDraw'),
   inviteOrganizer: call<{ invites: Array<{ name: string; email: string; boothId?: string; role?: Role }> }, { results: Array<{ inviteId: string; email: string; mailed: boolean; link: string }>; mailConfigured: boolean }>('inviteOrganizer'),
   resendInvite: call<{ inviteId: string }, { mailed: boolean; link: string }>('resendInvite'),

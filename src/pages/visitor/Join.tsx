@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
 import { api, errorMessage } from '../../lib/api'
 import { useEthnicGroups, useRefList } from '../../lib/data'
@@ -252,6 +252,12 @@ export default function Join() {
         {err && <Notice tone="red">{err}</Notice>}
         <button className="btn-primary py-3.5 text-lg" disabled={busy}>{busy ? t('v.join.creating') : t('v.join.create')}</button>
       </form>
+      {/* The one screen a booth host who is not on anyone list reliably lands on: the guard sends
+          every roleless account here. Without this they would have to be told the URL. */}
+      <p className="mt-6 text-center text-xs text-ink-soft">
+        {t('v.join.staffPrompt')}{' '}
+        <Link to="/booth-access" className="link">{t('v.join.staffLink')}</Link>
+      </p>
     </main>
   )
 }

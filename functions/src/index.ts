@@ -19,4 +19,5 @@ export {
   saveSurvey, setSurveyActive, deleteSurvey, surveyForBooth, submitSurveyResponse,
 } from './survey'
 export { rateBooth } from './rating'
+export { requestBoothAccess, decideStaffRequest } from './staffRequest'
 export { onScanCreate, onUserWrite, rankBooths, sweepActive, purgePersonalData } from './triggers'

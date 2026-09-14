@@ -68,6 +68,20 @@ const tok = (secret, booth, counter) => {
   for (let i = 0; i < 6; i++) o += B32[parseInt(bits.slice(i * 5, i * 5 + 5), 2)]
   return o
 }
+/** Read any document with owner credentials, for asserting what the server actually wrote. */
+const ownerDoc = async (path) => {
+  const r = await (await fetch(`http://127.0.0.1:8080/v1/projects/mfu-passport/databases/(default)/documents/${path}`, { headers: OWNER })).json()
+  if (!r.fields) return {}
+  const out = {}
+  for (const [k, v] of Object.entries(r.fields)) {
+    out[k] = 'stringValue' in v ? v.stringValue
+      : 'integerValue' in v ? Number(v.integerValue)
+      : 'doubleValue' in v ? Number(v.doubleValue)
+      : 'booleanValue' in v ? v.booleanValue
+      : 'nullValue' in v ? null : v
+  }
+  return out
+}
 const secretOf = async (booth) => (await (await fetch(`http://127.0.0.1:8080/v1/projects/mfu-passport/databases/(default)/documents/boothSecrets/${booth}`, { headers: OWNER })).json()).fields.secret.stringValue
 const clearRateLimits = async () => {
   const r = await fetch('http://127.0.0.1:8080/v1/projects/mfu-passport/databases/(default)/documents/rateLimits', { headers: OWNER })
@@ -112,6 +126,26 @@ async function main() {
   await denied('cannot read the invitations', () => getDocs(collection(db, 'invites')))
   await denied('cannot read another visitor’s user document', () => getDoc(doc(db, 'users', 'someone-else')))
   await denied('cannot read a booth secret', () => getDoc(doc(db, 'boothSecrets', 'ED1')))
+  // Before any request exists. This is the read the pending screen makes on mount, and a rule
+  // that dereferenced resource.data would throw here rather than return an empty snapshot,
+  // killing the listener so the row never appears when it is written a moment later.
+  ok('can watch their own request before it exists', !(await getDoc(doc(db, 'staffRequests', guestUid))).exists())
+
+  /*
+   * Asking to run a booth. The whole safety argument is that filing one grants nothing, so that
+   * is what these check first: the claim after a successful request must still say visitor.
+   */
+  await denied('cannot decide their own request', () => call('decideStaffRequest')({ uid: guestUid, approve: true }), 'Requires role: admin')
+  ok('may ask to run a booth', (await call('requestBoothAccess')({ boothId: 'ED1' })).status === 'pending')
+  ok('and is still only a visitor afterwards', (await claims()).role === 'visitor')
+  ok('with no booth attached', (await claims()).boothId === undefined)
+  await denied('still cannot open a booth screen', () => call('boothSession')({}), 'Requires role')
+  await denied('a request names a booth, or a name, but not neither', () => call('requestBoothAccess')({}), 'Choose a booth')
+  await denied('and not both at once', () => call('requestBoothAccess')({ boothId: 'ED1', newBoothName: 'X' }), 'not both')
+  await denied('a booth that does not exist is refused', () => call('requestBoothAccess')({ boothId: 'no-such-booth' }), 'no longer exists')
+  // The pending screen watches its own row, so this read has to work — and only this one.
+  ok('can read their own request', (await getDoc(doc(db, 'staffRequests', guestUid))).exists())
+  await denied('but not anyone else’s', () => getDoc(doc(db, 'staffRequests', 'someone-else')))
 
   section('The first admin comes from the bootstrap key, once')
   await signOut(auth)
@@ -199,6 +233,53 @@ async function main() {
   await signOut(auth); await signIn('guest1@example.com')
   ok('and can be put back to visitor', (await claims()).role === 'visitor')
   ok('with the booth claim cleared', (await claims()).boothId === undefined || (await claims()).boothId === null)
+
+  /*
+   * The third sanctioned route onto the staff list, beside an invitation and a direct promotion.
+   * It exists for the booth host nobody has an email address for — but an admin still decides,
+   * which is what keeps the rule at the top of this file true.
+   */
+  section('A booth host with no invitation asks, and an admin decides')
+  await signOut(auth); await signIn('guest1@example.com')
+  await call('requestBoothAccess')({ boothId: 'ED3', note: 'covering the afternoon shift' })
+  await signOut(auth); await signIn('staff1@example.com')
+  await denied('an organizer cannot decide a request either', () => call('decideStaffRequest')({ uid: guestUid, approve: true }), 'Requires role: admin')
+
+  await signOut(auth); await signIn('admin1@example.com')
+  const dec = await call('decideStaffRequest')({ uid: guestUid, approve: true })
+  ok('an admin approves it', dec.approved === true && dec.boothId === 'ED3')
+  await denied('and the same request cannot be decided twice', () => call('decideStaffRequest')({ uid: guestUid, approve: true }), 'already')
+  ok('the booth now points back at them', (await ownerDoc(`booths/ED3`)).organizerUid === guestUid)
+
+  await signOut(auth); await signIn('guest1@example.com')
+  ok('the claim arrives on the next refresh', (await claims()).role === 'organizer')
+  ok('carrying the booth that was approved', (await claims()).boothId === 'ED3')
+  ok('and the booth screen opens', (await call('boothSession')({})).boothId === 'ED3')
+  await denied('a second request from someone already staff is refused', () => call('requestBoothAccess')({ boothId: 'ED4' }), 'already staff')
+
+  section('Approving a booth that does not exist yet creates it')
+  await signOut(auth); const g2 = await signUp('guest2@example.com')
+  await call('requestBoothAccess')({ newBoothName: 'Korean Cultural Centre' })
+  await signOut(auth); await signIn('admin1@example.com')
+  const made = await call('decideStaffRequest')({ uid: g2, approve: true })
+  ok('a booth is created from the name they typed', !!made.createdBooth, made.boothId)
+  const nb = await ownerDoc(`booths/${made.boothId}`)
+  ok('active, so the host can start immediately', nb.active === true)
+  ok('and worth the standard points, not zero', nb.points >= 1, String(nb.points))
+  ok('with a secret, or its screen could never start', !!(await ownerDoc(`boothSecrets/${made.boothId}`)).secret)
+  ok('the request records what they were put on', (await ownerDoc(`staffRequests/${g2}`)).grantedBoothId === made.boothId)
+
+  section('A rejected request changes nothing')
+  await signOut(auth); const g3 = await signUp('guest3@example.com')
+  await call('requestBoothAccess')({ boothId: 'ED4' })
+  await signOut(auth); await signIn('admin1@example.com')
+  ok('an admin can reject', (await call('decideStaffRequest')({ uid: g3, approve: false, decisionNote: 'not on the list' })).approved === false)
+  await signOut(auth); await signIn('guest3@example.com')
+  // guest3 never registered as a visitor either, so 'untouched' means exactly that: no role at
+  // all, and no booth. A rejection must not leave a half-granted claim behind.
+  ok('and the account is untouched', (await claims()).role === undefined, String((await claims()).role))
+  ok('with no booth attached', (await claims()).boothId === undefined)
+  await denied('still cannot open a booth', () => call('boothSession')({}), 'Requires role')
 
   section('Signed out, the world is closed')
   await signOut(auth)

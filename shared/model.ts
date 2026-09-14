@@ -237,6 +237,39 @@ export interface InviteDoc {
 }
 
 /**
+ * Someone asking to run a booth when nobody has their email address.
+ *
+ * `inviteOrganizer` needs an address, and `acceptInvite` refuses any caller whose verified token
+ * email differs from the invited one — deliberately, since the link is the credential. That is no
+ * help for a booth host who turns up on the day and is simply not on anyone's list.
+ *
+ * This is a request, never a grant. Filing one changes no claim; an admin decides every case, so
+ * the rule the festival rests on — nobody becomes staff without an admin — survives intact. The
+ * only thing it removes is the dependency on knowing an email address in advance.
+ *
+ * Keyed by uid rather than an auto-id: one person has one open request, a re-submit corrects it
+ * rather than queueing a second, and the admin's list cannot be flooded from a single account.
+ */
+export interface StaffRequestDoc {
+  uid: string
+  displayName: string
+  /** Whatever they signed in with — an email, or a phone for a Google account without one. */
+  contact: string
+  /** A booth that already exists, chosen from the list. Mutually exclusive with `newBoothName`. */
+  boothId: string | null
+  /** The name they typed when their booth is not in the list yet. Created only on approval. */
+  newBoothName: string | null
+  note: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  requestedAt: unknown
+  decidedAt?: unknown
+  decidedBy?: string | null
+  decisionNote?: string | null
+  /** What they were actually put on, which an admin may have overridden. */
+  grantedBoothId?: string | null
+}
+
+/**
  * The counters an organizer's booth screen is allowed to see: how the event as a whole is
  * going. Nothing here describes who the visitors are — see `DemographicsShard`.
  */

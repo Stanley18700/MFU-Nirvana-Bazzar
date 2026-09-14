@@ -131,6 +131,24 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    /*
+     * A request to run a booth, from someone nobody has an email address for. Readable by the
+     * person who filed it — the screen watches its own row so an approval lands without a reload —
+     * and by an admin, who is the only one who can act on it. Written by the callables only, like
+     * everything else: the request must never be the thing that grants the role.
+     */
+    /*
+     * Matched on the document id, not on `resource.data.uid`, and the difference is load-bearing:
+     * the request screen subscribes before the document exists, and on a missing document
+     * `resource` is null, so dereferencing it throws and the listener dies for good — the row then
+     * appears and the screen never notices. The id is the uid, so this says the same thing and
+     * survives the document not being there yet.
+     */
+    match /staffRequests/{id} {
+      allow read: if isAdmin() || (signedIn() && id == request.auth.uid);
+      allow write: if false;
+    }
+
     match /auditLog/{id} {
       allow read: if isAdmin();
       allow write: if false;

@@ -294,7 +294,7 @@ export default function Booth() {
           <Notice tone="red">{err}</Notice>
           <p className="text-sm text-ink-soft">
             Signed in as <b className="text-ink">{user?.email ?? 'this account'}</b>.
-            {role === 'organizer' && !claimBooth && <> No booth is linked to it yet — ask the admin to assign one, then open this page again.</>}
+            {role === 'organizer' && !claimBooth && <> No booth is linked to it yet — <Link to="/booth-access" className="link">ask for one</Link>, or speak to the admin.</>}
           </p>
           <div className="flex flex-wrap gap-2">
             <button className="btn-gold" onClick={() => { setErr(null); void load(true) }}>{t('booth.retry')}</button>

@@ -13,6 +13,7 @@ import Prize from './pages/visitor/Prize'
 import Scan from './pages/visitor/Scan'
 import ScanLanding from './pages/visitor/ScanLanding'
 import Invite from './pages/visitor/Invite'
+import BoothAccess from './pages/visitor/BoothAccess'
 import Survey from './pages/visitor/Survey'
 
 import SignIn from './pages/auth/SignIn'
@@ -108,6 +109,9 @@ export default function App() {
         <Route path="/restore" element={<Navigate to="/signin" replace />} />
 
         <Route path="/invite/:token" element={<Invite />} />
+        {/* Outside every guard, like the invitation route: the person has no role yet, and a guard */}
+        {/* would send them to /join to become a visitor, which is not what they came for. */}
+        <Route path="/booth-access" element={<BoothAccess />} />
         <Route path="/s/:token" element={<ScanLanding />} />
         <Route path="/r/:token" element={<RedeemLanding />} />
         <Route path="/setup" element={<Setup />} />

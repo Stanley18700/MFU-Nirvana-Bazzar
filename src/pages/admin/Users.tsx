@@ -2,14 +2,14 @@ import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
 import { collection, limit, orderBy, query, where } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { api, errorMessage, type CreateUserInput, type UpdateUserInput } from '../../lib/api'
-import { useBooths, useCollection, useRefList, useTiers } from '../../lib/data'
+import { useBooths, useCollection, useRefList, useTiers, type WithId } from '../../lib/data'
 import { CopyButton, Drawer, Notice, Toast, type Msg } from '../../components/ui'
 import { Select } from '../../components/Select'
 import { COUNTRIES, countryName } from '../../lib/countries'
 import { ts } from '../../lib/eventText'
 import { useSlidingPill } from '../../lib/useSlidingPill'
 import { useLabels } from '../../lib/labels'
-import type { InviteDoc, Role, ScanDoc, TierUnlockDoc, UserDoc, VisitorType } from '../../../shared/model'
+import type { BoothDoc, InviteDoc, Role, ScanDoc, StaffRequestDoc, TierUnlockDoc, UserDoc, VisitorType } from '../../../shared/model'
 import { useLocale } from '../../lib/locale'
 
 type Row = UserDoc & { id: string }
@@ -119,6 +119,8 @@ export default function Users() {
       <Toast msg={msg} onClose={() => setMsg(null)} />
 
       <ErasureInbox requests={erasures} onErase={hardDelete} onDismiss={dismissErasure} />
+
+      <StaffRequests booths={booths} onDone={setMsg} fail={fail} />
 
       <section className="card mt-4">
         <h2 className="stamp-text text-ink-soft">{t('users.inviteHeading')}</h2>
@@ -538,5 +540,69 @@ function EditForm({ u, onSave, onCancel }: { u: Row; onSave: (patch: Omit<Update
         <button type="button" className="btn-ghost" onClick={onCancel} disabled={busy}>{t('users.cancel')}</button>
       </div>
     </form>
+  )
+}
+
+/**
+ * Booth hosts who asked for access without an invitation.
+ *
+ * Above the invite form deliberately: an invitation is a task an admin chose to start, a pending
+ * request is someone standing at the desk waiting. The order on the page should match that.
+ */
+function StaffRequests({ booths, onDone, fail }: {
+  booths: WithId<BoothDoc>[]
+  onDone: (m: Msg) => void
+  fail: (e: unknown) => void
+}) {
+  const { t } = useLocale()
+  const rows = useCollection<StaffRequestDoc>(
+    query(collection(db, 'staffRequests'), where('status', '==', 'pending')), [], 'the booth access requests').data
+  const [override, setOverride] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState<string | null>(null)
+  if (!rows.length) return null
+
+  async function decide(uid: string, approve: boolean) {
+    setBusy(uid)
+    try {
+      const r = await api.decideStaffRequest({ uid, approve, ...(override[uid] ? { boothId: override[uid] } : {}) })
+      onDone(approve
+        ? { tone: 'green', text: t('users.reqApproved', { booth: r.boothName ?? '', n: r.createdBooth ? 1 : 0 }) }
+        : { tone: 'amber', text: t('users.reqRejected') })
+    } catch (e) { fail(e) } finally { setBusy(null) }
+  }
+
+  return (
+    <section className="card mt-4 ring-2 ring-action/40">
+      <h2 className="stamp-text text-ink-soft">{t('users.reqHeading')}</h2>
+      <p className="mt-1 text-xs text-ink-soft">{t('users.reqLead')}</p>
+      <ul className="mt-3 flex flex-col gap-3">
+        {rows.map((r) => (
+          <li key={r.id} className="rounded-xl bg-ink/4 p-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="font-medium">{r.displayName}</span>
+              <span className="text-xs text-ink-soft">{r.contact}</span>
+            </div>
+            <p className="mt-1 text-sm">
+              {r.boothId
+                ? t('users.reqWants', { booth: booths.find((b) => b.id === r.boothId)?.nameEn ?? r.boothId })
+                : t('users.reqWantsNew', { booth: r.newBoothName ?? '' })}
+            </p>
+            {r.note && <p className="mt-1 text-xs italic text-ink-soft">{r.note}</p>}
+            <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+              {/* An override, because the name someone gives their booth and the name on the
+                  sheet are often not the same — "the Korea table" against ED12. */}
+              <Select
+                ariaLabel={t('users.reqOverride')} value={override[r.id] ?? ''}
+                onChange={(v) => setOverride({ ...override, [r.id]: v })}
+                placeholder={t('users.reqOverride')}
+                options={booths.map((b) => ({ value: b.id, label: b.nameEn }))}
+              />
+              <button className="btn-primary" disabled={busy !== null} onClick={() => decide(r.id, true)}>{t('users.reqApprove')}</button>
+              <button className="btn-ghost" disabled={busy !== null} onClick={() => decide(r.id, false)}>{t('users.reqReject')}</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
