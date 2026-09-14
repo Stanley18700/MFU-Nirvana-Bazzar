@@ -93,6 +93,16 @@ export default function Prize() {
           const perSession = typeof tier.stockPerSession === 'number'
           const stock = prizeStock(tier, activeSession)
           /*
+           * `session.label` is admin-set and single-language, so a Thai reader was getting
+           * "…ในรอบmorning" — an English word dropped into Thai copy, which is the one thing the
+           * typed dictionary exists to prevent. The two default windows are known ids and can be
+           * named properly; anything an organiser adds by hand still falls back to their wording.
+           */
+          const sessionName = !activeSession ? ''
+            : activeSession.session.id === 'am' ? t('v.prize.sessionAm')
+            : activeSession.session.id === 'pm' ? t('v.prize.sessionPm')
+            : activeSession.session.label.toLowerCase()
+          /*
            * Four states that used to look like one. Every tier was the same card with the same four
            * grey lines, so the one you can actually reach next — the only one worth walking for —
            * had no more presence than the one 140 points away.
@@ -111,31 +121,69 @@ export default function Prize() {
               </div>
               <p className="mt-0.5 text-sm text-ink-soft">{tier.reward}</p>
               {tier.grantsDrawEntry && <p className="mt-1 text-xs text-foil">{t('v.prize.drawEntry')}</p>}
-              {/* Stock is the organisers' fact, not yours, so it sits apart from your own gap. */}
-              {!redeemed && stock.state !== 'closed' && stock.capacity > 0 && (
-                <p className={`mt-2 text-right text-xs ${
-                  stock.state === 'gone' ? 'text-danger-text'
-                  : stock.low ? 'text-warn-text' : 'text-ink-soft'}`}>
-                  {stock.state === 'gone'
-                    ? (tier.outOfStockNoteEn || t('v.prize.runOut'))
-                    : perSession && activeSession
-                      ? t('v.prize.leftSession', { n: fmt(stock.remaining), session: activeSession.session.label.toLowerCase() })
-                      : t('v.prize.left', { n: fmt(stock.remaining) })}
-                </p>
-              )}
-              {!redeemed && stock.state === 'closed' && (
-                <p className="mt-2 text-right text-xs text-ink-soft">
-                  {nextSession
-                    ? t('v.prize.collectFrom', { time: minuteToHHMM(nextSession.session.startMinute) })
-                    : t('v.prize.deskClosed')}
-                </p>
-              )}
-              {/* Points outlive a session. Someone who qualifies at 11:58 with none left must be
-                  told that plainly, or they will assume they missed it and go home. */}
-              {!redeemed && unlocked && perSession && stock.state === 'gone' && nextSession && (
-                <p className="mt-1 text-right text-xs text-ink-soft">
-                  {t('v.prize.pointsStay', { time: minuteToHHMM(nextSession.session.startMinute) })}
-                </p>
+              {/*
+                * Stock is the organisers' fact, not yours, so it sits apart from your own gap —
+                * but on its own row under a rule, not as a fourth grey line in the corner. As
+                * `text-xs text-right text-ink-soft` it was the faintest thing on the card, and
+                * "how many are left" is the question people open this page to ask.
+                *
+                * It also renders while the desk is shut, which it did not before. `closed` used
+                * to replace the number with "Collect from 09:00", and since a closed desk is
+                * every hour outside 09:00–16:00 and every day before the 16th, the count was
+                * missing for most of the festival's life — including all of the run-up, when
+                * people are deciding whether it is worth coming.
+                */}
+              {!redeemed && stock.capacity > 0 && (
+                <div className="mt-3 border-t rule pt-2.5">
+                  {stock.state === 'closed' ? (
+                    <p className="text-sm text-ink-soft">
+                      {perSession
+                        ? nextSession
+                          ? t('v.prize.allowanceClosed', { n: fmt(stock.capacity), time: minuteToHHMM(nextSession.session.startMinute) })
+                          : t('v.prize.allowanceEnded', { n: fmt(stock.capacity) })
+                        : nextSession
+                          ? t('v.prize.collectFrom', { time: minuteToHHMM(nextSession.session.startMinute) })
+                          : t('v.prize.deskClosed')}
+                    </p>
+                  ) : (
+                    <>
+                      <p className={`text-sm font-medium ${
+                        stock.state === 'gone' ? 'text-danger-text'
+                        : stock.low ? 'text-warn-text' : 'text-ink'}`}>
+                        {stock.state === 'gone'
+                          ? (tier.outOfStockNoteEn || t('v.prize.runOut'))
+                          : perSession && activeSession
+                            ? t('v.prize.leftOfSession', { n: fmt(stock.remaining), capacity: fmt(stock.capacity), session: sessionName })
+                            : t('v.prize.leftOf', { n: fmt(stock.remaining), capacity: fmt(stock.capacity) })}
+                      </p>
+                      {/* The bar repeats the sentence above, it never replaces it: it is the
+                          glanceable half, and the number has to survive a screen reader and a
+                          colour-blind eye on its own. Fill tokens, not the `-text` ones — the
+                          palette's rule is that fills never carry type (index.css:73). */}
+                      <div
+                        role="progressbar"
+                        aria-label={t('v.prize.stockLabel')}
+                        aria-valuemin={0}
+                        aria-valuemax={stock.capacity}
+                        aria-valuenow={stock.state === 'gone' ? 0 : stock.remaining}
+                        className="mt-1.5 h-2 overflow-hidden rounded-full bg-ink/10"
+                      >
+                        <div
+                          className={`h-full rounded-full transition-[width] duration-500 ${
+                            stock.state === 'gone' ? 'bg-danger' : stock.low ? 'bg-warn' : 'bg-reward'}`}
+                          style={{ width: stock.state === 'gone' ? '0%' : `${Math.max(4, Math.round((stock.remaining / stock.capacity) * 100))}%` }}
+                        />
+                      </div>
+                    </>
+                  )}
+                  {/* Points outlive a session. Someone who qualifies at 11:58 with none left must
+                      be told that plainly, or they will assume they missed it and go home. */}
+                  {unlocked && perSession && stock.state === 'gone' && nextSession && (
+                    <p className="mt-1.5 text-xs text-ink-soft">
+                      {t('v.prize.pointsStay', { time: minuteToHHMM(nextSession.session.startMinute) })}
+                    </p>
+                  )}
+                </div>
               )}
             </li>
           )

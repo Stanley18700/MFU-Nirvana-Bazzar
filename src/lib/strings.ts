@@ -241,6 +241,18 @@ const staffEn = {
   'v.prize.runOut': 'This prize has run out',
   'v.prize.left': '{n} left',
   'v.prize.leftSession': '{n} left this {session}',
+  'v.prize.leftOfSession': '{n} of {capacity} left this {session}',
+  'v.prize.leftOf': '{n} of {capacity} left',
+  // Shown while the desk is shut, which before the festival and between sessions is most of the
+  // clock. Without it the count simply vanishes and a visitor cannot find out what to expect.
+  'v.prize.allowanceClosed': '{n} each session · collect from {time}',
+  'v.prize.allowanceEnded': '{n} each session',
+  'v.prize.stockLabel': 'Prizes left',
+  // The session's own label is admin-set and single-language, so it arrived in Thai copy as the
+  // English word. Only the two default windows can be named ahead of time; a custom one still
+  // falls back to whatever the organiser typed.
+  'v.prize.sessionAm': 'morning',
+  'v.prize.sessionPm': 'afternoon',
   'v.prize.collectFrom': 'Collect from {time}',
   'v.prize.deskClosed': 'The prize desk is closed',
   'v.prize.pointsStay': 'Your points stay — collect from {time}.',
@@ -524,6 +536,13 @@ const staffTh: Record<keyof typeof staffEn, string> = {
   'v.prize.runOut': 'ของรางวัลนี้หมดแล้ว',
   'v.prize.left': 'เหลืออีก {n} ชิ้น',
   'v.prize.leftSession': 'เหลืออีก {n} ชิ้นในรอบ{session}',
+  'v.prize.leftOfSession': 'เหลือ {n} จาก {capacity} ชิ้นในรอบ{session}',
+  'v.prize.leftOf': 'เหลือ {n} จาก {capacity} ชิ้น',
+  'v.prize.allowanceClosed': 'รอบละ {n} ชิ้น · รับได้ตั้งแต่ {time} น.',
+  'v.prize.allowanceEnded': 'รอบละ {n} ชิ้น',
+  'v.prize.stockLabel': 'จำนวนของรางวัลที่เหลือ',
+  'v.prize.sessionAm': 'เช้า',
+  'v.prize.sessionPm': 'บ่าย',
   'v.prize.collectFrom': 'รับได้ตั้งแต่ {time} น.',
   'v.prize.deskClosed': 'จุดแลกของรางวัลปิดอยู่',
   'v.prize.pointsStay': 'คะแนนของคุณยังอยู่ — รับได้ตั้งแต่ {time} น.',

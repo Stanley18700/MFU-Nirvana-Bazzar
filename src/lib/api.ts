@@ -55,6 +55,8 @@ export const api = {
   rotateBoothSecret: call<{ id: string }, { ok: true }>('rotateBoothSecret'),
   savePrizePolicy: call<{ tiers: TierInput[]; dryRun?: boolean }, { ok?: true; preview: Record<string, number>; available: number }>('savePrizePolicy'),
   adjustStock: call<{ tierId: string; delta: number; reason: string; kind?: 'load-in' | 'restock' | 'correction' }, { ok: true }>('adjustStock'),
+  /** How many each session starts with, for sessions nobody has spent from yet. Not a top-up: see adjustStock. */
+  setSessionAllowance: call<{ tierId: string; stockPerSession: number; reason: string }, { ok: true; stockPerSession: number; previousPerSession: number }>('setSessionAllowance'),
   saveRefData: call<
     { name: 'institutions' | 'mfuSchools' } & { list: string[] }
     | { name: 'ethnicGroups'; byCountry: Record<string, string[]> },

@@ -13,7 +13,7 @@ if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.GCLOUD_PROJECT?.startsW
   throw new Error('Set FIRESTORE_EMULATOR_HOST and a demo-* GCLOUD_PROJECT before running these tests.')
 }
 const { db, Timestamp, clearEventCache } = require('../functions/lib/lib')
-const { adjustStock } = require('../functions/lib/admin')
+const { adjustStock, setSessionAllowance } = require('../functions/lib/admin')
 const { updateEvent } = require('../functions/lib/event')
 const { confirmRedemption, lookupRedemption } = require('../functions/lib/organizer')
 const { redemptionCode } = require('../functions/lib/visitor')
@@ -178,4 +178,50 @@ test('overlapping prize sessions are refused', async () => {
   const saved = (await db.doc(`events/${eventId}`).get()).data().prizeSessions
   assert.deepEqual(saved.map((s) => s.id), ['am', 'pm'])
   assert.equal(saved[1].startMinute, 720)
+})
+
+/*
+ * The allowance, which is the other half of stock and the one `adjustStock` deliberately will
+ * not touch. The distinction that matters here is which sessions move: a window already spent
+ * from keeps its own figure, and everything untouched re-bases with nothing written to the map.
+ */
+test('the allowance re-bases untouched sessions and leaves a spent one alone', async () => {
+  const { key } = await seed()
+  // Spend this session down to 44, so it has a map entry and the rest do not.
+  await db.doc(`prizeTiers/${TIER}`).update({ [`sessionRemaining.${key}`]: 44 })
+
+  await call(setSessionAllowance, { tierId: TIER, stockPerSession: 30, reason: 'fewer totes than promised' })
+  const t = await tier()
+  assert.equal(t.stockPerSession, 30, 'the allowance itself moved')
+  assert.equal(t.sessionRemaining[key], 44, 'the session already under way keeps its own count')
+  assert.equal(Object.keys(t.sessionRemaining).length, 1, 'no other session was backfilled')
+})
+
+test('the allowance can be set while the desk is shut, unlike a top-up', async () => {
+  // The case that matters operationally: nobody sets tomorrow's allowance mid-queue, so the
+  // refusal `adjustStock` raises here would make the control useless exactly when it is wanted.
+  await seed({ sessions: windows().shut })
+  await reject(call(adjustStock, { tierId: TIER, delta: 10, reason: 'box arrived' }), 'failed-precondition')
+  await call(setSessionAllowance, { tierId: TIER, stockPerSession: 70, reason: 'more stock confirmed' })
+  assert.equal((await tier()).stockPerSession, 70)
+})
+
+test('the allowance is refused when it would drive the event pool below zero', async () => {
+  await seed()
+  // One window today, so the pool moves by (new - old) x 1. Dropping far enough would imply
+  // fewer gifts were ever loaded in than have already gone out, and the archive would then lie.
+  await db.doc(`prizeTiers/${TIER}`).update({ stockRemaining: 5 })
+  await reject(call(setSessionAllowance, { tierId: TIER, stockPerSession: 0, reason: 'cancel the gift' }), 'invalid-argument')
+  assert.equal((await tier()).stockPerSession, ALLOWANCE, 'a refusal changes nothing')
+})
+
+test('the allowance is logged like any other stock change', async () => {
+  await seed()
+  await call(setSessionAllowance, { tierId: TIER, stockPerSession: 60, reason: 'second pallet' })
+  const rows = await db.collection('stockAdjustments').where('kind', '==', 'allowance').get()
+  assert.equal(rows.size, 1, 'one ledger row, so the closing figures still reconcile')
+  const row = rows.docs[0].data()
+  assert.equal(row.previousPerSession, ALLOWANCE)
+  assert.equal(row.stockPerSession, 60)
+  assert.equal(row.reason, 'second pallet')
 })
