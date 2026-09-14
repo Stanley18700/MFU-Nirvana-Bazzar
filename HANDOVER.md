@@ -32,7 +32,7 @@ builds cleanly but **has never been run against a Firebase project.** That is th
 | Firebase project | Exists: **`mfu-passport`** (Stanley's personal Google account). Web app config partly known — see §5 |
 | Console setup (Auth providers, Firestore, Storage, Blaze) | **Done** — verified by a successful deploy and seed |
 | `.env.local`, `functions/.env` | Both exist and are correct |
-| Secrets (`ADMIN_BOOTSTRAP_KEY`, `RESEND_API_KEY`) | `ADMIN_BOOTSTRAP_KEY` is set. `RESEND_API_KEY` is not, so invites show a copyable link instead of emailing — set it, add `RESEND_FROM`, and redeploy the functions when a verified sending domain is available (SETUP.md §2a) |
+| Secrets (`ADMIN_BOOTSTRAP_KEY`, `EMAILJS_PRIVATE_KEY`) | Both set. Invitations go out through **EmailJS** (service `service_glzv23b`, organizer template `template_g86cviz`); the service id, public key and template ids are in `functions/.env`. `EMAILJS_TEMPLATE_INVITE_ADMIN` is still empty, so **admin** invitations fall back to a copyable link until a second template exists — the free plan allows only two. See SETUP.md §2a |
 | Dependencies installed on the dev machine | Installed in both root and `functions/`. Firebase CLI 15.29, Java 21 present |
 | Deployed | **Yes, 7 Sep** — https://mfu-passport.web.app. All 38 functions, rules, indexes, storage rules |
 | Seeded (12 booths, 3 tiers, reference lists) | **Yes, 7 Sep** — 12 booths (190 points on the floor, see SETUP.md §4), 3 tiers at full stock, all three refData lists |
@@ -61,8 +61,8 @@ builds cleanly but **has never been run against a Firebase project.** That is th
 3. **Tooling.** `npm install`, `npm --prefix functions install`, `npm i -g firebase-tools`,
    `firebase login`, `firebase use mfu-passport`.
 4. **Secrets.** `firebase functions:secrets:set ADMIN_BOOTSTRAP_KEY` (any long random string; used
-   once). `firebase functions:secrets:set RESEND_API_KEY` (skip it unless Resend is set up —
-   the function declares the secret so it must exist).
+   once). `firebase functions:secrets:set EMAILJS_PRIVATE_KEY` (skip it unless EmailJS is set
+   up — the function declares the secret so it must exist).
 5. **Deploy.** `npm run deploy` (builds client + functions, deploys hosting, functions, rules,
    indexes, storage rules). First functions deploy takes 3–6 min and may prompt to enable APIs.
 6. **Seed.** `npm run seed` (needs `gcloud auth application-default login` or a service-account key
@@ -77,7 +77,7 @@ builds cleanly but **has never been run against a Firebase project.** That is th
 9. **Demo prep.** Print a QR to `https://mfu-passport.web.app/join` for the "welcome sign". Have
     the dashboard on the projector, one laptop/tablet as a booth, phones from the audience.
 
-Optional before the meeting: Resend for real invite emails (SETUP.md §2a; ~15 min, plus DNS). Without it the
+Optional before the meeting: EmailJS for real invite emails (SETUP.md §2a; ~15 min, no DNS). Without it the
 admin gets a copyable link instead, which is fine for a demo.
 
 ## 4. Code map — where to look for what
@@ -97,9 +97,11 @@ functions/src/admin.ts     users/roles, booths (+rotateBoothSecret), prize polic
                            invites (inviteOrganizer/resend/revoke/inviteInfo/acceptInvite), bootstrapAdmin, refreshRanks
 functions/src/triggers.ts  onScanCreate (updates all counters + creates tierUnlocks), onUserWrite, rankBooths (1 min),
                            sweepActive (1 min), purgePersonalData (daily, no-op until 17 Dec 2026)
-functions/src/mailer.ts    Resend, booth invitations only; returns false when unconfigured so the
-                           caller falls back to a copyable link. The three account mails come from
-                           Firebase Auth's own templates instead (SETUP.md §1a)
+functions/src/mailer.ts    EmailJS (server REST API), booth/admin invitations only; returns false
+                           when unconfigured so the caller falls back to a copyable link. The wording
+                           lives in the EmailJS dashboard — templateParams() defines the variables a
+                           template may use. The three account mails come from Firebase Auth's own
+                           templates instead (SETUP.md §1a)
 functions/src/seed.ts      12 booths + secrets, 3 tiers with stock, refData lists. `--emulator`, `--admin <uid>`
 
 src/lib/firebase.ts    SDK init from VITE_* env; auto-connects to emulators when no API key in dev
@@ -138,12 +140,14 @@ collection/document): `stats/event/shards/{0..9}`, `stats/booths/items/{boothId}
 - **Web app config** — in `.env.local` on the dev machine (gitignored, and deliberately *not*
   in the committed `.env.local.example`). Re-read it any time from the console: **Project
   settings → General → Your apps → Web app → SDK setup and configuration**.
-- **Resend sender** — in `functions/.env` on the dev machine, likewise not committed. The API
-  key is in Secret Manager.
+- **EmailJS service id, public key and template ids** — in `functions/.env` on the dev machine,
+  likewise not committed. The private key is in Secret Manager.
 - **$50 GCP coupon** — Stanley has it; must be redeemed on the Blaze billing account.
 - **GitHub repo** `cnacha-mfu/mfupassport` (private) — supervisor owns it; branches `main`,
   `proto1.0`, `gh-pages` (public mock only — never push the app there).
-- **Resend** — no account yet. Optional; needs a DNS-verifiable sending domain.
+- **EmailJS** — account under Stanley's name, Gmail service, free plan: 200 emails a month and a
+  hard cap of two templates. Account → Security must keep "Allow EmailJS API for non-browser
+  applications" and "Use Private Key" ON, or every send is refused with 403.
 - Nothing else. No SMTP, no domain, no custom DNS.
 
 ## 6. Known gaps and likely first bugs
@@ -205,7 +209,7 @@ Final booth count and which days each booth is present; prize quantities per tie
 account — repeat SETUP.md §1–5 on the university project, `firebase use <id>`, re-seed); sanity-check
 zone/point values against the real floor plan; Office of International Affairs to review the
 ethnic-group suggestion lists (`refData/ethnicGroups`, editable without deploy) and the draft
-`public/privacy.html`; institution list scope; Resend vs university SMTP.
+`public/privacy.html`; institution list scope; EmailJS free tier vs university SMTP for the long term.
 
 ## 8. Working practices that were in effect
 

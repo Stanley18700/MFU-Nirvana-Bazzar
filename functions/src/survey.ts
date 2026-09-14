@@ -18,8 +18,8 @@ import {
   db, FieldValue, requireRole, requireAuth, str, num, audit, getActiveEvent,
 } from './lib'
 import {
-  OPTION_LIMIT, QUESTION_KINDS, QUESTION_LIMIT, QuestionKind, SurveyAnswer, SurveyDoc,
-  SurveyQuestion, SurveyResponseDoc, answerIsEmpty, hasOptions, surveyProblems,
+  EVENT_SURVEY_ID, OPTION_LIMIT, QUESTION_KINDS, QUESTION_LIMIT, QuestionKind, SurveyAnswer, SurveyDoc,
+  SurveyQuestion, SurveyResponseDoc, UserDoc, answerIsEmpty, hasOptions, surveyProblems,
 } from './shared/model'
 
 const KINDS = QUESTION_KINDS.map((k) => k.kind)
@@ -213,8 +213,17 @@ export const submitSurveyResponse = onCall(async (req) => {
    * Only someone who actually visited the booth may answer it. `scans/{visitorId}_{boothId}` is
    * the stamp itself, so this is the same fact the passport already shows — and it keeps the
    * survey from becoming a way to spam a booth's results from a phone across the hall.
+   *
+   * The festival survey has no booth to have visited, so the equivalent bar is having been to
+   * the festival at all: one stamp. It is the same idea — an answer should come from somebody
+   * who was there — and it is the strongest claim the data can actually support.
    */
-  if (!(await db.doc(`scans/${uid}_${boothId}`).get()).exists) {
+  if (boothId === EVENT_SURVEY_ID) {
+    const me = (await db.doc(`users/${uid}`).get()).data() as UserDoc | undefined
+    if (!me || (me.stampCount ?? 0) < 1) {
+      throw new HttpsError('permission-denied', 'Collect a stamp first')
+    }
+  } else if (!(await db.doc(`scans/${uid}_${boothId}`).get()).exists) {
     throw new HttpsError('permission-denied', 'Collect this booth\'s stamp first')
   }
 

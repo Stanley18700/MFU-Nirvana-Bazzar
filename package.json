@@ -17,6 +17,7 @@
     "e2e": "npm run reset:emulator && npm run seed:emulator && node scripts/e2e/run.mjs",
     "e2e:auth": "npm run reset:emulator && npm run seed:emulator && node scripts/e2e-auth.mjs",
     "e2e:survey": "npm run reset:emulator && npm run seed:emulator && node scripts/e2e-survey.mjs",
+    "e2e:festival": "npm --prefix functions run build && npm run reset:emulator && npm run seed:emulator && node scripts/e2e-festival.mjs",
     "test:points": "npm --prefix functions run build && node --test scripts/test-points.cjs",
     "test:sessions": "npm --prefix functions run build && node --test scripts/test-sessions.cjs",
     "demo:points": "npm --prefix functions run build && firebase emulators:exec --only firestore --project demo-point-demo \"node scripts/demo-points.cjs\"",

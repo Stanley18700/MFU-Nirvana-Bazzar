@@ -25,6 +25,8 @@ export const api = {
   // visitor
   join: call<JoinInput, { ok: true; passportNo: string; existing: boolean }>('join'),
   scan: call<{ payload: string }, ScanResult>('scan'),
+  /** One to five stars for a booth already stamped. `already` means this visitor had rated it before. */
+  rateBooth: call<{ boothId: string; stars: number; comment?: string }, { ok: true; already: boolean }>('rateBooth'),
   redemptionCode: call<Record<string, never>, { code: string; counter: number; period: number; payload: string; serverTime: number }>('redemptionCode'),
   /** Copies the address on the Auth account onto users/{uid} after an email change. */
   syncAccount: call<Record<string, never>, { ok: true; synced: boolean; contact: string | null; contactVerified?: boolean }>('syncAccount'),
@@ -59,8 +61,8 @@ export const api = {
     { ok: true; count?: number; countries?: number }
   >('saveRefData'),
   runDraw: call<{ count: number }, { winners: Array<{ uid: string; displayName: string; passportNo: string }>; poolSize: number }>('runDraw'),
-  inviteOrganizer: call<{ invites: Array<{ name: string; email: string; boothId?: string; role?: Role }> }, { results: Array<{ inviteId: string; email: string; mailed: boolean; link?: string }>; mailConfigured: boolean }>('inviteOrganizer'),
-  resendInvite: call<{ inviteId: string }, { mailed: boolean; link?: string }>('resendInvite'),
+  inviteOrganizer: call<{ invites: Array<{ name: string; email: string; boothId?: string; role?: Role }> }, { results: Array<{ inviteId: string; email: string; mailed: boolean; link: string }>; mailConfigured: boolean }>('inviteOrganizer'),
+  resendInvite: call<{ inviteId: string }, { mailed: boolean; link: string }>('resendInvite'),
   revokeInvite: call<{ inviteId: string }, { ok: true }>('revokeInvite'),
   inviteInfo: call<{ token: string }, { status: 'invalid' | 'revoked' | 'accepted' | 'expired' } | { status: 'ok'; displayName: string; email: string; role: Role; boothId: string | null; boothName: string }>('inviteInfo'),
   acceptInvite: call<{ token: string }, { ok: true; role: Role; boothId: string | null }>('acceptInvite'),

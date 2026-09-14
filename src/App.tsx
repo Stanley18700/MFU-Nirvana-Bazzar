@@ -52,6 +52,8 @@ const Booths = lazy(() => import('./pages/admin/Booths'))
 const Prizes = lazy(() => import('./pages/admin/Prizes'))
 const Draw = lazy(() => import('./pages/admin/Draw'))
 const Audit = lazy(() => import('./pages/admin/Audit'))
+const Ratings = lazy(() => import('./pages/admin/Ratings'))
+const FestivalSurvey = lazy(() => import('./pages/admin/FestivalSurvey'))
 const Wall = lazy(() => import('./pages/admin/Wall'))
 const Print = lazy(() => import('./pages/admin/Print'))
 const BoothCards = lazy(() => import('./pages/admin/BoothCards'))
@@ -149,6 +151,8 @@ export default function App() {
             <Route path="prizes" element={<Prizes />} />
             <Route path="refdata" element={<RefData />} />
             <Route path="draw" element={<Draw />} />
+            <Route path="ratings" element={<Ratings />} />
+            <Route path="feedback" element={<FestivalSurvey />} />
             <Route path="audit" element={<Audit />} />
           </Route>
         </Route>

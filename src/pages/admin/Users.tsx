@@ -46,7 +46,7 @@ export default function Users() {
   const closeDrawer = useCallback(() => setOpenId(null), [])
   const [msg, setMsg] = useState<Msg | null>(null)
   const [inv, setInv] = useState({ name: '', email: '', boothId: '', role: 'organizer' as Role, bulk: '' })
-  const [links, setLinks] = useState<Array<{ email: string; link?: string; mailed: boolean }>>([])
+  const [links, setLinks] = useState<Array<{ email: string; link: string; mailed: boolean }>>([])
   const [inviteFilter, setInviteFilter] = useState<'pending' | 'all'>('pending')
 
   const filtered = useMemo(() => {
@@ -86,7 +86,16 @@ export default function Users() {
     try {
       const r = await api.inviteOrganizer({ invites: list })
       setLinks(r.results)
-      setMsg({ tone: r.mailConfigured ? 'green' : 'amber', text: r.mailConfigured ? t('users.invitesSent', { count: r.results.filter((x) => x.mailed).length }) : t('users.mailOff') })
+      // Keyed off what actually went out, not off whether mail is *configured*: a configured
+      // sender still fails per-recipient (an unverified domain, or Resend's test sender, which
+      // delivers only to the account owner). Reading `mailConfigured` here put a green
+      // "0 invitations emailed." directly above a row of links the admin had to send by hand.
+      const mailed = r.results.filter((x) => x.mailed).length
+      setMsg(mailed === r.results.length
+        ? { tone: 'green', text: t('users.invitesSent', { count: mailed }) }
+        : { tone: 'amber', text: r.mailConfigured
+            ? t('users.mailFailed', { failed: r.results.length - mailed, total: r.results.length })
+            : t('users.mailOff') })
       setInv({ ...inv, name: '', email: '', bulk: '' })
     } catch (e) { fail(e) }
   }
@@ -126,9 +135,9 @@ export default function Users() {
           <textarea className="field mt-2 font-mono text-xs" rows={4} value={inv.bulk} onChange={(e) => setInv({ ...inv, bulk: e.target.value })} placeholder={'Somchai Thongdee, somchai@mfu.ac.th, booth-01\n…'} />
         </details>
         <button className="btn-primary mt-3" onClick={sendInvites} disabled={!inv.bulk.trim() && (!inv.name || !inv.email || (inv.role === 'organizer' && !inv.boothId))}>{t(inv.bulk.trim() ? 'users.sendInvitations' : 'users.sendInvitation')}</button>
-        {links.some((l) => l.link) && (
+        {links.length > 0 && (
           <ul className="mt-3 flex flex-col gap-1 text-xs">
-            {links.filter((l) => l.link).map((l) => <LinkRow key={l.email} email={l.email} link={l.link!} />)}
+            {links.map((l) => <LinkRow key={l.email} email={l.email} link={l.link} mailed={l.mailed} />)}
           </ul>
         )}
         {invites.length > 0 && (
@@ -207,17 +216,33 @@ export default function Users() {
   )
 }
 
-/** One copyable invite link. The input is the fallback when the clipboard API refuses. */
-function LinkRow({ email, link }: { email: string; link: string }) {
+/**
+ * One copyable invite link. The input is the fallback when the clipboard API refuses.
+ *
+ * When the invitation was emailed the link is folded behind a toggle rather than dropped: the
+ * admin does not need it, until the organizer says it never arrived and it is the only thing
+ * that will help. Unmailed, it is the whole point of the row and stays open.
+ */
+function LinkRow({ email, link, mailed }: { email: string; link: string; mailed: boolean }) {
   const { t } = useLocale()
   const ref = useRef<HTMLInputElement>(null)
-  return (
-    // `min-w-0` on the input: a flex item will not shrink below its intrinsic width without it,
-    // and this row is the path an admin uses whenever email delivery is not configured.
-    <li className="flex flex-wrap items-center gap-2">
+  // `min-w-0` on the input: a flex item will not shrink below its intrinsic width without it,
+  // and this row is the path an admin uses whenever email delivery is not configured.
+  const row = (
+    <div className="flex flex-wrap items-center gap-2">
       <span className="w-full truncate sm:w-48">{email}</span>
       <input ref={ref} readOnly className="field min-w-0 flex-1 font-mono text-[11px]" value={link} onFocus={(e) => e.currentTarget.select()} aria-label={t('users.inviteLinkFor', { email })} />
       <CopyButton text={link} inputRef={ref} />
+    </div>
+  )
+  return (
+    <li>
+      {mailed ? (
+        <details className="reveal-host">
+          <summary className="cursor-pointer text-ink-soft">{t('users.showLink', { email })}</summary>
+          <div className="mt-1">{row}</div>
+        </details>
+      ) : row}
     </li>
   )
 }

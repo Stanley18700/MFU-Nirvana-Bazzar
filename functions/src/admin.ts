@@ -6,10 +6,10 @@ import {
   getActiveEvent, toMillis, type ActiveEvent,
 } from './lib'
 import {
-  ACCENTS, BoothDoc, DEFAULT_PRIZE_SESSIONS, InviteDoc, PrizeTierDoc, Role, UserDoc, VisitorType, Zone,
+  ACCENTS, BoothDoc, DEFAULT_PRIZE_SESSIONS, EVENT_SURVEY_ID, InviteDoc, PrizeTierDoc, Role, UserDoc, VisitorType, Zone,
   currentPrizeSession, dayOf, minuteToHHMM, nextPrizeSession, passportNo,
 } from './shared/model'
-import { APP_ORIGIN, RESEND_API_KEY, mailConfigured, sendInvite } from './mailer'
+import { APP_ORIGIN, EMAILJS_PRIVATE_KEY, mailConfigured, sendInvite } from './mailer'
 import { recomputeRanks } from './triggers'
 
 const ZONES: Zone[] = ['entrance', 'middle', 'far']
@@ -261,6 +261,12 @@ export const createBooth = onCall(async (req) => {
   if (typeof d.sortOrder !== 'number') booth.sortOrder = count + 1
   const id = str(d.id, 'id', { required: false, max: 40 }) || `booth-${String(count + 1).padStart(2, '0')}`
   if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new HttpsError('invalid-argument', 'Bad booth id')
+  /*
+   * The festival survey is stored as a booth survey under this id, and is admin-only precisely
+   * because no organizer's `boothId` claim can equal it. A booth created with it would hand
+   * that booth's organizer every festival response.
+   */
+  if (id === EVENT_SURVEY_ID) throw new HttpsError('invalid-argument', 'That booth id is reserved')
   const ref = db.doc(`booths/${id}`)
   if ((await ref.get()).exists) throw new HttpsError('already-exists', 'Booth id in use')
   const batch = db.batch()
@@ -601,7 +607,7 @@ function eventDates(ev: ActiveEvent): string {
   return a && b ? (a === b ? a : a + ' - ' + b) : ev.days.join(' / ')
 }
 
-export const inviteOrganizer = onCall({ secrets: [RESEND_API_KEY] }, async (req) => {
+export const inviteOrganizer = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
   const ev = await getActiveEvent(true)
   const list: Array<{ name: string; email: string; boothId: string; role?: Role }> = Array.isArray(req.data?.invites)
@@ -632,7 +638,7 @@ export const inviteOrganizer = onCall({ secrets: [RESEND_API_KEY] }, async (req)
     let mailed = false
     try {
       mailed = await sendInvite({
-        to: email, name: displayName, boothName, link,
+        to: email, name: displayName, boothName, link, role,
         expires: expiresAt.toDate().toLocaleDateString('en-GB'),
         eventName: ev.nameEn, eventDates: eventDates(ev),
       })
@@ -640,13 +646,17 @@ export const inviteOrganizer = onCall({ secrets: [RESEND_API_KEY] }, async (req)
       console.error('invite mail failed', e)
     }
     await audit(actor, 'inviteOrganizer', 'invite', ref.id, null, { email, boothId, role, mailed })
-    // The link is returned to the admin only when mail did not go out, so it can be copied by hand.
-    results.push({ inviteId: ref.id, email, mailed, link: mailed ? undefined : link })
+    // The link always comes back, whether or not the mail went out. When it did, the admin screen
+    // keeps it folded away — but an invitation that lands in spam is common, and the only other
+    // way to hand the organizer their link is `resendInvite`, which rotates the token and kills
+    // the copy already sitting in their inbox. This is not an extra exposure: the token is
+    // single-use and refuses any address but the invited one (see `acceptInvite`).
+    results.push({ inviteId: ref.id, email, mailed, link })
   }
   return { results, mailConfigured: mailConfigured() }
 })
 
-export const resendInvite = onCall({ secrets: [RESEND_API_KEY] }, async (req) => {
+export const resendInvite = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
   const id = str(req.data?.inviteId, 'inviteId')
   const ref = db.doc(`invites/${id}`)
@@ -662,12 +672,13 @@ export const resendInvite = onCall({ secrets: [RESEND_API_KEY] }, async (req) =>
   try {
     mailed = await sendInvite({
       to: inv.email, name: inv.displayName, boothName, link,
+      role: inv.role === 'admin' ? 'admin' : 'organizer',
       expires: expiresAt.toDate().toLocaleDateString('en-GB'),
       eventName: ev.nameEn, eventDates: eventDates(ev),
     })
   } catch (e) { console.error(e) }
   await audit(actor, 'resendInvite', 'invite', id, null, { mailed })
-  return { mailed, link: mailed ? undefined : link }
+  return { mailed, link }
 })
 
 export const revokeInvite = onCall(async (req) => {
@@ -759,7 +770,7 @@ export const acceptInvite = onCall(async (req) => {
 // ---------- misc ----------
 
 /** What the dashboard's readiness checklist cannot see from the client: whether invitation mail can be sent. */
-export const setupStatus = onCall({ secrets: [RESEND_API_KEY] }, async (req) => {
+export const setupStatus = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async (req) => {
   requireRole(req, 'admin')
   return { mailConfigured: mailConfigured() }
 })

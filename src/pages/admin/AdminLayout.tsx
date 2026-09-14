@@ -28,6 +28,8 @@ const GROUPS: Array<{ title: StringKey; items: Item[] }> = [
   { title: 'admin.group.run', items: [
     { to: '/admin', label: 'admin.nav.dashboard', icon: Icon.dashboard, end: true },
     { to: '/admin/draw', label: 'admin.nav.draw', icon: Icon.draw },
+    { to: '/admin/ratings', label: 'admin.nav.ratings', icon: Icon.audit },
+    { to: '/admin/feedback', label: 'admin.nav.feedback', icon: Icon.lists },
   ] },
   { title: 'admin.group.setup', items: [
     { to: '/admin/event', label: 'admin.nav.event', icon: Icon.event },

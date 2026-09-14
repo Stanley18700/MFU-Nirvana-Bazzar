@@ -14,7 +14,7 @@ import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import { num } from '../../lib/form'
 import { onStage } from '../../lib/onStage'
 import {
-  OPTION_LIMIT, QUESTION_KINDS, QUESTION_LIMIT, blankQuestion, hasOptions, surveyProblems,
+  EVENT_SURVEY_ID, OPTION_LIMIT, QUESTION_KINDS, QUESTION_LIMIT, blankQuestion, hasOptions, surveyProblems,
   type QuestionKind, type SurveyDoc, type SurveyQuestion,
 } from '../../../shared/model'
 
@@ -33,8 +33,15 @@ export default function Survey() {
   const { role, boothId: claimBooth } = useAuth()
   const [params] = useSearchParams()
   const boothId = role === 'admin' ? params.get('boothId') : claimBooth
+  /*
+   * The festival's own survey is stored under a reserved id with no booth behind it (see
+   * EVENT_SURVEY_ID). An admin edits its wording here rather than in a redeploy, so the two
+   * places that insist on a booth document give way for it: the guard below, and the heading.
+   * Nothing else in the builder cares what the id refers to.
+   */
+  const festival = boothId === EVENT_SURVEY_ID
   const { t, pick } = useLocale()
-  const { data: booth, loading } = useBooth(boothId)
+  const { data: booth, loading } = useBooth(festival ? null : boothId)
   const saved = useDoc<SurveyDoc>(boothId ? doc(db, 'surveys', boothId) : null, [boothId], 'this survey')
 
   const [title, setTitle] = useState('')
@@ -134,16 +141,18 @@ export default function Survey() {
   const shell = (children: React.ReactNode) => (
     <OrganizerPage boothId={boothId} booth={booth} marks={undefined}>{children}</OrganizerPage>
   )
-  if (boothId && loading) return shell(<Spinner label={t('stats.loading')} />)
-  if (!boothId || !booth) return shell(<Notice tone="amber">{!boothId ? t('stats.noBooth') : t('stats.boothGone')}</Notice>)
+  if (boothId && !festival && loading) return shell(<Spinner label={t('stats.loading')} />)
+  if (!boothId || (!booth && !festival)) return shell(<Notice tone="amber">{!boothId ? t('stats.noBooth') : t('stats.boothGone')}</Notice>)
 
   return shell(
     <>
       <Toast msg={msg} onClose={() => setMsg(null)} />
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
-          <div className="stamp-text" style={{ color: onStage(booth.accentColor) }}>Survey</div>
-          <h1 className="text-2xl font-bold">{pick(booth.nameEn, booth.nameTh)}</h1>
+          <div className="stamp-text" style={{ color: booth ? onStage(booth.accentColor) : undefined }}>Survey</div>
+          <h1 className="text-2xl font-bold">
+            {festival ? 'Festival feedback' : booth ? pick(booth.nameEn, booth.nameTh) : ''}
+          </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className={`rounded-full px-2.5 py-1 text-xs ${published ? 'bg-success/20 text-success-text' : 'bg-white/10 text-ink-soft'}`}>
@@ -155,8 +164,9 @@ export default function Survey() {
         </div>
       </div>
       <p className="mt-2 max-w-prose text-sm text-ink-soft">
-        Offered to a visitor straight after they collect this booth's stamp. Answering is optional
-        and never changes their points, and you see the answers without seeing who gave them.
+        {festival
+          ? 'Offered on the prize page to any visitor with at least one stamp. Answering is optional and never changes their points, and you see the answers without seeing who gave them. The results live under Festival feedback in the admin console.'
+          : "Offered to a visitor straight after they collect this booth's stamp. Answering is optional and never changes their points, and you see the answers without seeing who gave them."}
       </p>
       <DataErrors className="mt-3" />
 
@@ -233,7 +243,7 @@ export default function Survey() {
           <h2 className="stamp-text text-ink-soft">Preview — exactly what a visitor sees</h2>
           <div className="mt-3">
             {/* The visitor's own renderer, read-only. Nothing here is an approximation. */}
-            <SurveyForm questions={questions} answers={{}} onChange={() => undefined} readOnly accent={onStage(booth.accentColor)} />
+            <SurveyForm questions={questions} answers={{}} onChange={() => undefined} readOnly accent={booth ? onStage(booth.accentColor) : undefined} />
           </div>
         </section>
       )}

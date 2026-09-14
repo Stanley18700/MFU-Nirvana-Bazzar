@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { collection, limit, orderBy, query } from 'firebase/firestore'
-import { Area, AreaChart, ResponsiveContainer, XAxis, YAxis } from 'recharts'
-import { db } from '../../lib/firebase'
-import { ms, useBooths, useBoothStats, useBuckets, useCollection, useEvent, useEventStats } from '../../lib/data'
+import { APP_ORIGIN, db } from '../../lib/firebase'
+import { ms, useBooths, useBoothStats, useCollection, useEvent, useEventStats } from '../../lib/data'
 import { Crest, DataErrors, Icon, fmt } from '../../components/ui'
+import { QR } from '../../components/QR'
 import { fullscreenElement, isStandalone, onFullscreenChange, requestFullscreen } from '../../lib/fullscreen'
-import { StageGround } from '../../components/OrganizerPage'
+import { FestivalBackdrop, ScrapLabel } from '../auth/parts'
 import { useLocale } from '../../lib/locale'
 import type { DrawName } from './Draw'
+
+/** Big enough to scan from the middle of a hall, small enough to leave the board room. */
+function qrPx() {
+  if (typeof window === 'undefined') return 260
+  return Math.round(Math.max(180, Math.min(window.innerWidth * 0.17, window.innerHeight * 0.30)))
+}
 
 /** How long the draw holds the screen before the live stats come back. */
 const REVEAL_MS = 60_000
@@ -17,13 +23,11 @@ const SUSPENSE_MS = 1600
 
 /** §6.1 — presentation mode for a hall screen: dark navy, oversized figures, auto-rotating. */
 export default function Wall() {
-  const { t } = useLocale()
+  const { t, pick } = useLocale()
   const ev = useEventStats()
   const event = useEvent()
   const booths = useBooths()
   const { data: bstats } = useBoothStats()
-  const buckets = useBuckets(60)
-  const [view, setView] = useState<0 | 1>(0)
 
   /*
    * §6.7 asks for a draw "suitable for projection", and this is the surface already pointed at the
@@ -51,20 +55,23 @@ export default function Wall() {
     return () => { clearTimeout(beat); clearTimeout(over) }
   }, [latest?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const hasCurve = buckets.filter((b) => b.total > 0).length >= 3
-
-  // The 15-second rotation stops while a winner is up. Nothing should move under a name being read out.
-  useEffect(() => {
-    if (reveal || !hasCurve) return
-    const id = setInterval(() => setView((v) => (v ? 0 : 1)), 15000)
-    return () => clearInterval(id)
-  }, [reveal, hasCurve])
-
   // Full screen is an explicit button (and the F key), not a click anywhere: the old page-wide
   // handler gave no hint it existed and threw an unhandled rejection when the browser refused.
   // Same story as the booth screen: an iPad shown the hall screen has no Fullscreen API on iOS
   // before iPadOS 13, and an iPhone never does. Two of the three hints are the booth screen's
   // own, reused rather than reworded.
+  /*
+   * The QR is the whole point of the screen for a visitor walking past, so it is sized off the
+   * viewport rather than fixed: a 320px square is a postage stamp on a 4K projector. Recomputed
+   * on resize because entering full screen changes the viewport under it.
+   */
+  const [qrSize, setQrSize] = useState(() => qrPx())
+  useEffect(() => {
+    const on = () => setQrSize(qrPx())
+    window.addEventListener('resize', on)
+    return () => window.removeEventListener('resize', on)
+  }, [])
+
   const [fs, setFs] = useState(() => !!fullscreenElement() || isStandalone())
   const [hint, setHint] = useState<string | null>(null)
   useEffect(() => onFullscreenChange(() => setFs(!!fullscreenElement() || isStandalone())), [])
@@ -84,51 +91,42 @@ export default function Wall() {
   const board = booths.map((b) => ({ ...b, stamps: bstats.find((s) => s.id === b.id)?.stamps ?? 0 })).sort((a, b) => b.stamps - a.stamps)
   const max = Math.max(1, ...board.map((b) => b.stamps))
   /*
-   * Two hours in, this is a curve. At 09:02 it is one dot in an empty grid, and the screen was
-   * handing half of every thirty seconds to it — a hall display showing nothing, twice a minute.
+   * Five, not seventy-eight. The full ranking belongs to the admin dashboard; here it ran off the
+   * bottom of the screen and under the footer, and seventy rows reading 0 is the opposite of the
+   * impression an entrance screen exists to give. Hidden entirely until something has happened.
    */
-  const timeline = [...buckets].sort((a, b) => (a.startsAt as { toMillis(): number }).toMillis() - (b.startsAt as { toMillis(): number }).toMillis()).map((b) => ({ t: new Date((b.startsAt as { toMillis(): number }).toMillis()).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' }), stamps: b.total }))
+  const top = board.filter((b) => b.stamps > 0).slice(0, 5)
 
-  const showCurve = view === 1 && hasCurve
+  /*
+   * The counters are sharded increments, so a deleted test visitor decrements a total that is
+   * already zero and the hall screen shows "-6 visitors" to the whole room. Clamped here because
+   * this is the screen the public reads; the real repair is Purge event data → event counters in
+   * the Event admin, which is also what clears a test run before the festival opens.
+   */
+  const show = (n: number) => fmt(Math.max(0, n))
 
   return (
     <>
-    <StageGround />
-    <main className="on-stage relative flex h-dvh flex-col overflow-hidden p-[4vw] text-ink">
-      <header className="flex items-start justify-between gap-[2vw]">
-        {/* The festival's mark leads, as it does on everything else the festival prints. It was on
-            the right, where it competed with the two controls for the same corner; identity goes
-            first and utility goes last. */}
-        <div>
-          <img src="/brand/logo-festival.webp" alt={event.nameEn} className="h-[9vh] w-auto" />
-          <h1 className="mt-[1.5vh] text-[3vw] font-bold leading-none">{t('wall.title')}</h1>
-        </div>
-        {/*
-         * Both controls disappear in full screen, which is the state this screen spends the
-         * festival in: a projector wants the wall, not our buttons. Out of full screen they are
-         * the two things a person standing at the laptop needs — and the way back to the console
-         * is a labelled button now, not the word "admin" in 1vw type in the footer corner.
-         */}
-        {/*
-         * One right-hand group, so the two controls sit together in the corner instead of adrift
-         * in the middle of the row — three children under `justify-between` pushed them there.
-         * Identical classes, so they are the same height and weight: neither is the primary
-         * action on a screen whose job is to be looked at.
-         */}
-        <div className="flex shrink-0 items-center gap-[1.5vw]">
-          {!fs && (
-            <div className="flex items-center gap-[0.8vw]">
-              <Link to="/admin" className="btn-quiet inline-flex items-center gap-[0.5vw] px-[1.2vw] py-[0.7vh] text-[1.1vw]">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-[1.1vw] w-[1.1vw]"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>{t('wall.adminConsole')}
-              </Link>
-              <button className="btn-quiet inline-flex items-center gap-[0.5vw] px-[1.2vw] py-[0.7vh] text-[1.1vw]" onClick={goFull}>
-                {Icon.fullscreen}Full screen
-              </button>
-            </div>
-          )}
-        </div>
+    {/* The landing screen's own sky, clouds, rocket and paper campus — the first thing a visitor
+        sees at the door should look like the poster and the app they are about to open, not like
+        an operations dashboard. */}
+    <FestivalBackdrop />
+    <main className="on-stage relative flex h-dvh flex-col overflow-hidden p-[3.5vw] text-ink">
+      <header className="flex shrink-0 items-start justify-between gap-[2vw]">
+        <ScrapLabel tone="ink" tilt={-2}>{t('v.landing.university')}</ScrapLabel>
+        {/* Both controls vanish in full screen, which is where this screen spends the festival. */}
+        {!fs && (
+          <div className="flex shrink-0 items-center gap-[0.8vw]">
+            <Link to="/admin" className="btn-quiet inline-flex items-center gap-[0.5vw] px-[1.2vw] py-[0.7vh] text-[1.1vw]">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="h-[1.1vw] w-[1.1vw]"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>{t('wall.adminConsole')}
+            </Link>
+            <button className="btn-quiet inline-flex items-center gap-[0.5vw] px-[1.2vw] py-[0.7vh] text-[1.1vw]" onClick={goFull}>
+              {Icon.fullscreen}Full screen
+            </button>
+          </div>
+        )}
       </header>
-      <DataErrors className="mt-[2vh] text-[1.2vw]" />
+      <DataErrors className="mt-[1.5vh] text-[1.1vw]" />
       {reveal ? (
         <section className="flex flex-1 flex-col items-center justify-center text-center">
           <div className="stamp-text text-[1.4vw] text-action">
@@ -149,49 +147,89 @@ export default function Wall() {
                   </li>
                 ))}
               </ol>
-              <div className="stamp-text mt-[6vh] text-[1.2vw] text-ink-soft">Drawn from {fmt(reveal.poolSize)} entries</div>
+              <div className="stamp-text mt-[6vh] text-[1.2vw] text-ink-soft">{t('wall.drawnFrom', { n: fmt(reveal.poolSize) })}</div>
             </>
           )}
         </section>
       ) : (
-      <>
-      <section className="mt-[3vh] grid shrink-0 grid-cols-3 gap-[2vw]">
-        {[[t('wall.visitors'), ev.totals.visitors], [t('wall.stamps'), ev.totals.stamps], [t('wall.prizes'), ev.totals.redeemed]].map(([l, v]) => (
-          <div key={l as string} className="glass p-[2vw]"><div className="fig text-[7vw] leading-none text-action">{fmt(v as number)}</div><div className="stamp-text mt-[1vh] text-[1.2vw] text-ink-soft">{l as string}</div></div>
-        ))}
-      </section>
-      {/* `min-h-0` is what keeps this honest: without it the flex child is free to grow past the
-          screen, which is how a 50vh chart put a scrollbar on a projector. */}
-      <section className="mt-[3vh] flex min-h-0 flex-1 flex-col">
-        {!showCurve ? (
-          <ol className="grid h-full grid-cols-2 content-between gap-x-[3vw] gap-y-[1.2vh]">
-            {board.map((b, i) => (
-              <li key={b.id} className="flex items-center gap-[1vw] text-[1.6vw]">
-                <span className="w-[2vw] text-right text-ink-soft">{i + 1}</span>
-                <span className="w-[16vw] truncate">{b.nameEn}</span>
-                <div className="h-[1.6vw] flex-1 rounded bg-ink/10"><div className="h-full rounded" style={{ width: `${(b.stamps / max) * 100}%`, background: i === 0 ? 'var(--color-orange-500)' : b.accentColor }} /></div>
-                <span className="fig w-[4vw] text-right">{fmt(b.stamps)}</span>
+      /*
+       * An entrance screen, not a dashboard.
+       *
+       * What stood here was the operations view: three counters and all 78 booths ranked, which
+       * ran off the bottom of the screen and under the footer, and which says nothing to somebody
+       * walking through the door. A visitor needs three things — what this is, how to start, and
+       * a reason to bother. The counters stay, small, because a live number is what makes it look
+       * worth joining; the booth board is reduced to the five busiest, which is the part that
+       * reads as a hall with something happening in it.
+       */
+      <section className="mt-[1vh] grid min-h-0 flex-1 grid-cols-[1.05fr_0.95fr] items-center gap-[3vw]">
+        <div className="flex min-h-0 flex-col justify-center">
+          <img src="/brand/logo-festival-tagline.webp" alt={pick(event.nameEn, event.nameTh)} className="w-[min(38vw,720px)]" />
+          <div className="mt-[2.5vh]"><ScrapLabel tone="orange" tilt={1.75} className="!text-[1.3vw]">{t('v.landing.badge')}</ScrapLabel></div>
+          <p className="mt-[2vh] max-w-[36vw] text-[1.7vw] font-medium leading-snug text-ink">{t('v.landing.pitch')}</p>
+
+          <ol className="mt-[3vh] flex flex-wrap gap-[1.2vw]">
+            {[t('wall.step1'), t('wall.step2'), t('wall.step3')].map((step, i) => (
+              <li key={step} className="glass flex items-center gap-[0.8vw] px-[1.2vw] py-[1.1vh]">
+                <span className="fig grid h-[2.4vw] w-[2.4vw] shrink-0 place-items-center rounded-full bg-action text-[1.2vw] text-white">{i + 1}</span>
+                <span className="text-[1.25vw] font-semibold">{step}</span>
               </li>
             ))}
           </ol>
-        ) : (
-          <div className="glass min-h-0 flex-1 p-[1.5vw]">
-            <ResponsiveContainer>
-              <AreaChart data={timeline}>
-                <XAxis dataKey="t" tick={{ fill: '#1F5A6B', fontSize: 14 }} axisLine={false} tickLine={false} minTickGap={40} />
-                <YAxis tick={{ fill: '#1F5A6B', fontSize: 14 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Area type="monotone" dataKey="stamps" stroke="#12708A" strokeWidth={3} fill="rgba(18,112,138,.14)" dot={false} isAnimationActive={false} />
-              </AreaChart>
-            </ResponsiveContainer>
+
+          <div className="mt-[3vh] flex gap-[1.5vw]">
+            {[[t('wall.visitors'), ev.totals.visitors], [t('wall.stamps'), ev.totals.stamps], [t('wall.prizes'), ev.totals.redeemed]].map(([l, v]) => (
+              <div key={l as string} className="glass px-[1.6vw] py-[1.2vh]">
+                <div className="fig text-[3vw] leading-none text-action">{show(v as number)}</div>
+                <div className="stamp-text mt-[0.4vh] text-[0.95vw] text-ink-soft">{l as string}</div>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
+
+        <div className="flex min-h-0 flex-col items-center justify-center gap-[2vh]">
+          {/* The one thing a visitor at the door has to be able to act on. */}
+          <div className="glass flex flex-col items-center gap-[1.2vh] px-[2.5vw] py-[2.5vh]">
+            <div className="stamp-text text-center text-[1.25vw] text-ink">{t('wall.joinHere')}</div>
+            <QR value={APP_ORIGIN} size={qrSize} />
+            <div className="fig text-[1.3vw] text-ink">{APP_ORIGIN.replace(/^https?:\/\//, '')}</div>
+          </div>
+
+          {/* Only when the hall has actually done something — five rows of zeros is not news. */}
+          {top.length > 0 && (
+            <div className="glass w-full px-[1.6vw] py-[1.2vh]">
+              <div className="stamp-text text-[0.95vw] text-ink-soft">{t('wall.busiest')}</div>
+              <ol className="mt-[0.8vh] flex flex-col gap-[0.6vh]">
+                {top.map((b, i) => (
+                  <li key={b.id} className="flex items-center gap-[0.8vw] text-[1.15vw]">
+                    <span className="w-[1.2vw] shrink-0 text-right text-ink-soft">{i + 1}</span>
+                    <span className="min-w-0 flex-1 truncate">{pick(b.nameEn, b.nameTh)}</span>
+                    <div className="h-[0.9vw] w-[7vw] shrink-0 rounded bg-ink/10">
+                      <div className="h-full rounded" style={{ width: `${(b.stamps / max) * 100}%`, background: i === 0 ? 'var(--color-orange-500)' : b.accentColor }} />
+                    </div>
+                    <span className="fig w-[2.5vw] shrink-0 text-right">{fmt(b.stamps)}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </div>
       </section>
-      </>
       )}
-      <footer className="stamp-text mt-[2vh] flex shrink-0 items-center justify-between gap-4 text-[1vw] text-ink-soft">
-        <span>{t('wall.footerScan')}</span>
-        <span>{hint ?? t(fs ? 'wall.escLeaves' : 'wall.pressF')}</span>
-      </footer>
+      {/*
+        * Nothing under the poster in full screen.
+        *
+        * The footer carried two lines that both had to go: one repeated what the QR card already
+        * says a foot above it, and the other explained the Esc key to a hall of visitors. Both
+        * sat over the paper campus, where the artwork made them unreadable anyway. What is left
+        * is the operator's own hint, and it shows only out of full screen — the same rule the two
+        * buttons in the header follow, so the projected screen is the poster and nothing else.
+        */}
+      {!fs && (
+        <footer className="stamp-text mt-[2vh] shrink-0 text-right text-[1vw] text-ink-soft">
+          {hint ?? t('wall.pressF')}
+        </footer>
+      )}
     </main>
     </>
   )
