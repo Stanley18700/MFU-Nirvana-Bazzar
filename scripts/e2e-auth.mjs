@@ -146,6 +146,9 @@ async function main() {
   // The pending screen watches its own row, so this read has to work — and only this one.
   ok('can read their own request', (await getDoc(doc(db, 'staffRequests', guestUid))).exists())
   await denied('but not anyone else’s', () => getDoc(doc(db, 'staffRequests', 'someone-else')))
+  // A list, not a get: the rule is keyed on the document id, and Firestore refuses a query it
+  // cannot prove stays inside that — so a visitor cannot enumerate who else has asked.
+  await denied('and cannot list the requests at all', () => getDocs(collection(db, 'staffRequests')))
 
   section('The first admin comes from the bootstrap key, once')
   await signOut(auth)
@@ -268,6 +271,41 @@ async function main() {
   ok('and worth the standard points, not zero', nb.points >= 1, String(nb.points))
   ok('with a secret, or its screen could never start', !!(await ownerDoc(`boothSecrets/${made.boothId}`)).secret)
   ok('the request records what they were put on', (await ownerDoc(`staffRequests/${g2}`)).grantedBoothId === made.boothId)
+
+  /*
+   * The generated id used to be `booth-{count+1}`, full stop. Delete any booth and the count
+   * drops by one, the next id is one already taken, and every later create fails with "Booth id
+   * in use" however often it is retried — an admin at a desk could shrug, a host waiting on an
+   * approval could not. Two creates, delete the first, then a third must walk past the hole.
+   */
+  section('A generated booth id walks past a deleted booth')
+  await signOut(auth); const g4 = await signUp('guest4@example.com')
+  await call('requestBoothAccess')({ newBoothName: 'Second New Booth' })
+  await signOut(auth); await signIn('admin1@example.com')
+  const second = await call('decideStaffRequest')({ uid: g4, approve: true })
+  await call('deleteBooth')({ id: made.boothId })
+  ok('the first created booth is gone', !(await ownerDoc(`booths/${made.boothId}`)).nameEn)
+  await signOut(auth); const g5 = await signUp('guest5@example.com')
+  await call('requestBoothAccess')({ newBoothName: 'Third New Booth' })
+  await signOut(auth); await signIn('admin1@example.com')
+  const third = await call('decideStaffRequest')({ uid: g5, approve: true })
+  ok('a third approval still creates a booth', !!third.createdBooth, third.boothId)
+  ok('and did not collide with the one still standing', third.boothId !== second.boothId, `${third.boothId} vs ${second.boothId}`)
+
+  /*
+   * An organizer whose claim names no booth is exactly who the booth screen's dead end sends
+   * here. Refusing every organizer — the first version did — turned that link into a loop.
+   */
+  section('An organizer with no booth may ask for one')
+  await signOut(auth); const g6 = await signUp('guest6@example.com')
+  await idt({ localId: g6, customAttributes: JSON.stringify({ role: 'organizer' }) })
+  await auth.currentUser.getIdToken(true)
+  ok('the claim says organizer but names no booth', (await claims()).role === 'organizer' && (await claims()).boothId === undefined)
+  ok('and they may still ask', (await call('requestBoothAccess')({ boothId: 'ED2' })).status === 'pending')
+  await signOut(auth); await signIn('admin1@example.com')
+  await call('decideStaffRequest')({ uid: g6, approve: true })
+  await signOut(auth); await signIn('guest6@example.com')
+  ok('and now have one', (await claims()).boothId === 'ED2')
 
   section('A rejected request changes nothing')
   await signOut(auth); const g3 = await signUp('guest3@example.com')

@@ -24,7 +24,7 @@ import type { StaffRequestDoc } from '../../../shared/model'
  */
 export default function BoothAccess() {
   const { t } = useLocale()
-  const { ready, user, role, refreshClaims } = useAuth()
+  const { ready, user, role, boothId: claimBooth, refreshClaims } = useAuth()
   const nav = useNavigate()
   const booths = useBooths()
   const mine = useDoc<StaffRequestDoc>(user ? doc(db, 'staffRequests', user.uid) : null, [user?.uid], 'your request')
@@ -36,8 +36,10 @@ export default function BoothAccess() {
 
   if (!ready) return <AuthShell back="/" title={t('v.staff.title')}><div className="mt-4"><Spinner /></div></AuthShell>
 
-  // Already staff — nothing to ask for. Sent on rather than shown a form that would be refused.
-  if (role === 'organizer') return <AuthShell back="/" title={t('v.staff.title')} lead={t('v.staff.alreadyStaff')}><Link to="/booth" className="btn-primary mt-4 block py-3 text-center">{t('v.staff.toBooth')}</Link></AuthShell>
+  // Already working staff — nothing to ask for, so sent on rather than shown a form the server
+  // would refuse. An organizer with NO booth is the exception and falls through to the form: the
+  // booth screen's dead end links here precisely for them, and bouncing them back was a loop.
+  if (role === 'organizer' && claimBooth) return <AuthShell back="/" title={t('v.staff.title')} lead={t('v.staff.alreadyStaff')}><Link to="/booth" className="btn-primary mt-4 block py-3 text-center">{t('v.staff.toBooth')}</Link></AuthShell>
   if (role === 'admin') return <AuthShell back="/" title={t('v.staff.title')} lead={t('v.staff.alreadyStaff')}><Link to="/admin" className="btn-primary mt-4 block py-3 text-center">{t('v.staff.toAdmin')}</Link></AuthShell>
 
   if (!user) {

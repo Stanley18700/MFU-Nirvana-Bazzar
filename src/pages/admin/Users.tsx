@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
-import { collection, limit, orderBy, query, where } from 'firebase/firestore'
+import { collection, doc, limit, orderBy, query, where } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { api, errorMessage, type CreateUserInput, type UpdateUserInput } from '../../lib/api'
-import { useBooths, useCollection, useRefList, useTiers, type WithId } from '../../lib/data'
+import { useBooths, useCollection, useDoc, useRefList, useTiers, type WithId } from '../../lib/data'
 import { CopyButton, Drawer, Notice, Toast, type Msg } from '../../components/ui'
 import { Select } from '../../components/Select'
 import { COUNTRIES, countryName } from '../../lib/countries'
@@ -543,6 +543,15 @@ function EditForm({ u, onSave, onCancel }: { u: Row; onSave: (patch: Omit<Update
   )
 }
 
+/** Who currently runs the booth a request names, so an approval is a choice and not a surprise. */
+function CurrentHolder({ uid, self }: { uid: string; self: string }) {
+  const { t } = useLocale()
+  const holder = useDoc<UserDoc>(doc(db, 'users', uid), [uid], 'the current organizer').data
+  // Their own re-request for a booth they already hold is not a conflict worth flagging.
+  if (uid === self) return null
+  return <p className="mt-1 text-xs font-medium text-warn-text">{t('users.reqHeldBy', { name: holder?.displayName || holder?.contact || uid })}</p>
+}
+
 /**
  * Booth hosts who asked for access without an invitation.
  *
@@ -587,6 +596,12 @@ function StaffRequests({ booths, onDone, fail }: {
                 ? t('users.reqWants', { booth: booths.find((b) => b.id === r.boothId)?.nameEn ?? r.boothId })
                 : t('users.reqWantsNew', { booth: r.newBoothName ?? '' })}
             </p>
+            {/* The decision the admin is actually making when the booth is already staffed is
+                "a second person, or a mistake?" — and they cannot make it without being told there
+                is a first person. The booth's own pointer names them. */}
+            {r.boothId && booths.find((b) => b.id === r.boothId)?.organizerUid && (
+              <CurrentHolder uid={booths.find((b) => b.id === r.boothId)!.organizerUid!} self={r.id} />
+            )}
             {r.note && <p className="mt-1 text-xs italic text-ink-soft">{r.note}</p>}
             <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
               {/* An override, because the name someone gives their booth and the name on the

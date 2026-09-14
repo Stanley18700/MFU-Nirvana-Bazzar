@@ -38,11 +38,16 @@ export const requestBoothAccess = onCall(async (req) => {
 
   /*
    * The same guard `join` uses (visitor.ts) and for the same reason: an account that already holds
-   * a role must not be able to launder itself into a different one through a side door. An
-   * organizer who needs a different booth is an admin's job, not a new request.
+   * a working role must not launder itself into a different one through a side door. An organizer
+   * who wants a *different* booth is an admin's job, not a new request.
+   *
+   * An organizer with no booth at all is the exception, and the reason the booth screen's dead end
+   * links here: the claim says staff but names nothing, so the screen cannot start and there is
+   * otherwise no way forward for them. Refusing them too would have sent that link in a circle.
    */
   const role = req.auth!.token.role as string | undefined
-  if (role === 'organizer' || role === 'admin') {
+  const claimBooth = req.auth!.token.boothId as string | undefined
+  if (role === 'admin' || (role === 'organizer' && claimBooth)) {
     throw new HttpsError('failed-precondition', 'This account is already staff. Ask an admin to change which booth it runs.')
   }
 
@@ -56,10 +61,12 @@ export const requestBoothAccess = onCall(async (req) => {
     throw new HttpsError('not-found', 'That booth no longer exists — pick another, or type its name')
   }
 
-  // Generous, like `join`: a verified address already cost an inbox round-trip, so this only has
-  // to stop a script working through a pile of them.
+  // As generous as `join`, and for a reason that is specific to the day: the venue's Wi-Fi puts
+  // every host behind one address, so a per-network limit tight enough to matter would lock out
+  // the tenth legitimate person on the morning of the 16th. Filing grants nothing, so the only
+  // thing this protects is the admin's list from a script — and 200 an hour still does that.
   const { ipPrefix } = clientFingerprint(req)
-  if (!(await rateLimit(`staffreq_${ipPrefix}`, 60, 3600))) {
+  if (!(await rateLimit(`staffreq_${ipPrefix}`, 200, 3600))) {
     throw new HttpsError('resource-exhausted', 'Too many requests from this network in the last hour. Please ask a member of staff.')
   }
 

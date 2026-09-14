@@ -269,7 +269,21 @@ export async function createBoothDoc(
   const booth = boothFromData(ev, d)
   if (!d.accentColor) booth.accentColor = ACCENTS[count % ACCENTS.length]
   if (typeof d.sortOrder !== 'number') booth.sortOrder = count + 1
-  const id = str(d.id, 'id', { required: false, max: 40 }) || `booth-${String(count + 1).padStart(2, '0')}`
+  /*
+   * A generated id used to be `booth-{count+1}` and nothing more, which collides for good the
+   * moment any booth has ever been deleted: the count drops by one, the next id is one already
+   * taken, and every later create fails with "Booth id in use" no matter how often it is retried.
+   * That was tolerable when only an admin at a desk hit it. It is not tolerable when the create is
+   * an approval a host is standing there waiting on, so a generated id now walks forward until it
+   * finds a free one. A caller-supplied id is still refused if taken — that one is a real conflict.
+   */
+  let id = str(d.id, 'id', { required: false, max: 40 })
+  if (!id) {
+    for (let n = count + 1; ; n++) {
+      const candidate = `booth-${String(n).padStart(2, '0')}`
+      if (!(await db.doc(`booths/${candidate}`).get()).exists) { id = candidate; break }
+    }
+  }
   if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new HttpsError('invalid-argument', 'Bad booth id')
   /*
    * The festival survey is stored as a booth survey under this id, and is admin-only precisely
