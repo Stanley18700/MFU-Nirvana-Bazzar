@@ -50,7 +50,11 @@ const ok = (name, cond, extra = '') => {
 const section = (s) => console.log(`\n=== ${s} ===`)
 async function throws(name, fn, wanted) {
   try { await fn(); ok(name, false, 'no error thrown') } catch (e) {
-    ok(name, !wanted || (e.message ?? '').toLowerCase().includes(wanted.toLowerCase()), e.message)
+    // The emulator answers a denied read with the rules trace ('false for list @ L71') rather
+    // than Firestore's own 'Missing or insufficient permissions', so match the error CODE too —
+    // 'permission-denied' is the canonical signal and does not vary by emulator build.
+    const seen = `${e.code ?? ''} ${e.message ?? ''}`
+    ok(name, !wanted || seen.toLowerCase().includes(wanted.toLowerCase()), `${e.code ?? '?'} — ${e.message ?? ''}`)
   }
 }
 const OWNER = { 'Content-Type': 'application/json', Authorization: 'Bearer owner' }
