@@ -33,7 +33,7 @@ export default function Landing() {
           frosted panel behind it read as a card the artwork was sitting in. */}
       {/* First screen anyone sees, and the only one before an account exists: the switch has to
           be here or a Thai speaker meets an English sign-up form with no way out of it. */}
-      <div className="absolute right-4 top-4 z-30"><LangToggle className="shadow-card" /></div>
+      <div className="absolute right-4 top-4 z-30"><LangToggle className="seg-floating" /></div>
       <div className="page-in flex flex-col items-center px-3 py-2">
         <ScrapLabel tone="ink" tilt={-2.5}>{t('v.landing.university')}</ScrapLabel>
         {/*

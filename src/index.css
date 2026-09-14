@@ -594,6 +594,21 @@ details[open] > .pop-up { animation-name: pop-in-up; }
 .seg-dark { @apply bg-white/8; }
 .seg-dark::before { @apply bg-white; }
 .seg-dark .seg-item { @apply text-on-chrome-soft hover:bg-white/14 hover:text-white focus-visible:ring-foil/60; }
+/*
+ * The switch when it floats on artwork rather than sitting inside a card — the landing page and
+ * the signed-out screens.
+ *
+ * Nothing here is translucent. At 90% white over the pale sky the slip was within a few percent
+ * of its own background and disappeared, and a white pill on a white slip left the chosen
+ * language with nothing to stand against either. So: an opaque slip with a real edge, and the
+ * selected item in `action` with white text — the one sky step that carries white at 5.7:1. It
+ * reads the same over sky, campus canopy and the seal, which is what "at all screen widths"
+ * needs, since the artwork behind it moves with the viewport.
+ */
+/* `shadow-raised`, not a raw `box-shadow`: the ring compiles to `box-shadow` too, so a hand-written
+ * declaration is simply overwritten by it. Tailwind's own utility composes with the ring instead. */
+.seg-floating { @apply bg-white shadow-raised ring-1 ring-inset ring-ink/15; }
+.seg-floating .seg-item { @apply text-ink hover:bg-ink/8 hover:text-ink; }
 /* The current item is text colour only — the pill carries the fill. Resetting its hover stops the
  * item painting its own background over the pill it is sitting on. */
 .seg .seg-item[aria-current="page"],
@@ -602,6 +617,14 @@ details[open] > .pop-up { animation-name: pop-in-up; }
 .seg-light:not([data-tab-ready]) .seg-item[aria-pressed="true"] { @apply bg-white shadow-sm; }
 .seg-dark:not([data-tab-ready]) .seg-item[aria-current="page"],
 .seg-dark:not([data-tab-ready]) .seg-item[aria-pressed="true"] { @apply bg-white; }
+
+/* After the `.seg-light` rules above, which this variant is always applied alongside: the sliding
+ * pill and the chosen item both have to be restated, or the white pill and the white slip cancel. */
+.seg-floating::before { @apply bg-action shadow-none; }
+.seg-floating .seg-item[aria-current="page"],
+.seg-floating .seg-item[aria-pressed="true"] { @apply text-white hover:bg-transparent hover:text-white; }
+.seg-floating:not([data-tab-ready]) .seg-item[aria-current="page"],
+.seg-floating:not([data-tab-ready]) .seg-item[aria-pressed="true"] { @apply bg-action text-white shadow-none; }
 
 /* Segmented tabs: the day picker, the invitation filter, the reference-list tabs. `bg-ink/5` moves
  * off the call sites and into the recipe, so `.tab` is self-contained and the pill has one owner. */
