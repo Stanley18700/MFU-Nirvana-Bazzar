@@ -12,6 +12,8 @@ import type { StringKey } from '../../lib/strings'
 
 /** Sentinel for the select: not a country code, and no ISO code is 8 characters. */
 const OTHER_COUNTRY = '__other__'
+/** The same trick for the ethnic-group list, which is a starting point rather than a closed set. */
+const OTHER_ETHNIC = '__other__'
 
 const TYPES: Array<{ v: VisitorType; label: StringKey }> = [
   { v: 'student', label: 'v.join.type.student' }, { v: 'staff', label: 'v.join.type.staff' },
@@ -44,6 +46,8 @@ export default function Join() {
   // The country search panel: shut until somebody says their country is not one of the nine.
   const [findCountry, setFindCountry] = useState(false)
   const [countryQuery, setCountryQuery] = useState('')
+  // Open once somebody says their community is not on the list, and stays open while they type.
+  const [ethnicOther, setEthnicOther] = useState(false)
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((s) => ({ ...s, [k]: v }))
 
   useEffect(() => { if (f.institution !== 'MFU' && f.school) set('school', '') }, [f.institution]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -70,9 +74,13 @@ export default function Join() {
 
   /** Country decides which ethnic-group list is offered, so changing it invalidates both. */
   function chooseCountry(code: string) {
-    set('countryCode', code); set('ethnicGroup', ''); set('ethnicConsent', false)
+    set('countryCode', code); set('ethnicGroup', ''); set('ethnicConsent', false); setEthnicOther(false)
   }
   const ethnicOptions: string[] = ethnic[f.countryCode] ?? []
+  /* Anything not on the country's list — typed in, or carried over from a previous country — keeps
+     the list on "something else" so the field never reads an answer back as though it were blank. */
+  const inEthnicList = f.ethnicGroup === 'Prefer not to say' || ethnicOptions.includes(f.ethnicGroup)
+  const ethnicValue = ethnicOther || (f.ethnicGroup && !inEthnicList) ? OTHER_ETHNIC : f.ethnicGroup
 
   if (!ready) return <Spinner page />
   if (role === 'visitor') return <Navigate to={from ?? '/passport'} replace />
@@ -245,14 +253,41 @@ export default function Join() {
           <label className="block">
             <span className="stamp-text text-ink-soft">{t('v.join.ethnic')} <span className="font-normal normal-case tracking-normal">{t('v.join.optional')}</span></span>
             <p className="mt-1 text-xs text-ink-soft">{t('v.join.ethnicNote')}</p>
-            <input className="field mt-2" list="ethnic" maxLength={80} value={f.ethnicGroup} onChange={(e) => set('ethnicGroup', e.target.value)} placeholder={t('v.join.ethnicPlaceholder')} />
-            <datalist id="ethnic">
-              {/* The stored value stays English whichever way the toggle is set: it is data the
-                  organisers report on, not a label. Only the option's own text is translated. */}
-              <option value="Prefer not to say" label={t('v.join.preferNot')} />
-              {ethnicOptions.map((g) => <option key={g} value={g} />)}
-            </datalist>
           </label>
+          {/*
+            * A list with a way out, like the country field above it — not a `<datalist>`, whose
+            * suggestions the browser draws as a system menu over the form. The list is a starting
+            * point to be reviewed, so "something else" has to stay open: choosing it reveals the
+            * text field, and anything typed there is stored exactly as written.
+            *
+            * The stored value stays English whichever way the toggle is set: it is data the
+            * organisers report on, not a label. Only "Prefer not to say" is translated.
+            */}
+          <Select
+            id="join-ethnic" ariaLabel={t('v.join.ethnic')} className="mt-2"
+            value={ethnicValue}
+            onChange={(v) => {
+              if (v === OTHER_ETHNIC) { setEthnicOther(true); set('ethnicGroup', ''); return }
+              setEthnicOther(false)
+              set('ethnicGroup', v)
+            }}
+            placeholder={t('v.join.ethnicPlaceholder')}
+            options={[
+              { value: 'Prefer not to say', label: t('v.join.preferNot') },
+              ...ethnicOptions.map((g) => ({ value: g, label: g })),
+              { value: OTHER_ETHNIC, label: t('v.join.ethnicOther') },
+            ]}
+          />
+          {ethnicOther && (
+            <label className="mt-2 block">
+              <span className="sr-only">{t('v.join.ethnicOtherLabel')}</span>
+              <input
+                autoFocus className="field" maxLength={80} value={f.ethnicGroup}
+                onChange={(e) => set('ethnicGroup', e.target.value)}
+                placeholder={t('v.join.ethnicOtherLabel')} aria-label={t('v.join.ethnicOtherLabel')}
+              />
+            </label>
+          )}
           {f.ethnicGroup && f.ethnicGroup !== 'Prefer not to say' && (
             <label className="mt-3 flex items-start gap-2 text-sm">
               <input type="checkbox" className="mt-1" checked={f.ethnicConsent} onChange={(e) => set('ethnicConsent', e.target.checked)} />
