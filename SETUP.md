@@ -144,7 +144,11 @@ Copy `.env.local.example` to `.env.local` (gitignored) and paste the values from
 
 ```ini
 VITE_FIREBASE_API_KEY=AIza...
-VITE_FIREBASE_AUTH_DOMAIN=<project-id>.firebaseapp.com
+# The Hosting domain, and not the `.firebaseapp.com` one the console offers. Google sign-in falls
+# back to `signInWithRedirect` inside the LINE, Facebook and Instagram webviews, and a redirect
+# through `firebaseapp.com` leaves the app's own origin. Authentication -> Settings -> Authorized
+# domains has to list it.
+VITE_FIREBASE_AUTH_DOMAIN=<project-id>.web.app
 VITE_FIREBASE_PROJECT_ID=<project-id>
 VITE_FIREBASE_STORAGE_BUCKET=<project-id>.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=<project number>
