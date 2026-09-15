@@ -110,7 +110,10 @@ export default function Ratings() {
           />
         </div>
 
-        <div className="mt-3 overflow-x-auto">
+        {/* The same wrapper the audit log's table has. Bare on the page the rows read as text
+            floating on the sky: the rules between them are the only thing separating a booth's
+            name from the artwork behind it. */}
+        <div className="card mt-3 overflow-x-auto">
           <table className="w-full min-w-[34rem] text-sm">
             <thead className="text-left text-xs uppercase tracking-wide text-ink-soft">
               <tr>
@@ -151,7 +154,7 @@ export default function Ratings() {
           : (
             <ul className="mt-3 space-y-2">
               {withText.map((c) => (
-                <li key={c.id} className="rounded-xl border border-rule bg-white p-3">
+                <li key={c.id} className="card p-4">
                   <div className="flex items-baseline justify-between gap-3 text-xs text-ink-soft">
                     <span>{names.get(c.boothId) ?? c.boothId}</span>
                     <span>{ts(c.ratedAt)}</span>
@@ -174,7 +177,7 @@ export default function Ratings() {
 
 function Tile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-rule bg-white p-4">
+    <div className="card">
       <div className="text-xs uppercase tracking-wide text-ink-soft">{label}</div>
       <div className="fig mt-1 text-2xl">{value}</div>
     </div>
