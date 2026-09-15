@@ -147,7 +147,17 @@ export async function audit(actorUid: string, action: string, targetType: string
   })
 }
 
-/** Simple fixed-window rate limit on a rateLimits/{key} document. */
+/**
+ * Simple fixed-window rate limit on a rateLimits/{key} document.
+ *
+ * One document per key, read-then-written in a transaction — fine for a per-user key, which
+ * only that user's phone ever touches. Not fine for a key many people share at once (see
+ * `rateLimitShared`): Firestore sustains about one write a second on a single document, and
+ * every registration at the welcome desk would queue behind the same one.
+ *
+ * `maxAttempts` is raised from the SDK's five: a contended transaction here should wait its
+ * turn, not surface as an "internal" error to someone standing at the desk.
+ */
 export async function rateLimit(key: string, limit: number, windowSeconds: number): Promise<boolean> {
   const ref = db.doc(`rateLimits/${key}`)
   const now = Date.now()
@@ -161,7 +171,25 @@ export async function rateLimit(key: string, limit: number, windowSeconds: numbe
     if (data.count >= limit) return false
     tx.update(ref, { count: FieldValue.increment(1) })
     return true
-  })
+  }, { maxAttempts: 10 })
+}
+
+export const RATE_LIMIT_SHARDS = 10
+
+/**
+ * The same fixed-window limit for a key that a whole network shares — `join_<ipPrefix>`, which
+ * at the festival is "everyone on the venue Wi-Fi".
+ *
+ * The count is spread over `RATE_LIMIT_SHARDS` documents, each allowing its share of `limit`,
+ * and a caller lands on one at random. That divides the write rate on any one document by ten,
+ * which is what keeps a burst of registrations from serialising behind a single hot document.
+ * The trade is precision: the limit is enforced per shard, so the effective ceiling sits
+ * somewhere between `limit` and a little under it depending on how evenly the dice fall.
+ * For a backstop against scripted abuse that is exactly precise enough.
+ */
+export async function rateLimitShared(key: string, limit: number, windowSeconds: number): Promise<boolean> {
+  const shard = Math.floor(Math.random() * RATE_LIMIT_SHARDS)
+  return rateLimit(`${key}_${shard}`, Math.ceil(limit / RATE_LIMIT_SHARDS), windowSeconds)
 }
 
 export function clientFingerprint(req: CallableRequest): { uaHash: string; ipPrefix: string } {

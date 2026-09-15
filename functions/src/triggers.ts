@@ -4,11 +4,40 @@ import { FieldPath, type QueryDocumentSnapshot } from 'firebase-admin/firestore'
 import { db, FieldValue, Timestamp, shardRef, demographicsRef, boothStatsRef, bucketRef, getActiveEvent, toMillis } from './lib'
 import { BoothStats, PrizeTierDoc, ScanDoc, UserDoc, hourOf } from './shared/model'
 
-/** §7.2 — one scan updates every counter in a single transaction, and creates tier unlocks. */
-export const onScanCreate = onDocumentCreated('scans/{scanId}', async (event) => {
+/**
+ * §7.2 — one scan updates every counter in a single transaction, and creates tier unlocks.
+ *
+ * `retry: true`, because this is where the points are actually credited. The transaction below
+ * writes documents the whole hall shares — the 5-minute bucket, the booth's counter — and at
+ * peak it will occasionally lose the contention race past its retries. Without `retry` a failed
+ * run is simply dropped: the scan document exists, the phone showed "+10", and the passport never
+ * moves. With it, Cloud Functions redelivers the event until the handler returns cleanly. The
+ * `countedScans` marker is what makes that safe — a redelivery of a scan that did get counted
+ * returns early and awards nothing twice.
+ *
+ * The one thing a retried trigger must never do is throw on a condition that will not clear:
+ * that becomes a redelivery every few minutes for seven days. Hence the `exists` check on the
+ * visitor below — a scan whose visitor has since been deleted is logged and finished, not thrown.
+ */
+export const onScanCreate = onDocumentCreated({ document: 'scans/{scanId}', retry: true }, async (event) => {
   const scan = event.data?.data() as ScanDoc | undefined
   if (!scan) return
-  const at = (scan.scannedAt as Timestamp).toDate()
+
+  /**
+   * The other half of the rule above: with `retry: true` a throw is a redelivery every few
+   * minutes for seven days, so a scan this handler can *never* process has to finish quietly
+   * instead of raising. `visitor.ts` always writes both of these in the transaction that
+   * creates the scan, so this is unreachable from the app — but a row added by hand in the
+   * console, or by one of the emulator scripts pointed at the wrong project, would otherwise
+   * spend the festival weekend redelivering. Logged at error, because it means a stamp exists
+   * that will never be credited and someone has to go and look.
+   */
+  const scannedAt = scan.scannedAt instanceof Timestamp ? scan.scannedAt : null
+  if (!scannedAt || typeof scan.pointsAwarded !== 'number') {
+    console.error(`onScanCreate: scan ${event.params.scanId} has no usable scannedAt/pointsAwarded; not counted`)
+    return
+  }
+  const at = scannedAt.toDate()
   const vt = scan.visitorType ?? 'guest'
   const inst = scan.institution || 'Unknown'
   const school = scan.institution === 'MFU' ? scan.school || 'Unknown school' : null
@@ -40,7 +69,15 @@ export const onScanCreate = onDocumentCreated('scans/{scanId}', async (event) =>
    */
   const counted = await db.runTransaction(async (tx) => {
     const doneRef = db.doc(`countedScans/${event.params.scanId}`)
-    if ((await tx.get(doneRef)).exists) return false
+    const [done, visitor] = await Promise.all([tx.get(doneRef), tx.get(userRef)])
+    if (done.exists) return false
+    if (!visitor.exists) {
+      // Deleted between the scan and this run (an admin hard-delete, the cleanup script). Nothing
+      // to credit and nobody to credit it to; returning rather than throwing is what stops
+      // `retry: true` from redelivering this forever.
+      console.warn(`onScanCreate: visitor ${scan.visitorId} no longer exists; scan ${event.params.scanId} not counted`)
+      return false
+    }
     tx.create(doneRef, {
       visitorId: scan.visitorId, boothId: scan.boothId, eventId: scan.eventId,
       deliveryId: event.id ?? null, processedAt: FieldValue.serverTimestamp(),
@@ -78,7 +115,7 @@ export const onScanCreate = onDocumentCreated('scans/{scanId}', async (event) =>
       lastSeenAt: FieldValue.serverTimestamp(),
     })
     return true
-  })
+  }, { maxAttempts: 10 })
   if (!counted) return
 
   // Tier unlocks are recorded as facts at the moment they happen (§6.7).

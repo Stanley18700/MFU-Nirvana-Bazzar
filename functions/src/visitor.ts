@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import { effectivePoints } from './shared/points'
 import {
-  db, auth, FieldValue, Timestamp, requireAuth, str, rateLimit, clientFingerprint, redemptionSecret, getActiveEvent,
+  db, auth, FieldValue, Timestamp, requireAuth, str, rateLimit, rateLimitShared, clientFingerprint, redemptionSecret, getActiveEvent,
   audit, toMillis,
 } from './lib'
 import { computeToken, constantTimeEqual, counterFor, normaliseManualCode, parsePayload, DEFAULT_PERIOD_SECONDS, ParsedToken } from './shared/token'
@@ -51,13 +51,23 @@ export const join = onCall(async (req) => {
    * address, so the sixth person to register in an hour was told to come back later. At the gate,
    * on the busiest hour of the event, with no way for them to work around it.
    *
+   * Then it was 200, which is the same mistake with a bigger number: the whole campus Wi-Fi is
+   * one /24 to us, a Thai carrier's NAT pool can be too, and a three-day festival of a few
+   * thousand people registers most of them in the first hour of day one. 5,000 an hour is above
+   * anything the welcome desk can physically produce, and still a wall to a script — which is
+   * the only thing this is for.
+   *
    * The real barrier to a fake passport is above: `join` refuses any account whose email address
    * is not verified, so every registration costs an inbox round-trip and Firebase Auth's own
    * abuse protection applies before this code runs. The number here only has to stop a script
    * that already has a pile of verified addresses, so it can be generous.
+   *
+   * `rateLimitShared`, not `rateLimit`: the counter is spread over ten documents, because a
+   * single one takes about a write a second and the gate on the morning of the 16th will do
+   * better than that. See the note on it in lib.ts.
    */
   const { ipPrefix } = clientFingerprint(req)
-  if (!(await rateLimit(`join_${ipPrefix}`, 200, 3600))) {
+  if (!(await rateLimitShared(`join_${ipPrefix}`, 5000, 3600))) {
     throw new HttpsError(
       'resource-exhausted',
       'Too many new passports from this network in the last hour. Ask a member of staff — they can register you on a phone.',
@@ -77,12 +87,31 @@ export const join = onCall(async (req) => {
     throw new HttpsError('already-exists', 'This email already has a passport. Sign in with it instead.')
   }
 
+  /*
+   * Passport numbers are issued in sequence from one document, so every registration in the
+   * hall passes through this transaction. That is deliberate — the numbers must be unique and
+   * the desk reads them out — but it means the gate rush contends here. Ten attempts rather
+   * than the SDK's five: at a few registrations a second the retries succeed within a second or
+   * two, and the alternative is a visitor at the desk seeing "internal" and starting again.
+   */
   const seq = await db.runTransaction(async (tx) => {
     const cRef = db.doc('counters/passport')
     const c = await tx.get(cRef)
     const next = ((c.data()?.value as number | undefined) ?? 0) + 1
     tx.set(cRef, { value: next }, { merge: true })
     return next
+  }, { maxAttempts: 10 }).catch((e) => {
+    /*
+     * Ten attempts make this unlikely, but they do not make it impossible, and an uncaught
+     * rejection here reaches the visitor as a bare "internal" — the exact thing the retries were
+     * raised to avoid. Nothing of theirs has been written at this point (the account row is
+     * created below), so "try again" is honest advice and not a way to a half-made passport.
+     */
+    console.error('passport counter exhausted its retries', e)
+    throw new HttpsError(
+      'unavailable',
+      'Too many people are registering at once. Tap Register again in a moment — your passport has not been created yet.',
+    )
   })
 
   // Forced: the passport number carries the event's prefix and is never reissued.
