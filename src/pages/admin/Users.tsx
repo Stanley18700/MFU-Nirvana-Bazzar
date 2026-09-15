@@ -32,22 +32,57 @@ const SEARCH_ALL = 2000
 type Cursor = { createdAt: unknown; id: string }
 
 /**
- * Previous / page / next. Two of these on the page, so the buttons and the count read the same
- * way whether the rows came from the server a page at a time or from a search filtered here.
+ * The pager: a numbered strip with the current page as the sliding pill, and an arrow either side.
+ *
+ * Numbers rather than a "Page 3" label between two buttons, because the label was status dressed
+ * as a control — same weight as the buttons beside it, and no way to act on it. In the strip the
+ * current page is the pill, so status and control are one thing, and a filled pill on a tinted
+ * track reads on a white card where two quiet buttons did not.
+ *
+ * `known` is how many pages can be jumped to. A search or the invitations know their whole
+ * length; the live list only knows the pages it has reached, since Firestore pages by cursor and
+ * a cursor is the last row of the page before — so its strip grows as the admin moves through it,
+ * and the right arrow is the only way to a page nobody has seen yet. Numbers that promised pages
+ * we cannot fetch would be a lie the first click exposes.
+ *
+ * No motion of its own beyond the pill the rest of the app already slides: this is pressed dozens
+ * of times a day at the desk, and a pager that animates is a pager that feels slow.
  */
-function Pager({ page, hasNext, onPage, from, to, total }: {
-  page: number; hasNext: boolean; onPage: (p: number) => void; from: number; to: number; total?: number
+function Pager({ page, hasNext, known, onPage, from, to, total }: {
+  page: number; hasNext: boolean; known: number; onPage: (p: number) => void; from: number; to: number; total?: number
 }) {
   const { t } = useLocale()
-  if (page === 0 && !hasNext) return null
+  const strip = useSlidingPill()
+  if (known <= 1 && !hasNext) return null
+  // Up to seven cells: every page when there are few, otherwise the ends and a window round here.
+  const all = Array.from({ length: known }, (_, i) => i)
+  const cells: Array<number | '…'> = known <= 7 ? all
+    : [...new Set([0, Math.max(1, page - 1), page, Math.min(known - 2, page + 1), known - 1].filter((n) => n >= 0 && n < known))]
+        .sort((a, b) => a - b)
+        .flatMap((n, i, arr) => (i > 0 && n - arr[i - 1] > 1 ? ['…' as const, n] : [n]))
   return (
     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-soft">
       <span>{total === undefined ? t('users.showingPage', { from, to }) : t('users.showingPageOf', { from, to, total })}</span>
-      <div className="flex items-center gap-1">
-        <button type="button" className="btn-quiet btn-sm" onClick={() => onPage(page - 1)} disabled={page === 0}>{t('users.prev')}</button>
-        <span className="px-2 tabular-nums">{t('users.page', { n: page + 1 })}</span>
-        <button type="button" className="btn-quiet btn-sm" onClick={() => onPage(page + 1)} disabled={!hasNext}>{t('users.next')}</button>
-      </div>
+      <nav className="flex items-center gap-1.5" aria-label={t('users.pages')}>
+        <button type="button" className="btn-ghost btn-sm btn-icon-sm" onClick={() => onPage(page - 1)} disabled={page === 0} aria-label={t('users.prev')}>
+          <span aria-hidden>‹</span>
+        </button>
+        <div ref={strip} className="seg seg-light" role="group">
+          {cells.map((c, i) => c === '…'
+            ? <span key={`gap${i}`} aria-hidden className="seg-item pointer-events-none px-2">…</span>
+            : (
+              <button
+                key={c} type="button" onClick={() => onPage(c)}
+                className="seg-item min-w-8 tabular-nums" aria-current={c === page ? 'page' : undefined} aria-label={t('users.page', { n: c + 1 })}
+              >
+                {c + 1}
+              </button>
+            ))}
+        </div>
+        <button type="button" className="btn-ghost btn-sm btn-icon-sm" onClick={() => onPage(page + 1)} disabled={!hasNext} aria-label={t('users.next')}>
+          <span aria-hidden>›</span>
+        </button>
+      </nav>
     </div>
   )
 }
@@ -123,12 +158,32 @@ export default function Users() {
   // What is on screen this page. Server pages arrive already cut; a search is cut here.
   const visible = searching ? filtered.slice(page * PAGE, (page + 1) * PAGE) : filtered
   const hasNext = searching ? filtered.length > (page + 1) * PAGE : liveHasNext
+  /*
+   * Moving forward leaves this page's last row behind as the cursor for the next one, recorded on
+   * the press rather than in an effect. An effect that watched the rows instead would fire once
+   * with the page number already advanced and the previous page's rows still on screen, and file
+   * that page's cursor under the new number — a duplicated page, found by walking nine of them.
+   *
+   * Cursors are kept, not truncated, so the numbers stay reachable after jumping back. They do
+   * not go stale: a cursor names a document, not an offset, so people arriving at the gate land
+   * on page one and shift nothing underneath it.
+   */
+  /*
+   * How many pages the strip may offer: the ones a cursor already exists for, plus the one after
+   * the page being looked at when the fifty-first row says there is one. Offering that next number
+   * is safe because pressing it is the same move as the arrow — it records this page's last row on
+   * the way. Offering any further would be a number that cannot be fetched.
+   */
+  const knownPages = searching
+    ? Math.ceil(filtered.length / PAGE)
+    : Math.max(cursors.length + 1, page + 1 + (liveHasNext ? 1 : 0))
   const goPage = (p: number) => {
-    // Going forward on a live page records where this one ended, so the next starts after it.
-    if (!searching && p > page) {
+    if (searching) { setPage(p); return }
+    if (p > cursors.length) {
+      if (p !== page + 1) return                       // no cursor for that page yet
       const last = pageRows[pageRows.length - 1]
       if (!last) return
-      setCursors((c) => { const next = c.slice(0, page); next[page] = { createdAt: last.createdAt, id: last.id }; return next })
+      setCursors((c) => Object.assign([...c], { [page]: { createdAt: last.createdAt, id: last.id } }))
     }
     setPage(p)
   }
@@ -258,7 +313,7 @@ export default function Users() {
               </tbody>
             </table>
             </div>
-            <Pager page={invPage} hasNext={shownInvites.length > (invPage + 1) * PAGE} onPage={setInvPage}
+            <Pager page={invPage} hasNext={shownInvites.length > (invPage + 1) * PAGE} known={Math.ceil(shownInvites.length / PAGE)} onPage={setInvPage}
               from={invPage * PAGE + 1} to={Math.min(shownInvites.length, (invPage + 1) * PAGE)} total={shownInvites.length} />
           </>
         )}
@@ -303,7 +358,7 @@ export default function Users() {
             </tbody>
           </table>
         </div>
-        <Pager page={page} hasNext={hasNext} onPage={goPage}
+        <Pager page={page} hasNext={hasNext} known={knownPages} onPage={goPage}
           from={page * PAGE + 1} to={page * PAGE + visible.length} total={searching ? filtered.length : undefined} />
       </section>
 
