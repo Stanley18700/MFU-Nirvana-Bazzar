@@ -5,6 +5,7 @@ import { api, errorMessage } from '../../lib/api'
 import { useEthnicGroups, useRefList } from '../../lib/data'
 import { COUNTRIES, PINNED_COUNTRIES, countryName } from '../../lib/countries'
 import { DataErrors, LangToggle, Notice, Spinner } from '../../components/ui'
+import { Select } from '../../components/Select'
 import type { VisitorType } from '../../../shared/model'
 import { useLocale } from '../../lib/locale'
 import type { StringKey } from '../../lib/strings'
@@ -81,6 +82,8 @@ export default function Join() {
     e.preventDefault()
     setErr(null)
     if (!f.consent) { setErr(t('v.join.consentRequired')); return }
+    // `Select` is a disclosure, not a form control, so the browser no longer checks this one.
+    if (f.institution === 'MFU' && !f.school) { setErr(t('v.join.schoolRequired')); return }
     setBusy(true)
     try {
       await api.join({
@@ -146,11 +149,22 @@ export default function Join() {
           </label>
         )}
 
-        <label className="block">
-          <span className="stamp-text text-ink-soft">{t('v.join.institution')}</span>
-          <input className="field mt-1" required list="institutions" value={f.institution} onChange={(e) => set('institution', e.target.value)} placeholder={t('v.join.startTyping')} />
-          <datalist id="institutions">{institutions.map((i) => <option key={i} value={i} />)}</datalist>
-        </label>
+        {/*
+          * `Select`, not an `<input list>`. A datalist draws its suggestions in the OS, so on a
+          * phone it is a grey system sheet under a rounded teal form and on a desktop it is a
+          * plain list that no style here reaches — the very thing Select exists to replace. The
+          * list is closed anyway: every institution ends at "Other", which opens the free-text
+          * field below.
+          */}
+        <div>
+          <label htmlFor="join-institution" className="stamp-text block text-ink-soft">{t('v.join.institution')}</label>
+          <Select
+            id="join-institution" ariaLabel={t('v.join.institution')} className="mt-1"
+            value={f.institution} onChange={(v) => set('institution', v)}
+            placeholder={t('v.join.choose')}
+            options={institutions.map((i) => ({ value: i, label: i }))}
+          />
+        </div>
 
         {f.institution === 'Other' && (
           <label className="block">
@@ -160,32 +174,38 @@ export default function Join() {
         )}
 
         {f.institution === 'MFU' && (
-          <label className="block">
-            <span className="stamp-text text-ink-soft">{t('v.join.school')}</span>
-            <input className="field mt-1" required list="schools" value={f.school} onChange={(e) => set('school', e.target.value)} placeholder={t('v.join.startTyping')} />
-            <datalist id="schools">{schools.map((s) => <option key={s} value={s} />)}</datalist>
-          </label>
+          <div>
+            <label htmlFor="join-school" className="stamp-text block text-ink-soft">{t('v.join.school')}</label>
+            <Select
+              id="join-school" ariaLabel={t('v.join.school')} className="mt-1"
+              value={f.school} onChange={(v) => set('school', v)}
+              placeholder={t('v.join.choose')}
+              options={schools.map((x) => ({ value: x, label: x }))}
+            />
+          </div>
         )}
 
-        <label className="block">
-          <span className="stamp-text text-ink-soft">{t('v.join.country')}</span>
+        <div>
+          <label htmlFor="join-country" className="stamp-text block text-ink-soft">{t('v.join.country')}</label>
           {/*
             * Nine options and a way out, rather than 256. Whatever has been chosen from the
             * search stays in the list as its own option, so the field always shows the answer
             * rather than reading "Other country" back at somebody who already answered.
             */}
-          <select
-            className="field mt-1" required value={f.countryCode}
-            onChange={(e) => {
-              if (e.target.value === OTHER_COUNTRY) { setFindCountry(true); setCountryQuery(''); return }
+          <Select
+            id="join-country" ariaLabel={t('v.join.country')} className="mt-1"
+            value={f.countryCode}
+            onChange={(v) => {
+              if (v === OTHER_COUNTRY) { setFindCountry(true); setCountryQuery(''); return }
               setFindCountry(false)
-              chooseCountry(e.target.value)
+              chooseCountry(v)
             }}
-          >
-            {common.map((x) => <option key={x.code} value={x.code}>{x.name}</option>)}
-            {!isCommon && f.countryCode && <option value={f.countryCode}>{countryName(f.countryCode)}</option>}
-            <option value={OTHER_COUNTRY}>{t('v.join.otherCountry')}</option>
-          </select>
+            options={[
+              ...common.map((x) => ({ value: x.code, label: x.name })),
+              ...(!isCommon && f.countryCode ? [{ value: f.countryCode, label: countryName(f.countryCode) }] : []),
+              { value: OTHER_COUNTRY, label: t('v.join.otherCountry') },
+            ]}
+          />
 
           {findCountry && (
             <div className="mt-2 rounded-xl border rule bg-white p-2">
@@ -219,7 +239,7 @@ export default function Join() {
               </ul>
             </div>
           )}
-        </label>
+        </div>
 
         <div className="rounded-xl border rule bg-white/40 p-3">
           <label className="block">
