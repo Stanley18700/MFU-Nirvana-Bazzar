@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
-import { collection, doc, limit, orderBy, query, where } from 'firebase/firestore'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { collection, doc, documentId, getDocs, limit, orderBy, query, startAfter, where } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { api, errorMessage, type CreateUserInput, type UpdateUserInput } from '../../lib/api'
 import { useBooths, useCollection, useDoc, useRefList, useTiers, type WithId } from '../../lib/data'
@@ -18,9 +18,39 @@ type ErasureRequest = { uid: string; displayName: string | null; passportNo: str
 
 const VISITOR_TYPES: VisitorType[] = ['student', 'staff', 'alumni', 'guest']
 const ROLES: Role[] = ['visitor', 'organizer', 'admin']
+/** Rows per page. Fifty is a screen and a half on a laptop and one long thumb-scroll on a phone. */
 const PAGE = 50
-/** Firestore has no substring search; while a search is typed the page widens to the whole list (1,500 expected) and filters here. */
+/**
+ * Firestore has no substring search, so a search reads the newest users once and filters here.
+ * 2,000 covers the 1,500 expected at the festival with room; past it the page says so rather than
+ * pretending. This is a one-shot read, not a listener — the old page kept a live snapshot of
+ * every user open for as long as the search box had text in it.
+ */
 const SEARCH_ALL = 2000
+
+/** The last row of a page, which is where the next page starts. */
+type Cursor = { createdAt: unknown; id: string }
+
+/**
+ * Previous / page / next. Two of these on the page, so the buttons and the count read the same
+ * way whether the rows came from the server a page at a time or from a search filtered here.
+ */
+function Pager({ page, hasNext, onPage, from, to, total }: {
+  page: number; hasNext: boolean; onPage: (p: number) => void; from: number; to: number; total?: number
+}) {
+  const { t } = useLocale()
+  if (page === 0 && !hasNext) return null
+  return (
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-soft">
+      <span>{total === undefined ? t('users.showingPage', { from, to }) : t('users.showingPageOf', { from, to, total })}</span>
+      <div className="flex items-center gap-1">
+        <button type="button" className="btn-quiet btn-sm" onClick={() => onPage(page - 1)} disabled={page === 0}>{t('users.prev')}</button>
+        <span className="px-2 tabular-nums">{t('users.page', { n: page + 1 })}</span>
+        <button type="button" className="btn-quiet btn-sm" onClick={() => onPage(page + 1)} disabled={!hasNext}>{t('users.next')}</button>
+      </div>
+    </div>
+  )
+}
 
 /** §6.2 users, §6.4 invitations, §10 erasure requests. */
 export default function Users() {
@@ -30,13 +60,50 @@ export default function Users() {
   const filter = useSlidingPill()
   const [roleFilter, setRoleFilter] = useState<Role | 'all'>('all')
   const [q, setQ] = useState('')
-  const [pageSize, setPageSize] = useState(PAGE)
-  const searching = q.trim().length >= 2
-  const fetchLimit = searching ? SEARCH_ALL : pageSize
-  const users = useCollection<UserDoc>(
-    roleFilter === 'all' ? query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(fetchLimit)) : query(collection(db, 'users'), where('role', '==', roleFilter), orderBy('createdAt', 'desc'), limit(fetchLimit)),
-    [roleFilter, fetchLimit], 'the user list',
-  ).data
+  // Debounced: the search reads the whole list once, and it should not do that on every keystroke.
+  const [qd, setQd] = useState('')
+  useEffect(() => { const id = setTimeout(() => setQd(q), 300); return () => clearTimeout(id) }, [q])
+  const searching = qd.trim().length >= 2
+
+  /*
+   * One page of users, live, and only that page. The cursor for page n is the last row of page
+   * n-1, kept per page so Previous is a lookup rather than a second query. `documentId()` is the
+   * tie-break: two people who joined in the same millisecond of the gate rush share a
+   * `createdAt`, and without it one of them would fall between two pages.
+   *
+   * PAGE + 1 rows are asked for so the page knows whether there is a next one without a count.
+   */
+  const [page, setPage] = useState(0)
+  const [cursors, setCursors] = useState<Cursor[]>([])
+  const base = roleFilter === 'all'
+    ? query(collection(db, 'users'), orderBy('createdAt', 'desc'), orderBy(documentId(), 'desc'))
+    : query(collection(db, 'users'), where('role', '==', roleFilter), orderBy('createdAt', 'desc'), orderBy(documentId(), 'desc'))
+  const cursor = page > 0 ? cursors[page - 1] : undefined
+  const live = useCollection<UserDoc>(
+    searching ? null : cursor ? query(base, startAfter(cursor.createdAt, cursor.id), limit(PAGE + 1)) : query(base, limit(PAGE + 1)),
+    [roleFilter, page, searching, cursor?.id], 'the user list',
+  )
+  const pageRows = live.data.slice(0, PAGE)
+  const liveHasNext = live.data.length > PAGE
+
+  // A filter or a search is a new list: start it from the top.
+  useEffect(() => { setPage(0); setCursors([]) }, [roleFilter, searching, qd])
+
+  /* The search: one read of the newest SEARCH_ALL, filtered here, paged here. */
+  const [found, setFound] = useState<Row[]>([])
+  const [searchState, setSearchState] = useState<'idle' | 'busy' | 'error'>('idle')
+  useEffect(() => {
+    if (!searching) { setFound([]); setSearchState('idle'); return }
+    let cancelled = false
+    setSearchState('busy')
+    getDocs(query(base, limit(SEARCH_ALL)))
+      .then((snap) => { if (!cancelled) { setFound(snap.docs.map((d) => ({ id: d.id, ...(d.data() as UserDoc) }))); setSearchState('idle') } })
+      .catch(() => { if (!cancelled) setSearchState('error') })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searching, qd, roleFilter])
+
+  const users = searching ? found : pageRows
   const invites = useCollection<InviteDoc>(query(collection(db, 'invites'), orderBy('sentAt', 'desc'), limit(100)), [], 'the invitations').data
   const erasures = useCollection<ErasureRequest>(query(collection(db, 'erasureRequests'), orderBy('requestedAt', 'desc'), limit(100)), [], 'the erasure requests').data
     .filter((r) => r.status === 'open')
@@ -50,10 +117,25 @@ export default function Users() {
   const [inviteFilter, setInviteFilter] = useState<'pending' | 'all'>('pending')
 
   const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase()
-    return s ? users.filter((u) => [u.displayName, u.contact, u.studentId, u.passportNo].some((v) => v?.toLowerCase().includes(s))) : users
-  }, [users, q])
+    const s = qd.trim().toLowerCase()
+    return searching ? users.filter((u) => [u.displayName, u.contact, u.studentId, u.passportNo].some((v) => v?.toLowerCase().includes(s))) : users
+  }, [users, qd, searching])
+  // What is on screen this page. Server pages arrive already cut; a search is cut here.
+  const visible = searching ? filtered.slice(page * PAGE, (page + 1) * PAGE) : filtered
+  const hasNext = searching ? filtered.length > (page + 1) * PAGE : liveHasNext
+  const goPage = (p: number) => {
+    // Going forward on a live page records where this one ended, so the next starts after it.
+    if (!searching && p > page) {
+      const last = pageRows[pageRows.length - 1]
+      if (!last) return
+      setCursors((c) => { const next = c.slice(0, page); next[page] = { createdAt: last.createdAt, id: last.id }; return next })
+    }
+    setPage(p)
+  }
+  const [invPage, setInvPage] = useState(0)
   const shownInvites = inviteFilter === 'all' ? invites : invites.filter((i) => i.status === 'sent' || i.status === 'opened')
+  useEffect(() => { setInvPage(0) }, [inviteFilter])
+  const visibleInvites = shownInvites.slice(invPage * PAGE, (invPage + 1) * PAGE)
 
   const fail = (e: unknown) => setMsg({ tone: 'red', text: errorMessage(e) })
 
@@ -159,7 +241,7 @@ export default function Users() {
             <table className="w-full min-w-[36rem] text-sm">
               <thead><tr className="text-left text-xs text-ink-soft"><th className="py-1">{t('users.name')}</th><th>{t('users.email')}</th><th>{t('users.booth')}</th><th>{t('users.thStatus')}</th><th>{t('users.thSent')}</th><th></th></tr></thead>
               <tbody>
-                {shownInvites.map((i) => (
+                {visibleInvites.map((i) => (
                   <tr key={i.id} className="border-t rule">
                     <td className="py-1.5">{i.displayName}</td><td className="truncate">{i.email}</td><td>{booths.find((b) => b.id === i.boothId)?.nameEn ?? ROLE_LABEL[i.role]}</td>
                     <td><span className={`rounded-full px-2 py-0.5 text-xs ${i.status === 'accepted' ? 'bg-success/15 text-success-text' : i.status === 'opened' ? 'bg-action/10 text-ink' : i.status === 'sent' ? 'bg-ink/5' : 'bg-danger/10 text-danger-text'}`}>{i.status}</span></td>
@@ -176,6 +258,8 @@ export default function Users() {
               </tbody>
             </table>
             </div>
+            <Pager page={invPage} hasNext={shownInvites.length > (invPage + 1) * PAGE} onPage={setInvPage}
+              from={invPage * PAGE + 1} to={Math.min(shownInvites.length, (invPage + 1) * PAGE)} total={shownInvites.length} />
           </>
         )}
       </section>
@@ -189,12 +273,21 @@ export default function Users() {
           <Select className="w-44" ariaLabel={t('users.filterRole')} value={roleFilter} onChange={(v) => setRoleFilter(v as Role | 'all')}
             options={[{ value: 'all', label: t('users.allRoles') }, ...ROLES.map((r) => ({ value: r, label: `${ROLE_LABEL[r]}s` }))]} />
         </div>
-        <p className="mt-1 text-xs text-ink-soft">{searching ? t('users.searchingAll', { count: users.length.toLocaleString('en-US') }) : t('users.showingLatest', { count: Math.min(users.length, pageSize) })} · {t('users.pressRow')}</p>
+        <p className="mt-1 text-xs text-ink-soft">
+          {searching
+            ? searchState === 'busy' ? t('users.searching')
+              : searchState === 'error' ? t('users.searchFailed')
+              : `${t('users.searchingAll', { count: found.length.toLocaleString('en-US') })}${found.length >= SEARCH_ALL ? ` · ${t('users.searchCapped', { count: SEARCH_ALL.toLocaleString('en-US') })}` : ''}`
+            : t('users.newestFirst')}
+          {' · '}{t('users.pressRow')}
+        </p>
+        {/* Seven columns need a floor, like the invitations table has: without one a 390px
+            screen crushes them instead of scrolling them, and "Registered" arrives as "15/0". */}
         <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[44rem] text-sm">
             <thead><tr className="text-left text-xs text-ink-soft"><th className="py-1">{t('users.name')}</th><th>{t('users.role')}</th><th>{t('users.thAffiliation')}</th><th>{t('users.thCountry')}</th><th>{t('users.thStamps')}</th><th>{t('users.thPoints')}</th><th>{t('users.thRegistered')}</th></tr></thead>
             <tbody>
-              {filtered.map((u) => (
+              {visible.map((u) => (
                 <tr key={u.id} tabIndex={0} role="button" aria-label={t('users.openRow', { name: u.displayName })}
                   className={`cursor-pointer border-t rule hover:bg-white/50 focus:outline-none focus-visible:bg-white/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-action/50 ${u.deletedAt ? 'opacity-50' : ''}`}
                   onClick={() => openRow(u.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRow(u.id) } }}>
@@ -203,14 +296,15 @@ export default function Users() {
                   <td className="text-xs">{u.institution}{u.school ? ` · ${u.school}` : ''}</td>
                   <td className="text-xs">{u.countryCode ? countryName(u.countryCode) : ''}</td>
                   <td className="fig">{u.stampCount}</td><td className="fig">{u.points}</td>
-                  <td className="text-xs text-ink-soft">{ts(u.createdAt)}</td>
+                  <td className="whitespace-nowrap text-xs text-ink-soft">{ts(u.createdAt)}</td>
                 </tr>
               ))}
-              {filtered.length === 0 && <tr><td colSpan={7} className="py-4 text-center text-ink-soft">{t(users.length ? 'users.nothingMatches' : 'users.noUsers')}</td></tr>}
+              {visible.length === 0 && searchState !== 'busy' && <tr><td colSpan={7} className="py-4 text-center text-ink-soft">{t(searching ? 'users.nothingMatches' : 'users.noUsers')}</td></tr>}
             </tbody>
           </table>
         </div>
-        {!searching && users.length >= pageSize && <button className="btn-ghost mt-3" onClick={() => setPageSize(pageSize + PAGE)}>{t('users.loadMore')}</button>}
+        <Pager page={page} hasNext={hasNext} onPage={goPage}
+          from={page * PAGE + 1} to={page * PAGE + visible.length} total={searching ? filtered.length : undefined} />
       </section>
 
       {open && <UserDrawer u={open} booths={booths} onClose={closeDrawer} onRole={changeRole} onUpdate={updateUser} onSoftDelete={softDelete} onHardDelete={hardDelete} onMsg={setMsg} />}
