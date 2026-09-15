@@ -227,7 +227,11 @@ function TierRoad({ points, tiers }: { points: number; tiers: Array<{ id: string
         {tiers.map((t) => (
           <span
             key={t.id}
-            className={`absolute -translate-x-1/2 text-[11px] tabular-nums ${points >= t.thresholdPoints ? 'font-semibold text-ink' : 'text-ink-soft'}`}
+            /* `whitespace-nowrap` is load-bearing on the last one. An absolutely positioned box
+               shrinks to fit the room left of the container's edge, and at `left: 100%` that room
+               is zero — so "100" wrapped to one digit a line, a column of 1 0 0 hanging off the
+               end of the ladder. The translate centres it on its dot either way. */
+            className={`absolute -translate-x-1/2 whitespace-nowrap text-[11px] tabular-nums ${points >= t.thresholdPoints ? 'font-semibold text-ink' : 'text-ink-soft'}`}
             style={{ left: `${pct(t.thresholdPoints)}%` }}
           >
             {t.thresholdPoints}
