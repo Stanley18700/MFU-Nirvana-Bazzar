@@ -11,6 +11,7 @@ import { QR } from '../../components/QR'
 import { BoothCard } from '../../components/BoothCard'
 import { OrganizerBar } from '../../components/OrganizerBar'
 import { BoothWatermark, StageGround } from '../../components/OrganizerPage'
+import { OrganizerWelcome } from '../../components/Welcome'
 import { onStage } from '../../lib/onStage'
 import { DataErrors, Icon, IconButton, LiveDot, Notice, Spinner, fmt } from '../../components/ui'
 import { APP_ORIGIN } from '../../lib/firebase'
@@ -412,6 +413,8 @@ export default function Booth() {
         {fsHint && <Notice tone="amber">{fsHint}</Notice>}
         {live && !live.active && <Notice tone="red">{t('booth.switchedOff')}</Notice>}
         {live?.active && offToday && <Notice tone="amber">{t('booth.notToday')}</Notice>}
+        {/* Why this screen has to stay on — until the person setting up the booth dismisses it. */}
+        <OrganizerWelcome boothId={session.boothId} />
       </div>
 
       {/* `kiosk:` (wide AND tall, see index.css) rather than `sm:`: a phone on its side is 844px

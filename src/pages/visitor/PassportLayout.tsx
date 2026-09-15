@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { DataErrors, Icon, LangToggle, LiveDot, TabBar } from '../../components/ui'
 import { FestivalBackdrop } from '../auth/parts'
 import { SurveyNudge } from '../../components/SurveyNudge'
+import { VisitorWelcome } from '../../components/Welcome'
 import { useOnline } from '../../lib/useOnline'
 import { useLocale } from '../../lib/locale'
 
@@ -48,6 +49,8 @@ export default function PassportLayout() {
       {/* The festival survey's three asks, over whichever passport tab is open. Outside the
           keyed page so a tab change does not re-run its once-only logic. */}
       <SurveyNudge />
+      {/* First-time explanation of the passport; reopened by the cover's "How it works". */}
+      <VisitorWelcome />
       <TabBar scanTo="/scan" tabs={[
         { to: '/passport', label: t('v.tab.cover'), icon: Icon.cover, end: true },
         { to: '/passport/stamps', label: t('v.tab.stamps'), icon: Icon.stamps },

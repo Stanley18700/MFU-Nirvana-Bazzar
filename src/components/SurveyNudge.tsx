@@ -6,6 +6,7 @@ import { useFestivalSurvey } from '../lib/festivalSurvey'
 import { useLocale } from '../lib/locale'
 import { serverNow } from '../lib/serverClock'
 import { EVENT_SURVEY_ID, dayOf, minuteOfDay } from '../../shared/model'
+import { welcomePending } from './Welcome'
 
 /**
  * Three moments when a visitor is asked for the festival survey, each once.
@@ -39,6 +40,8 @@ export function SurveyNudge() {
   const fs = useFestivalSurvey()
   const loc = useLocation()
   const [open, setOpen] = useState<Moment | null>(null)
+  // Bumped when the welcome closes, so the moment we declined to show is reconsidered at once.
+  const [welcomeGone, setWelcomeGone] = useState(0)
   const [now, setNow] = useState(serverNow)
 
   useEffect(() => {
@@ -57,6 +60,7 @@ export function SurveyNudge() {
 
   useEffect(() => {
     if (open || onPrize || !uid || fs.loading || !fs.live || fs.taken || stamps < 1) return
+    if (welcomePending(uid)) return
     const due: Moment | null = points >= threshold ? 'unlock'
       : stamps >= NUDGE_AFTER_STAMPS ? 'stamps'
       : afternoon ? 'afternoon'
@@ -65,7 +69,13 @@ export function SurveyNudge() {
     // Marked the moment it is shown: whatever they do with it, this moment does not come back.
     mark(uid, due)
     setOpen(due)
-  }, [open, onPrize, uid, fs.loading, fs.live, fs.taken, stamps, points, threshold, afternoon])
+  }, [open, onPrize, uid, fs.loading, fs.live, fs.taken, stamps, points, threshold, afternoon, welcomeGone])
+
+  useEffect(() => {
+    const on = () => setWelcomeGone((n) => n + 1)
+    window.addEventListener('mfu-welcome-closed', on)
+    return () => window.removeEventListener('mfu-welcome-closed', on)
+  }, [])
 
   // Answered elsewhere (or unpublished) while the sheet was up.
   useEffect(() => { if (open && (fs.taken || !fs.live)) setOpen(null) }, [open, fs.taken, fs.live])
