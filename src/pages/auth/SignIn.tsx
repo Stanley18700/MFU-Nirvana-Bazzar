@@ -6,7 +6,7 @@ import { Spinner } from '../../components/ui'
 import { AuthShell, Notice, Divider, Field, GoogleButton } from './parts'
 
 export default function SignIn() {
-  const { ready, user } = useAuth()
+  const { ready, user, redirectError, clearRedirectError } = useAuth()
   const nav = useNavigate()
   const loc = useLocation()
   const { from, email: knownEmail } = (loc.state as { from?: string; email?: string } | null) ?? {}
@@ -20,7 +20,7 @@ export default function SignIn() {
   if (user) return <Navigate to={from ?? '/'} replace />
 
   async function google() {
-    setErr(null); setBusy('google')
+    setErr(null); clearRedirectError(); setBusy('google')
     try {
       const cred = await signInWithGoogle()
       if (cred) nav(from ?? '/', { replace: true })
@@ -42,6 +42,10 @@ export default function SignIn() {
       lead="Your passport, stamps and points follow the account — sign in on any phone and they are all there."
       foot={<>New here? <Link to="/signup" state={{ from, email }} className="link font-semibold text-action">Create an account</Link></>}
     >
+      {/* A redirect failure comes back on a fresh page load with no caller waiting for it, so it
+          is shown here, above the button that started the trip, rather than in the form's `err`. */}
+      {redirectError && <div className="mt-6"><Notice tone="red">{redirectError}</Notice></div>}
+
       <div className="mt-6">
         <GoogleButton onClick={google} busy={busy === 'google'} label="Continue with Google" />
       </div>

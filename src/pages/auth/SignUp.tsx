@@ -8,7 +8,7 @@ import { AuthShell, Notice, Divider, Field, GoogleButton } from './parts'
 const MIN_PASSWORD = 8
 
 export default function SignUp() {
-  const { ready, user } = useAuth()
+  const { ready, user, redirectError, clearRedirectError } = useAuth()
   const nav = useNavigate()
   const loc = useLocation()
   const { from, email: invitedEmail } = (loc.state as { from?: string; email?: string } | null) ?? {}
@@ -24,7 +24,7 @@ export default function SignUp() {
   if (user) return <Navigate to={from ?? '/'} replace />
 
   async function google() {
-    setErr(null); setBusy('google')
+    setErr(null); clearRedirectError(); setBusy('google')
     try {
       // A Google address is already proven, so this account skips /verify-email entirely.
       const cred = await signInWithGoogle()
@@ -50,6 +50,10 @@ export default function SignUp() {
       lead="One account holds your passport for the whole festival. Sign in again on a new phone and every stamp is still there."
       foot={<>Already have one? <Link to="/signin" state={{ from }} className="link font-semibold text-action">Sign in</Link></>}
     >
+      {/* Same reason as SignIn: a redirect failure lands on a fresh page load, with no caller
+          holding it, so it belongs beside the button rather than in the form's `err`. */}
+      {redirectError && <div className="mt-6"><Notice tone="red">{redirectError}</Notice></div>}
+
       <div className="mt-6">
         <GoogleButton onClick={google} busy={busy === 'google'} label="Sign up with Google" />
       </div>

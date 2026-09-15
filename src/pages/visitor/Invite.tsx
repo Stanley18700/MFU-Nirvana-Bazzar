@@ -26,7 +26,7 @@ const DEAD: Record<string, string> = {
  */
 export default function Invite() {
   const { token = '' } = useParams()
-  const { ready, user, role, refreshClaims } = useAuth()
+  const { ready, user, role, refreshClaims, redirectError, clearRedirectError } = useAuth()
   const nav = useNavigate()
   const [info, setInfo] = useState<Info | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -35,7 +35,7 @@ export default function Invite() {
   useEffect(() => { api.inviteInfo({ token }).then(setInfo).catch((e) => setErr(friendlyError(e))) }, [token])
 
   async function google() {
-    setBusy(true); setErr(null)
+    setBusy(true); setErr(null); clearRedirectError()
     try { await signInWithGoogle() } catch (e) { setErr(authError(e)) } finally { setBusy(false) }
   }
 
@@ -84,6 +84,9 @@ export default function Invite() {
         : !user ? (
           <div className="mt-6 flex flex-col gap-3">
             <p className="text-sm text-ink-soft">Sign in as <b className="text-ink">{invited}</b> to accept.</p>
+            {/* An organizer opens this from mail, which on a phone is usually an in-app browser —
+                the case most likely to come back from Google having failed. */}
+            {redirectError && <Notice tone="red">{redirectError}</Notice>}
             <GoogleButton onClick={google} busy={busy} label="Continue with Google" />
             <Link to="/signin" state={{ from: `/invite/${token}`, email: invited }} className="btn-quiet">Use an email and password</Link>
             <Link to="/signup" state={{ from: `/invite/${token}`, email: invited }}
