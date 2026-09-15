@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { doc } from 'firebase/firestore'
-import { db } from '../../lib/firebase'
 import { useAuth } from '../../lib/auth'
-import { useDoc, useMyUnlocks, useTiers } from '../../lib/data'
-import { EVENT_SURVEY_ID, minuteToHHMM, type SurveyDoc } from '../../../shared/model'
+import { useMyUnlocks, useTiers } from '../../lib/data'
+import { EVENT_SURVEY_ID, minuteToHHMM } from '../../../shared/model'
 import { prizeStock, usePrizeSession } from '../../lib/prizeSession'
+import { useFestivalSurvey } from '../../lib/festivalSurvey'
 import { api } from '../../lib/api'
 import { setServerTime } from '../../lib/serverClock'
 import { QR } from '../../components/QR'
+import { BoardingPass } from '../../components/BoardingPass'
 import { Notice, Spinner, fmt } from '../../components/ui'
 import { APP_ORIGIN } from '../../lib/firebase'
 import { useLocale } from '../../lib/locale'
@@ -49,7 +49,15 @@ export default function Prize() {
   const unlocks = useMyUnlocks(profile?.id)
   const { active: activeSession, next: nextSession } = usePrizeSession()
   const anyUnlockedUnredeemed = unlocks.some((u) => !u.redeemedAt && !u.voidedAt) || unlocks.some((u) => !!u.voidedAt)
-  const code = useRedemptionCode(anyUnlockedUnredeemed)
+  /*
+   * The festival survey comes before the gift (organisers' decision, 15 Sep): while it is
+   * gating the gift (see `gateGift`) and this visitor has not answered, the QR is withheld and the survey card takes
+   * its place. `loading` keeps the QR from flashing for the half-second before the two survey
+   * documents arrive. Points are never touched by this — only the moment of hand-over is.
+   */
+  const fs = useFestivalSurvey()
+  const gated = anyUnlockedUnredeemed && (fs.loading || (fs.gate && !fs.taken))
+  const code = useRedemptionCode(anyUnlockedUnredeemed && !gated)
   if (!profile) return <Spinner />
   const points = profile.points ?? 0
 
@@ -62,8 +70,8 @@ export default function Prize() {
       <h1 className="text-2xl font-bold">{t('v.prize.points', { n: fmt(points) })}</h1>
 
       <TierRoad points={points} tiers={tiers} />
-      <FeedbackCard />
-      {anyUnlockedUnredeemed && (
+      <FeedbackCard gate={anyUnlockedUnredeemed && fs.gate} />
+      {anyUnlockedUnredeemed && !gated && (
         <section className="relative mt-5 overflow-hidden rounded-3xl border-2 border-foil bg-white p-5 text-center shadow-xl shadow-foil/20">
           <div className="stamp-text text-foil">{t('v.prize.visa')}</div>
           <div className="mt-3 flex justify-center">
@@ -251,47 +259,50 @@ function TierRoad({ points, tiers }: { points: number; tiers: Array<{ id: string
  * visitor is already signed in, the questions are the same ones, and the answers land next to
  * everything else the festival knows.
  *
- * Above the entry visa, never in front of it. The prize is already earned; a survey standing
- * between a visitor and it would read as a toll, and answers given to get past a toll are not
- * worth having.
+ * Since 15 Sep it also stands before the gift: the organisers want every collector's answers,
+ * so while the survey is published and unanswered the Prize page shows this card where the
+ * entry visa would be (`gate`), and the QR appears the moment the answers are in. Points are
+ * untouched either way — the survey decides when the hand-over happens, never whether.
+ *
+ * Once answered, the card becomes the boarding pass: the keepsake PNG for having taken part.
  *
  * `surveys/{EVENT_SURVEY_ID}` is read straight from Firestore — any signed-in visitor may read
  * a survey, and this renders on a page they are already waiting on. Nothing shows until it is
- * published, so an unfinished form cannot reach anybody.
+ * published, so an unfinished form cannot reach anybody, and nothing is gated on it either.
  */
-function FeedbackCard() {
+function FeedbackCard({ gate }: { gate: boolean }) {
   const { t } = useLocale()
-  const { user } = useAuth()
-  const { data: survey } = useDoc<SurveyDoc>(doc(db, 'surveys', EVENT_SURVEY_ID), [])
-  const { data: taken } = useDoc(user ? doc(db, 'surveyTaken', `${user.uid}_${EVENT_SURVEY_ID}`) : null, [user?.uid])
+  const fs = useFestivalSurvey()
 
-  const count = survey?.questions?.length ?? 0
-  if (!survey?.active || count === 0) return null
+  if (fs.loading || !fs.live) return null
 
-  if (taken) {
+  if (fs.taken) {
     return (
-      <section className="mt-5 rounded-3xl border border-sky-800/15 bg-sky-100/60 p-4 text-center">
-        <div className="stamp-text text-sky-900">{t('v.survey.thanks')}</div>
-        <p className="mt-1 text-sm text-ink-soft">{t('v.prize.feedbackDone')}</p>
-      </section>
+      <>
+        <section className="mt-5 rounded-3xl border border-sky-800/15 bg-sky-100/60 p-4 text-center">
+          <div className="stamp-text text-sky-900">{t('v.survey.thanks')}</div>
+          <p className="mt-1 text-sm text-ink-soft">{t('v.prize.feedbackDone')}</p>
+        </section>
+        <BoardingPass className="mt-4" />
+      </>
     )
   }
 
   return (
-    <section className="mt-5 rounded-3xl border border-sky-800/20 bg-sky-100 p-5">
+    <section className={`mt-5 rounded-3xl border p-5 ${gate ? 'border-2 border-foil bg-white shadow-xl shadow-foil/20' : 'border-sky-800/20 bg-sky-100'}`}>
       {/* Both languages on this card whichever way the toggle is set: it is the one thing every
           visitor is asked, and the pair reads as an invitation rather than a wall of the other
           language. The toggle decides which comes first. */}
-      <div className="stamp-text text-sky-900">{t('v.prize.feedbackEyebrow')}</div>
+      <div className={`stamp-text ${gate ? 'text-foil' : 'text-sky-900'}`}>{gate ? t('v.prize.gateEyebrow') : t('v.prize.feedbackEyebrow')}</div>
       <h2 className="mt-1 font-semibold leading-snug">
-        {t('v.prize.feedbackTitle')}
-        <span className="block text-ink-soft">{t('v.prize.feedbackTitleTh')}</span>
+        {gate ? t('v.prize.gateTitle') : t('v.prize.feedbackTitle')}
+        <span className="block text-ink-soft">{gate ? t('v.prize.gateTitleTh') : t('v.prize.feedbackTitleTh')}</span>
       </h2>
       <p className="mt-2 text-sm text-ink-soft">
-        {t('v.prize.feedbackLead', { n: count })}
-        <span className="mt-1 block">{t('v.prize.feedbackLeadTh', { n: count })}</span>
+        {gate ? t('v.prize.gateLead', { n: fs.count }) : t('v.prize.feedbackLead', { n: fs.count })}
+        <span className="mt-1 block">{gate ? t('v.prize.gateLeadTh', { n: fs.count }) : t('v.prize.feedbackLeadTh', { n: fs.count })}</span>
       </p>
-      <Link to={`/survey/${EVENT_SURVEY_ID}`} className="btn-primary mt-3 w-full">
+      <Link to={`/survey/${EVENT_SURVEY_ID}`} className={`${gate ? 'btn-gold' : 'btn-primary'} mt-3 w-full`}>
         {t('v.prize.feedbackCta')}
       </Link>
     </section>

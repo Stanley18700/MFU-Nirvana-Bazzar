@@ -449,6 +449,12 @@ export interface SurveyDoc {
   questions: SurveyQuestion[]
   /** Off by default: a half-built survey must never reach a visitor. */
   active: boolean
+  /**
+   * Withhold the gift QR on the Prize tab until this survey is answered. Deliberately separate
+   * from `active`, so taking the gate down at the prize desk does not also unpublish the survey
+   * and stop the answers coming in. Off unless explicitly turned on.
+   */
+  gateGift?: boolean
   responseCount: number
   /**
    * Bumped whenever the questions change. Answers are stored by question id, so reusing an id

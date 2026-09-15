@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { collection, doc, query, where } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
-import { useCollection, useDoc } from '../../lib/data'
+import { ms, useCollection, useDoc } from '../../lib/data'
 import { api, errorMessage } from '../../lib/api'
 import { CsvButton, DataError, Notice, Spinner, fmt } from '../../components/ui'
 import { ts } from '../../lib/eventText'
@@ -30,12 +30,13 @@ export default function FestivalSurvey() {
     query(collection(db, 'surveyResponses'), where('boothId', '==', EVENT_SURVEY_ID)),
     [], 'the festival responses',
   )
-  const [busy, setBusy] = useState<'' | 'install' | 'publish'>('')
+  const [busy, setBusy] = useState<'' | 'install' | 'publish' | 'gate'>('')
   const [err, setErr] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
 
   const questions = survey?.questions ?? []
   const live = !!survey?.active && questions.length > 0
+  const gating = live && survey?.gateGift === true
 
   /**
    * Writing the standard set is `saveSurvey` like any other edit, so it is audited, and so the
@@ -60,7 +61,20 @@ export default function FestivalSurvey() {
   async function publish(active: boolean) {
     setBusy('publish'); setErr(null); setMsg(null)
     try {
+      // `gateGift` is left out on purpose: publishing must never re-arm a gate somebody took down.
       await api.setSurveyActive({ boothId: EVENT_SURVEY_ID, active })
+    } catch (e) { setErr(errorMessage(e)) } finally { setBusy('') }
+  }
+
+  /**
+   * The gate on its own, so the prize desk can stop withholding the gift QR the moment the
+   * queue backs up without unpublishing the survey and losing the answers still coming in.
+   */
+  async function setGate(gateGift: boolean) {
+    setBusy('gate'); setErr(null); setMsg(null)
+    try {
+      await api.setSurveyActive({ boothId: EVENT_SURVEY_ID, active: true, gateGift })
+      setMsg(gateGift ? t('admin.fsurvey.gateOnDone') : t('admin.fsurvey.gateOffDone'))
     } catch (e) { setErr(errorMessage(e)) } finally { setBusy('') }
   }
 
@@ -108,6 +122,25 @@ export default function FestivalSurvey() {
           </div>
         </div>
 
+        {live && (
+          <div className="mt-4 rounded-2xl border border-foil/40 bg-foil/5 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="font-semibold">{t('admin.fsurvey.gateTitle')}</div>
+                <div className="mt-1 text-sm text-ink-soft">
+                  {gating ? t('admin.fsurvey.gateOn') : t('admin.fsurvey.gateOff')}
+                </div>
+              </div>
+              <button
+                className={gating ? 'btn-ghost' : 'btn-gold'}
+                onClick={() => void setGate(!gating)}
+                disabled={busy !== ''}
+              >
+                {gating ? t('admin.fsurvey.gateStop') : t('admin.fsurvey.gateStart')}
+              </button>
+            </div>
+          </div>
+        )}
         {questions.length === 0 && (
           <p className="mt-3 text-sm text-ink-soft">{t('admin.fsurvey.installHint')}</p>
         )}
@@ -145,17 +178,32 @@ function Results({ questions, responses, answered }: {
 }) {
   const { t } = useLocale()
 
-  const csvRows = responses.map((r) => {
-    const row: Record<string, string | number> = { submitted: ts(r.submittedAt), version: r.surveyVersion ?? 1 }
-    for (const q of questions) row[q.id] = flat(r.answers?.[q.id])
-    return row
-  })
+  /*
+   * Shaped like a Google Forms export, which is what the organisers know how to read: one row
+   * per response, a Timestamp first, then one column per question headed by the question's own
+   * wording rather than its id. Two questions with the same title are kept apart by their id.
+   * `columns` pins the order to the survey's, so an unanswered optional question still has its
+   * column and a question nobody answered yet does not vanish from the file.
+   */
+  const header = (q: SurveyQuestion) => {
+    const title = q.title.trim() || q.id
+    return questions.some((o) => o.id !== q.id && o.title.trim() === title) ? `${title} [${q.id}]` : title
+  }
+  const csvColumns = ['Timestamp', ...questions.map(header), 'Survey version']
+  const csvRows = responses
+    .slice()
+    .sort((a, b) => (ms(a.submittedAt) ?? 0) - (ms(b.submittedAt) ?? 0))
+    .map((r) => {
+      const row: Record<string, string | number> = { Timestamp: ts(r.submittedAt), 'Survey version': r.surveyVersion ?? 1 }
+      for (const q of questions) row[header(q)] = flat(r.answers?.[q.id])
+      return row
+    })
 
   return (
     <section className="mt-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold">{t('admin.fsurvey.results', { n: fmt(answered) })}</h2>
-        <CsvButton rows={csvRows} name="festival-feedback" />
+        <CsvButton rows={csvRows} columns={csvColumns} name="festival-feedback" />
       </div>
 
       {answered === 0

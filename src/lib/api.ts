@@ -86,7 +86,7 @@ export const api = {
   bootstrapAdmin: call<{ key: string; displayName?: string }, { ok: true }>('bootstrapAdmin'),
   // booth surveys — an organizer builds one for their own booth; an admin must name the booth
   saveSurvey: call<SurveyInput, { ok: true }>('saveSurvey'),
-  setSurveyActive: call<{ active: boolean; boothId?: string }, { ok: true; active: boolean }>('setSurveyActive'),
+  setSurveyActive: call<{ active: boolean; boothId?: string; gateGift?: boolean }, { ok: true; active: boolean; gateGift?: boolean }>('setSurveyActive'),
   deleteSurvey: call<{ boothId?: string }, { ok: true }>('deleteSurvey'),
   /** What the visitor is offered after a stamp. 'none' when the booth has no live survey. */
   surveyForBooth: call<{ boothId: string }, SurveyOffer>('surveyForBooth'),
