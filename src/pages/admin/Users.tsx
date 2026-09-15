@@ -158,6 +158,33 @@ export default function Users() {
   const pageRows = live.data.slice(0, PAGE)
   const liveHasNext = useTail ? fromEnd > 0 : live.data.length > PAGE
 
+  /*
+   * Which page the rows on screen are actually from.
+   *
+   * A snapshot arrives a few hundred milliseconds after the press, and until it does the table
+   * still holds the previous page while the pill has already moved — the control saying one thing
+   * and the table showing another. `live.data` is a fresh array on every snapshot, so the page
+   * number recorded when it changes is the page those rows belong to, and anything else means the
+   * table is still catching up.
+   */
+  const [rowsFrom, setRowsFrom] = useState(0)
+  useEffect(() => {
+    /*
+     * A cached snapshot does not count. Firestore answers from the local cache first, and its
+     * answer to `limitToLast(88)` is drawn from whatever documents happen to be cached — stepping
+     * back from the last page briefly showed rows from the top of the list, undimmed, because
+     * those were the documents most recently fetched. Only the server's answer says which page
+     * these rows are.
+     *
+     * The wait is capped so a desk on failing wifi is left with a dimmed table rather than a dim
+     * one forever; offline, cached rows are the best answer there is.
+     */
+    if (!live.fromCache) { setRowsFrom(page); return }
+    const id = setTimeout(() => setRowsFrom(page), 1200)
+    return () => clearTimeout(id)
+  }, [live.data, live.fromCache]) // eslint-disable-line react-hooks/exhaustive-deps
+  const catchingUp = !searching && rowsFrom !== page
+
   const livePages = knownTotal ?? Math.max(cursors.length + 1, page + 1 + (liveHasNext ? 1 : 0))
 
   // A filter or a search is a new list: start it from the top.
@@ -217,16 +244,29 @@ export default function Users() {
    * measure against — it fetches whole pages to keep their last rows, which is why the strip does
    * not offer distant numbers when it cannot tell how far away they are.
    */
+  /*
+   * The top of the list, to return to on a page change. The pager sits at the foot of a table
+   * fifty rows tall, so without this the new page opens wherever the old one left the scroll: at
+   * its middle when the page grows, and hauled up by the browser when it shrinks, which is what
+   * made stepping back from the last page feel like it had lost its place.
+   */
+  const listTop = useRef<HTMLDivElement>(null)
+  const invTop = useRef<HTMLDivElement>(null)
+  const show = (p: number) => {
+    setPage(p)
+    listTop.current?.scrollIntoView({ block: 'start' })
+  }
+
   const [jumping, setJumping] = useState(false)
   const goPage = async (p: number) => {
     if (p < 0 || p >= totalPages || p === page) return
-    if (searching) { setPage(p); return }
-    if (p <= cursors.length) { setPage(p); return }
-    if (knownTotal !== null && knownTotal - 1 - p < p) { setPage(p); return }   // read from the end
+    if (searching) { show(p); return }
+    if (p <= cursors.length) { show(p); return }
+    if (knownTotal !== null && knownTotal - 1 - p < p) { show(p); return }   // read from the end
     if (p === page + 1 && pageRows.length) {
       const last = pageRows[pageRows.length - 1]
       setCursors((c) => Object.assign([...c], { [page]: { createdAt: last.createdAt, id: last.id } }))
-      setPage(p)
+      show(p)
       return
     }
     setJumping(true)
@@ -239,7 +279,7 @@ export default function Users() {
         if (!last) break
         next[i] = { createdAt: last.get('createdAt'), id: last.id }
       }
-      if (next.length >= p) { setCursors(next); setPage(p) }
+      if (next.length >= p) { setCursors(next); show(p) }
     } catch { /* the list itself reports the failure; the page simply does not move */ }
     finally { setJumping(false) }
   }
@@ -315,7 +355,7 @@ export default function Users() {
 
       <StaffRequests booths={booths} onDone={setMsg} fail={fail} />
 
-      <section className="card mt-4">
+      <section className="card mt-4" ref={invTop}>
         <h2 className="stamp-text text-ink-soft">{t('users.inviteHeading')}</h2>
         <p className="mt-1 text-xs text-ink-soft">{t('users.inviteLead')}</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -369,7 +409,8 @@ export default function Users() {
               </tbody>
             </table>
             </div>
-            <Pager page={invPage} total={Math.max(1, Math.ceil(shownInvites.length / PAGE))} onPage={setInvPage}
+            <Pager page={invPage} total={Math.max(1, Math.ceil(shownInvites.length / PAGE))}
+              onPage={(p) => { setInvPage(p); invTop.current?.scrollIntoView({ block: 'start' }) }}
               from={invPage * PAGE + 1} to={Math.min(shownInvites.length, (invPage + 1) * PAGE)} count={shownInvites.length} />
           </>
         )}
@@ -377,7 +418,7 @@ export default function Users() {
 
       <CreateUser booths={booths} onCreated={(text, uid) => { setMsg({ tone: 'green', text }); setOpenId(uid) }} onError={fail} />
 
-      <section className="card mt-4">
+      <section className="card mt-4" ref={listTop}>
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="stamp-text mr-auto text-ink-soft">{t('users.usersHeading')}</h2>
           <input className="field w-56" placeholder={t('users.search')} aria-label={t('users.searchAria')} value={q} onChange={(e) => setQ(e.target.value)} />
@@ -394,7 +435,10 @@ export default function Users() {
         </p>
         {/* Seven columns need a floor, like the invitations table has: without one a 390px
             screen crushes them instead of scrolling them, and "Registered" arrives as "15/0". */}
-        <div className="mt-3 overflow-x-auto">
+        {/* Dimmed, not emptied, while the rows catch up with the pill: a table that blanks for
+            three hundred milliseconds reads as a page that broke, and the rows underneath are
+            still the ones the admin was looking at. */}
+        <div className={`mt-3 overflow-x-auto transition-opacity duration-150 ${catchingUp ? 'pointer-events-none opacity-45' : ''}`} aria-busy={catchingUp || undefined}>
           <table className="w-full min-w-[44rem] text-sm">
             <thead><tr className="text-left text-xs text-ink-soft"><th className="py-1">{t('users.name')}</th><th>{t('users.role')}</th><th>{t('users.thAffiliation')}</th><th>{t('users.thCountry')}</th><th>{t('users.thStamps')}</th><th>{t('users.thPoints')}</th><th>{t('users.thRegistered')}</th></tr></thead>
             <tbody>
@@ -414,7 +458,7 @@ export default function Users() {
             </tbody>
           </table>
         </div>
-        <Pager page={page} total={totalPages} onPage={goPage} busy={jumping}
+        <Pager page={page} total={totalPages} onPage={goPage} busy={jumping || catchingUp}
           from={page * PAGE + 1} to={page * PAGE + visible.length} count={searching ? filtered.length : count ?? undefined} />
       </section>
 
