@@ -41,7 +41,14 @@ export const NAME_BOX = 146
  * wider. The small variant is centred at 210 with far more room either side.
  */
 export const MARK_BOX = 138
-export const MARK_BOX_SMALL = 300
+/*
+ * The small card is a 132px thumbnail in a list that already carries the booth's name beside it,
+ * so the mark is an identifying cachet rather than a headline. At 300 the median mark ran 65% of
+ * the card's width and the widest 71%, which buried the rosette it is supposed to sit inside. At
+ * 190 every mark lands near 180 units whether it is "ADT" at 92px or "Campus France" over two
+ * lines at 46 — the same optical footprint, which is what a stamp wants.
+ */
+export const MARK_BOX_SMALL = 190
 
 /**
  * The booth's name, set as large as it can be and still be read in full.
