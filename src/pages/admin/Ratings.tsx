@@ -125,7 +125,7 @@ export default function Ratings() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.boothId} className="border-t border-rule">
+                <tr key={r.boothId} className="border-t rule">
                   <td className="py-2 pr-3">{r.name}</td>
                   <td className="fig py-2 pr-3 text-right">{r.avg == null ? '–' : r.avg.toFixed(2)}</td>
                   <td className="fig py-2 pr-3 text-right text-ink-soft">{fmt(r.count)}</td>

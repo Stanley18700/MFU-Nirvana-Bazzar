@@ -212,7 +212,7 @@ function QuestionResult({ q, responses }: { q: SurveyQuestion; responses: Array<
   return (
     <ul className="mt-2 space-y-1">
       {texts.map((v, i) => (
-        <li key={i} className="whitespace-pre-wrap border-l-2 border-rule pl-3 text-sm">{v}</li>
+        <li key={i} className="whitespace-pre-wrap border-l-2 rule pl-3 text-sm">{v}</li>
       ))}
     </ul>
   )
