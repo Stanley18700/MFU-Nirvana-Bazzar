@@ -370,13 +370,15 @@ function CreateUser({ booths, onCreated, onError }: { booths: BoothOpt[]; onCrea
               options={VISITOR_TYPES.map((t) => ({ value: t, label: VISITOR_TYPE_LABEL[t] }))} />
             <Select ariaLabel={t('users.country')} value={f.countryCode} onChange={(v) => set('countryCode', v)}
               options={COUNTRIES.map((c) => ({ value: c.code, label: c.name }))} />
-            <input className="field" list="create-institutions" placeholder={t('users.institution')} aria-label={t('users.institution')} value={f.institution} onChange={(e) => set('institution', e.target.value)} />
-            <datalist id="create-institutions">{institutions.map((i) => <option key={i} value={i} />)}</datalist>
+            {/* The same lists the visitor's own form offers, chosen the same way. A `<datalist>`
+                draws its suggestions in the OS, and half this row is already `Select`. */}
+            <Select ariaLabel={t('users.institution')} placeholder={t('users.institution')} value={f.institution}
+              onChange={(v) => set('institution', v)}
+              options={institutions.map((i) => ({ value: i, label: i }))} />
             {f.institution === 'MFU' ? (
-              <>
-                <input className="field" list="create-schools" placeholder={t('users.school')} aria-label={t('users.schoolAria')} value={f.school} onChange={(e) => set('school', e.target.value)} />
-                <datalist id="create-schools">{schools.map((s) => <option key={s} value={s} />)}</datalist>
-              </>
+              <Select ariaLabel={t('users.schoolAria')} placeholder={t('users.school')} value={f.school}
+                onChange={(v) => set('school', v)}
+                options={schools.map((x) => ({ value: x, label: x }))} />
             ) : <span className="hidden md:block" />}
             <input className="field" placeholder={t('users.studentId')} aria-label={t('users.studentIdAria')} maxLength={40} value={f.studentId} onChange={(e) => set('studentId', e.target.value)} />
           </>
@@ -530,10 +532,10 @@ function EditForm({ u, onSave, onCancel }: { u: Row; onSave: (patch: Omit<Update
         options={VISITOR_TYPES.map((t) => ({ value: t, label: VISITOR_TYPE_LABEL[t] }))} /></div></div>
       <div>Country<div className="mt-1"><Select ariaLabel={t('users.country')} value={f.countryCode} onChange={(v) => set('countryCode', v)}
         options={COUNTRIES.map((c) => ({ value: c.code, label: c.name }))} /></div></div>
-      <label>{t('users.institution')}<input className="field mt-1" list="edit-institutions" required value={f.institution} onChange={(e) => set('institution', e.target.value)} /></label>
-      <datalist id="edit-institutions">{institutions.map((i) => <option key={i} value={i} />)}</datalist>
-      <label>{t('users.schoolAria')}<input className="field mt-1" list="edit-schools" value={f.school} onChange={(e) => set('school', e.target.value)} placeholder={t('users.mfuOnly')} /></label>
-      <datalist id="edit-schools">{schools.map((s) => <option key={s} value={s} />)}</datalist>
+      <div>{t('users.institution')}<div className="mt-1"><Select ariaLabel={t('users.institution')} value={f.institution}
+        onChange={(v) => set('institution', v)} options={institutions.map((i) => ({ value: i, label: i }))} /></div></div>
+      <div>{t('users.schoolAria')}<div className="mt-1"><Select ariaLabel={t('users.schoolAria')} placeholder={t('users.mfuOnly')} value={f.school}
+        onChange={(v) => set('school', v)} options={schools.map((x) => ({ value: x, label: x }))} /></div></div>
       <label className="col-span-2">{t('users.studentIdAria')}<input className="field mt-1" maxLength={40} value={f.studentId} onChange={(e) => set('studentId', e.target.value)} /></label>
       <div className="col-span-2 flex gap-2">
         <button className="btn-primary" disabled={busy || !changed}>{t(busy ? 'common.saving' : 'users.saveChanges')}</button>

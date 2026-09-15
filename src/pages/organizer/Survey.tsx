@@ -13,6 +13,7 @@ import { DataErrors, Notice, Spinner, Toast, fmt, type Msg } from '../../compone
 import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import { num } from '../../lib/form'
 import { onStage } from '../../lib/onStage'
+import { Select } from '../../components/Select'
 import {
   EVENT_SURVEY_ID, OPTION_LIMIT, QUESTION_KINDS, QUESTION_LIMIT, blankQuestion, hasOptions, surveyProblems,
   type QuestionKind, type SurveyDoc, type SurveyQuestion,
@@ -277,9 +278,13 @@ function QuestionCard({ q, index, count, boothId, onPatch, onRetype, onMove, onD
     <div className="card">
       <div className="flex flex-wrap items-center gap-2">
         <span className="stamp-text text-ink-soft">Question {index + 1}</span>
-        <select className="field w-auto" value={q.kind} onChange={(e) => onRetype(e.target.value as QuestionKind)}>
-          {QUESTION_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
-        </select>
+        {/* `w-44`, not `w-auto`: the trigger is a div rather than a native select, so it has no
+            intrinsic width to shrink to and would otherwise fill the row. */}
+        <Select
+          ariaLabel="Question type" className="w-44"
+          value={q.kind} onChange={(v) => onRetype(v as QuestionKind)}
+          options={QUESTION_KINDS.map((k) => ({ value: k.kind, label: k.label }))}
+        />
         <label className="flex min-h-11 items-center gap-2 text-sm">
           <input type="checkbox" className="h-5 w-5" checked={q.required} onChange={(e) => onPatch({ required: e.target.checked })} />
           Required

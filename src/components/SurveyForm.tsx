@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { answerIsEmpty, type SurveyAnswer, type SurveyQuestion } from '../../shared/model'
+import { Select } from './Select'
 
 export type Answers = Record<string, SurveyAnswer>
 
@@ -48,7 +49,7 @@ export function SurveyForm({ questions, answers, onChange, showErrors = false, r
                 <img src={q.imageUrl} alt="" className="mt-2 max-h-56 w-auto rounded-lg object-contain" />
               )}
               <div className="mt-3">
-                <QuestionInput q={q} value={answers[q.id]} onChange={(v) => set(q.id, v)} accent={accent} />
+                <QuestionInput q={q} value={answers[q.id]} onChange={(v) => set(q.id, v)} accent={accent} readOnly={readOnly} />
               </div>
               {missing && <p className="mt-2 text-xs text-danger-text">This one is required.</p>}
             </fieldset>
@@ -59,11 +60,14 @@ export function SurveyForm({ questions, answers, onChange, showErrors = false, r
   )
 }
 
-function QuestionInput({ q, value, onChange, accent }: {
+function QuestionInput({ q, value, onChange, accent, readOnly = false }: {
   q: SurveyQuestion
   value: SurveyAnswer | undefined
   onChange: (v: SurveyAnswer | undefined) => void
   accent?: string
+  /** `<fieldset disabled>` above reaches every native control here, but `Select` is a disclosure
+   *  rather than a form control, so the preview has to disable that one itself. */
+  readOnly?: boolean
 }) {
   switch (q.kind) {
     case 'short':
@@ -80,10 +84,12 @@ function QuestionInput({ q, value, onChange, accent }: {
 
     case 'dropdown':
       return (
-        <select className="field" value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value || undefined)}>
-          <option value="">— choose —</option>
-          {(q.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
-        </select>
+        <Select
+          ariaLabel={q.title || 'Choose'} disabled={readOnly}
+          value={typeof value === 'string' ? value : ''}
+          onChange={(v) => onChange(v || undefined)}
+          options={(q.options ?? []).map((o) => ({ value: o, label: o }))}
+        />
       )
 
     case 'choice':
