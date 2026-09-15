@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { collection, doc, documentId, getDocs, limit, orderBy, query, startAfter, where } from 'firebase/firestore'
+import { collection, doc, documentId, getCountFromServer, getDocs, limit, orderBy, query, startAfter, where } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { api, errorMessage, type CreateUserInput, type UpdateUserInput } from '../../lib/api'
 import { useBooths, useCollection, useDoc, useRefList, useTiers, type WithId } from '../../lib/data'
@@ -31,55 +31,49 @@ const SEARCH_ALL = 2000
 /** The last row of a page, which is where the next page starts. */
 type Cursor = { createdAt: unknown; id: string }
 
+/** Number cells in the strip. Five is two either side of the middle, and 320px of room. */
+const WINDOW = 5
+
 /**
  * The pager: a numbered strip with the current page as the sliding pill, and an arrow either side.
  *
  * Numbers rather than a "Page 3" label between two buttons, because the label was status dressed
  * as a control — same weight as the buttons beside it, and no way to act on it. In the strip the
- * current page is the pill, so status and control are one thing, and a filled pill on a tinted
- * track reads on a white card where two quiet buttons did not.
+ * current page is the pill, so status and control are one thing.
  *
- * `known` is how many pages can be jumped to. A search or the invitations know their whole
- * length; the live list only knows the pages it has reached, since Firestore pages by cursor and
- * a cursor is the last row of the page before — so its strip grows as the admin moves through it,
- * and the right arrow is the only way to a page nobody has seen yet. Numbers that promised pages
- * we cannot fetch would be a lie the first click exposes.
- *
- * No motion of its own beyond the pill the rest of the app already slides: this is pressed dozens
- * of times a day at the desk, and a pager that animates is a pager that feels slow.
+ * The strip is always `WINDOW` cells wide, or `total` when there are fewer pages than that. It
+ * used to grow a cell at a time as the list gave up how long it was, which moved every number
+ * under the finger about to press it — a control that rearranges itself as you use it. A window
+ * that slides is worth more than a strip that always starts at 1.
  */
-function Pager({ page, hasNext, known, onPage, from, to, total }: {
-  page: number; hasNext: boolean; known: number; onPage: (p: number) => void; from: number; to: number; total?: number
+function Pager({ page, total, onPage, from, to, count, busy }: {
+  page: number; total: number; onPage: (p: number) => void; from: number; to: number; count?: number; busy?: boolean
 }) {
   const { t } = useLocale()
   const strip = useSlidingPill()
-  if (known <= 1 && !hasNext) return null
-  // Up to seven cells: every page when there are few, otherwise the ends and a window round here.
-  const all = Array.from({ length: known }, (_, i) => i)
-  const cells: Array<number | '…'> = known <= 7 ? all
-    : [...new Set([0, Math.max(1, page - 1), page, Math.min(known - 2, page + 1), known - 1].filter((n) => n >= 0 && n < known))]
-        .sort((a, b) => a - b)
-        .flatMap((n, i, arr) => (i > 0 && n - arr[i - 1] > 1 ? ['…' as const, n] : [n]))
+  if (total <= 1) return null
+  const size = Math.min(WINDOW, total)
+  // Centred where it can be, flush against whichever end it has run into.
+  const first = Math.max(0, Math.min(page - Math.floor(size / 2), total - size))
+  const cells = Array.from({ length: size }, (_, i) => first + i)
   return (
     <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-soft">
-      <span>{total === undefined ? t('users.showingPage', { from, to }) : t('users.showingPageOf', { from, to, total })}</span>
-      <nav className="flex items-center gap-1.5" aria-label={t('users.pages')}>
-        <button type="button" className="btn-ghost btn-sm btn-icon-sm" onClick={() => onPage(page - 1)} disabled={page === 0} aria-label={t('users.prev')}>
+      <span>{count === undefined ? t('users.showingPage', { from, to }) : t('users.showingPageOf', { from, to, total: count.toLocaleString('en-US') })}</span>
+      <nav className="flex items-center gap-1.5" aria-label={t('users.pages')} aria-busy={busy || undefined}>
+        <button type="button" className="btn-ghost btn-sm btn-icon-sm" onClick={() => onPage(page - 1)} disabled={page === 0 || busy} aria-label={t('users.prev')}>
           <span aria-hidden>‹</span>
         </button>
         <div ref={strip} className="seg seg-light" role="group">
-          {cells.map((c, i) => c === '…'
-            ? <span key={`gap${i}`} aria-hidden className="seg-item pointer-events-none px-2">…</span>
-            : (
-              <button
-                key={c} type="button" onClick={() => onPage(c)}
-                className="seg-item min-w-8 tabular-nums" aria-current={c === page ? 'page' : undefined} aria-label={t('users.page', { n: c + 1 })}
-              >
-                {c + 1}
-              </button>
-            ))}
+          {cells.map((c) => (
+            <button
+              key={c} type="button" onClick={() => onPage(c)} disabled={busy}
+              className="seg-item min-w-8 tabular-nums" aria-current={c === page ? 'page' : undefined} aria-label={t('users.page', { n: c + 1 })}
+            >
+              {c + 1}
+            </button>
+          ))}
         </div>
-        <button type="button" className="btn-ghost btn-sm btn-icon-sm" onClick={() => onPage(page + 1)} disabled={!hasNext} aria-label={t('users.next')}>
+        <button type="button" className="btn-ghost btn-sm btn-icon-sm" onClick={() => onPage(page + 1)} disabled={page >= total - 1 || busy} aria-label={t('users.next')}>
           <span aria-hidden>›</span>
         </button>
       </nav>
@@ -157,7 +151,6 @@ export default function Users() {
   }, [users, qd, searching])
   // What is on screen this page. Server pages arrive already cut; a search is cut here.
   const visible = searching ? filtered.slice(page * PAGE, (page + 1) * PAGE) : filtered
-  const hasNext = searching ? filtered.length > (page + 1) * PAGE : liveHasNext
   /*
    * Moving forward leaves this page's last row behind as the cursor for the next one, recorded on
    * the press rather than in an effect. An effect that watched the rows instead would fire once
@@ -169,23 +162,60 @@ export default function Users() {
    * on page one and shift nothing underneath it.
    */
   /*
-   * How many pages the strip may offer: the ones a cursor already exists for, plus the one after
-   * the page being looked at when the fifty-first row says there is one. Offering that next number
-   * is safe because pressing it is the same move as the arrow — it records this page's last row on
-   * the way. Offering any further would be a number that cannot be fetched.
+   * How long the list is, so the strip can show five real numbers from the first render instead of
+   * discovering them one press at a time. `getCountFromServer` is an aggregation — it reads index
+   * entries, not documents, and bills one read per thousand, so the whole festival costs two. It
+   * runs again when the role filter changes, because that is a different list.
+   *
+   * If it fails the page still works: `null` falls back to counting the pages we have cursors for
+   * plus the one the fifty-first row proves is there.
    */
-  const knownPages = searching
-    ? Math.ceil(filtered.length / PAGE)
-    : Math.max(cursors.length + 1, page + 1 + (liveHasNext ? 1 : 0))
-  const goPage = (p: number) => {
+  const [count, setCount] = useState<number | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    setCount(null)
+    getCountFromServer(base).then((s) => { if (!cancelled) setCount(s.data().count) }).catch(() => { if (!cancelled) setCount(null) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roleFilter])
+
+  const livePages = count === null
+    ? Math.max(cursors.length + 1, page + 1 + (liveHasNext ? 1 : 0))
+    : Math.max(1, Math.ceil(count / PAGE))
+  const totalPages = searching ? Math.max(1, Math.ceil(filtered.length / PAGE)) : livePages
+
+  /*
+   * Walking to a page we have no cursor for.
+   *
+   * A cursor is the last row of the page before, so page seven cannot be asked for without asking
+   * for six first. The strip only ever offers two pages beyond the current one, so this fetches at
+   * most two pages of fifty and keeps their last rows. Pressing the arrow needs none of it — the
+   * rows are already on screen.
+   */
+  const [jumping, setJumping] = useState(false)
+  const goPage = async (p: number) => {
+    if (p < 0 || p >= totalPages || p === page) return
     if (searching) { setPage(p); return }
-    if (p > cursors.length) {
-      if (p !== page + 1) return                       // no cursor for that page yet
+    if (p <= cursors.length) { setPage(p); return }
+    if (p === page + 1 && pageRows.length) {
       const last = pageRows[pageRows.length - 1]
-      if (!last) return
       setCursors((c) => Object.assign([...c], { [page]: { createdAt: last.createdAt, id: last.id } }))
+      setPage(p)
+      return
     }
-    setPage(p)
+    setJumping(true)
+    try {
+      const next = [...cursors]
+      for (let i = next.length; i < p; i++) {
+        const c = i === 0 ? undefined : next[i - 1]
+        const snap = await getDocs(c ? query(base, startAfter(c.createdAt, c.id), limit(PAGE)) : query(base, limit(PAGE)))
+        const last = snap.docs[snap.docs.length - 1]
+        if (!last) break
+        next[i] = { createdAt: last.get('createdAt'), id: last.id }
+      }
+      if (next.length >= p) { setCursors(next); setPage(p) }
+    } catch { /* the list itself reports the failure; the page simply does not move */ }
+    finally { setJumping(false) }
   }
   const [invPage, setInvPage] = useState(0)
   const shownInvites = inviteFilter === 'all' ? invites : invites.filter((i) => i.status === 'sent' || i.status === 'opened')
@@ -313,8 +343,8 @@ export default function Users() {
               </tbody>
             </table>
             </div>
-            <Pager page={invPage} hasNext={shownInvites.length > (invPage + 1) * PAGE} known={Math.ceil(shownInvites.length / PAGE)} onPage={setInvPage}
-              from={invPage * PAGE + 1} to={Math.min(shownInvites.length, (invPage + 1) * PAGE)} total={shownInvites.length} />
+            <Pager page={invPage} total={Math.max(1, Math.ceil(shownInvites.length / PAGE))} onPage={setInvPage}
+              from={invPage * PAGE + 1} to={Math.min(shownInvites.length, (invPage + 1) * PAGE)} count={shownInvites.length} />
           </>
         )}
       </section>
@@ -358,8 +388,8 @@ export default function Users() {
             </tbody>
           </table>
         </div>
-        <Pager page={page} hasNext={hasNext} known={knownPages} onPage={goPage}
-          from={page * PAGE + 1} to={page * PAGE + visible.length} total={searching ? filtered.length : undefined} />
+        <Pager page={page} total={totalPages} onPage={goPage} busy={jumping}
+          from={page * PAGE + 1} to={page * PAGE + visible.length} count={searching ? filtered.length : count ?? undefined} />
       </section>
 
       {open && <UserDrawer u={open} booths={booths} onClose={closeDrawer} onRole={changeRole} onUpdate={updateUser} onSoftDelete={softDelete} onHardDelete={hardDelete} onMsg={setMsg} />}
