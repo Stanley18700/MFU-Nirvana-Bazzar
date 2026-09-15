@@ -88,6 +88,23 @@ function Pager({ page, total, onPage, from, to, count, busy }: {
   )
 }
 
+/**
+ * Back to the top of a list after a page change.
+ *
+ * Smooth rather than instant, because the jump gave no sense of having moved — the rows simply
+ * became different rows. Carried, you can see the table you were reading leave. The target is the
+ * heading above the rows, so it does not shift when the new page turns out to be shorter than the
+ * old one, and nothing above it moves on a page press.
+ *
+ * `prefers-reduced-motion` gets the jump: a long carried scroll is exactly the motion that setting
+ * is for.
+ */
+function toTop(el: HTMLElement | null) {
+  if (!el) return
+  const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  el.scrollIntoView({ block: 'start', behavior: still ? 'auto' : 'smooth' })
+}
+
 /** §6.2 users, §6.4 invitations, §10 erasure requests. */
 export default function Users() {
   const { t } = useLocale()
@@ -252,10 +269,48 @@ export default function Users() {
    */
   const listTop = useRef<HTMLDivElement>(null)
   const invTop = useRef<HTMLDivElement>(null)
+  /*
+   * The carry waits for the rows.
+   *
+   * Starting it on the press looked right and was not: a smooth scroll is timed, and it cannot
+   * tick while React is replacing fifty rows, so it sat still for 235ms and then jumped 637px to
+   * catch up with its own clock. The press is already answered — the pill moves and the table
+   * dims — so the motion can wait for a free frame and then run as one movement.
+   */
+  const settle = useRef(false)
+  const tableBox = useRef<HTMLDivElement>(null)
+  /*
+   * Hold the table's height from the press until the carry has finished — not until the rows
+   * arrive, which is what it did at first and which held nothing, since the rows arriving is the
+   * moment the height would change. A shorter page moves the bottom of the document up, the
+   * browser clamps the scroll to follow it, and the carry begins with a lurch nobody asked for.
+   */
+  const [heldHeight, setHeldHeight] = useState<number>()
+  const release = useRef<() => void>(undefined)
   const show = (p: number) => {
+    release.current?.()
+    setHeldHeight(tableBox.current?.offsetHeight)
     setPage(p)
-    listTop.current?.scrollIntoView({ block: 'start' })
+    settle.current = true
   }
+
+  useEffect(() => {
+    if (catchingUp || !settle.current) return
+    settle.current = false
+    // Two frames: one for the new rows to paint, one for the scroll to start on a quiet thread.
+    const frame = requestAnimationFrame(() => requestAnimationFrame(() => {
+      toTop(listTop.current)
+      // Let go of the height once the movement is over. `scrollend` is the honest signal; the
+      // timer is for the browsers that do not send it, and for a scroll that had nowhere to go.
+      const done = () => { window.removeEventListener('scrollend', done); clearTimeout(timer); setHeldHeight(undefined) }
+      const timer = setTimeout(done, 1200)
+      window.addEventListener('scrollend', done, { once: true })
+      release.current = done
+    }))
+    return () => cancelAnimationFrame(frame)
+  }, [catchingUp, page])
+  // A second press mid-carry: drop the old hold before taking a new one.
+  useEffect(() => () => release.current?.(), [])
 
   const [jumping, setJumping] = useState(false)
   const goPage = async (p: number) => {
@@ -410,7 +465,7 @@ export default function Users() {
             </table>
             </div>
             <Pager page={invPage} total={Math.max(1, Math.ceil(shownInvites.length / PAGE))}
-              onPage={(p) => { setInvPage(p); invTop.current?.scrollIntoView({ block: 'start' }) }}
+              onPage={(p) => { setInvPage(p); toTop(invTop.current) }}
               from={invPage * PAGE + 1} to={Math.min(shownInvites.length, (invPage + 1) * PAGE)} count={shownInvites.length} />
           </>
         )}
@@ -418,7 +473,12 @@ export default function Users() {
 
       <CreateUser booths={booths} onCreated={(text, uid) => { setMsg({ tone: 'green', text }); setOpenId(uid) }} onError={fail} />
 
-      <section className="card mt-4" ref={listTop}>
+      {/* No scroll anchoring anywhere in here. Chrome keeps whatever you are looking at in place
+          when content changes height, which is right for a list that grows under you and wrong for
+          one that is replaced wholesale: a fifty-row page after a thirty-eight-row one pushed the
+          scroll down 588px, and the reverse pulled it up by the same, both with nothing pressed.
+          The pager below the table is anchor enough to do it even when the table itself opts out. */}
+      <section className="card mt-4 [overflow-anchor:none]" ref={listTop}>
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="stamp-text mr-auto text-ink-soft">{t('users.usersHeading')}</h2>
           <input className="field w-56" placeholder={t('users.search')} aria-label={t('users.searchAria')} value={q} onChange={(e) => setQ(e.target.value)} />
@@ -438,7 +498,10 @@ export default function Users() {
         {/* Dimmed, not emptied, while the rows catch up with the pill: a table that blanks for
             three hundred milliseconds reads as a page that broke, and the rows underneath are
             still the ones the admin was looking at. */}
-        <div className={`mt-3 overflow-x-auto transition-opacity duration-150 ${catchingUp ? 'pointer-events-none opacity-45' : ''}`} aria-busy={catchingUp || undefined}>
+        <div
+          ref={tableBox} style={heldHeight ? { minHeight: heldHeight } : undefined} aria-busy={catchingUp || undefined}
+          className={`mt-3 overflow-x-auto transition-opacity duration-150 ${catchingUp ? 'pointer-events-none opacity-45' : ''}`}
+        >
           <table className="w-full min-w-[44rem] text-sm">
             <thead><tr className="text-left text-xs text-ink-soft"><th className="py-1">{t('users.name')}</th><th>{t('users.role')}</th><th>{t('users.thAffiliation')}</th><th>{t('users.thCountry')}</th><th>{t('users.thStamps')}</th><th>{t('users.thPoints')}</th><th>{t('users.thRegistered')}</th></tr></thead>
             <tbody>
