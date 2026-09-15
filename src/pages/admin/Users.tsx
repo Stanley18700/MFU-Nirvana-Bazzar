@@ -502,17 +502,28 @@ export default function Users() {
           ref={tableBox} style={heldHeight ? { minHeight: heldHeight } : undefined} aria-busy={catchingUp || undefined}
           className={`mt-3 overflow-x-auto transition-opacity duration-150 ${catchingUp ? 'pointer-events-none opacity-45' : ''}`}
         >
-          <table className="w-full min-w-[44rem] text-sm">
+          {/*
+            * Fixed columns, not auto. Auto layout measures the rows it happens to be showing, so
+            * the grid re-cut itself on every page: a page of visitors from one school gave the
+            * affiliation column 234px and the timestamp 151, and a page of guests from "Other"
+            * gave them 106 and 230 — the same table, redrawn, which is what looked like it had
+            * stopped filling the card. These widths hold whatever is in the rows.
+            */}
+          <table className="w-full min-w-[44rem] table-fixed text-sm">
+            <colgroup>
+              <col className="w-[26%]" /><col className="w-[11%]" /><col className="w-[23%]" /><col className="w-[12%]" />
+              <col className="w-[7%]" /><col className="w-[7%]" /><col className="w-[14%]" />
+            </colgroup>
             <thead><tr className="text-left text-xs text-ink-soft"><th className="py-1">{t('users.name')}</th><th>{t('users.role')}</th><th>{t('users.thAffiliation')}</th><th>{t('users.thCountry')}</th><th>{t('users.thStamps')}</th><th>{t('users.thPoints')}</th><th>{t('users.thRegistered')}</th></tr></thead>
             <tbody>
               {visible.map((u) => (
                 <tr key={u.id} tabIndex={0} role="button" aria-label={t('users.openRow', { name: u.displayName })}
                   className={`cursor-pointer border-t rule hover:bg-white/50 focus:outline-none focus-visible:bg-white/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-action/50 ${u.deletedAt ? 'opacity-50' : ''}`}
                   onClick={() => openRow(u.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRow(u.id) } }}>
-                  <td className="py-1.5 font-medium">{u.displayName}<div className="text-xs text-ink-soft">{u.passportNo ?? u.contact}</div></td>
-                  <td>{ROLE_LABEL[u.role]}{u.boothId ? <div className="text-xs text-ink-soft">{booths.find((b) => b.id === u.boothId)?.nameEn}</div> : null}</td>
-                  <td className="text-xs">{u.institution}{u.school ? ` · ${u.school}` : ''}</td>
-                  <td className="text-xs">{u.countryCode ? countryName(u.countryCode) : ''}</td>
+                  <td className="py-1.5 pr-3 font-medium"><div className="truncate">{u.displayName}</div><div className="truncate text-xs text-ink-soft">{u.passportNo ?? u.contact}</div></td>
+                  <td className="pr-3"><div className="truncate">{ROLE_LABEL[u.role]}</div>{u.boothId ? <div className="truncate text-xs text-ink-soft">{booths.find((b) => b.id === u.boothId)?.nameEn}</div> : null}</td>
+                  <td className="pr-3 text-xs"><div className="truncate" title={`${u.institution}${u.school ? ` · ${u.school}` : ''}`}>{u.institution}{u.school ? ` · ${u.school}` : ''}</div></td>
+                  <td className="pr-3 text-xs"><div className="truncate">{u.countryCode ? countryName(u.countryCode) : ''}</div></td>
                   <td className="fig">{u.stampCount}</td><td className="fig">{u.points}</td>
                   <td className="whitespace-nowrap text-xs text-ink-soft">{ts(u.createdAt)}</td>
                 </tr>
