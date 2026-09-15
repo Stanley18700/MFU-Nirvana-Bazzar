@@ -413,8 +413,6 @@ export default function Booth() {
         {fsHint && <Notice tone="amber">{fsHint}</Notice>}
         {live && !live.active && <Notice tone="red">{t('booth.switchedOff')}</Notice>}
         {live?.active && offToday && <Notice tone="amber">{t('booth.notToday')}</Notice>}
-        {/* Why this screen has to stay on — until the person setting up the booth dismisses it. */}
-        <OrganizerWelcome boothId={session.boothId} />
       </div>
 
       {/* `kiosk:` (wide AND tall, see index.css) rather than `sm:`: a phone on its side is 844px
@@ -462,6 +460,9 @@ export default function Booth() {
           </div>
         ))}
       </footer>
+      {/* Why this screen has to stay on. An overlay, not a card in the column above: it must
+          never push the QR down the page. Shown once per booth on this device. */}
+      <OrganizerWelcome boothId={session.boothId} />
     </main>
     {/*
       * Show code. White, not the sky ground: a phone camera locks onto a QR fastest against a flat
