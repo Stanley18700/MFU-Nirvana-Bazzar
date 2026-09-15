@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import type { BoothDoc } from '../../shared/model'
-import { DISPLAY, MARK_BOX, MARK_BOX_SMALL, fitBlock, fitName } from '../lib/stampText'
+import { DISPLAY, MARK_BOX, MARK_BOX_SMALL, fitBlock, fitName, nameBaseline } from '../lib/stampText'
 
 interface Props {
   booth: Pick<BoothDoc, 'shortName' | 'accentColor' | 'badgeThumbUrl' | 'badgeUrl' | 'nameEn'>
@@ -111,13 +111,10 @@ export function Stamp({ booth, collected, size = 148, tilt = 0, animate = false,
             <line x1="28" y1="72" x2={VB_W - 28} y2="72" stroke={line} strokeWidth="1" opacity=".6" />
 
             <text x="28" y="94" style={label} fontSize="8">VALID FOR / VALABLE POUR</text>
-            {/* One line keeps the baseline it always had; more than one starts just clear of the
-                label above and runs down to 129, where the next label's cap height begins. */}
+            {/* One line keeps the baseline it always had; a block of two or three is centred in
+                the band between the label above it and the one below. */}
             {name.lines.map((line, i) => (
-              <text
-                key={line + i} x="28" style={value} fontSize={name.size}
-                y={(name.lines.length === 1 ? 112 : 98 + name.size * 0.72) + i * name.size * 1.18}
-              >
+              <text key={line + i} x="28" style={value} fontSize={name.size} y={nameBaseline(i, name.lines.length, name.size)}>
                 {line}
               </text>
             ))}

@@ -102,14 +102,28 @@ export function fitBlock(text: string, box: number, sizes: number[], maxLines: n
   return last
 }
 
+/**
+ * The band between the two labels is 33 units — "valid for" sits at a baseline of 94 and "from –
+ * until" at 138 — and a line of type stands 1.32 times its own size. So the size a line may take
+ * depends on how many lines there are: one can have the full 15, two have to come down to 13 or
+ * the block pushes into both labels, and three to 9.
+ *
+ * Measured rather than guessed: at 15px over two lines the block ran 7.3 units into the label
+ * above it and 5.1 into the one below, against the 1 to 3 units every other label and value on
+ * this card overlap by.
+ */
 export function fitName(name: string) {
-  const two = fitBlock(name, NAME_BOX, [15, 14, 13, 12, 11], 2)
-  if (two.lines.length <= 2) return two
-  /*
-   * Three lines cap the size at 10: the field is 35 units tall, between the label above it and
-   * the one below, and three lines of anything larger runs into them. The two sizes under it are
-   * for the two names in the roster that 10px cannot fit in three lines — without them `fitBlock`
-   * would return its last resort, which truncates, and the whole point here is that it must not.
-   */
-  return fitBlock(name, NAME_BOX, [10, 9, 8, 7], 3)
+  const one = fitBlock(name, NAME_BOX, [15], 1)
+  if (one.lines.length === 1 && !one.broke) return one
+  const two = fitBlock(name, NAME_BOX, [13, 12, 11], 2)
+  if (two.lines.length <= 2 && !two.broke) return two
+  // The last two sizes are for the two names in the roster that 9px cannot fit in three lines.
+  return fitBlock(name, NAME_BOX, [9, 8, 7], 3)
+}
+
+/** Where the name's `i`th baseline falls, for a block of `n` lines set at `size`. */
+export function nameBaseline(i: number, n: number, size: number) {
+  if (n === 1) return 112
+  // Centre the block's em box on the band, then step down by the leading.
+  return 113 - ((n - 1) * size * 1.1) / 2 + size * 0.39 + i * size * 1.1
 }
