@@ -6,6 +6,7 @@ import { EVENT_SURVEY_ID } from '../../../shared/model'
 import { useLocale } from '../../lib/locale'
 import { SurveyForm, useAnswers, useMissing } from '../../components/SurveyForm'
 import { BackLink, Notice, Spinner } from '../../components/ui'
+import { BoardingPass } from '../../components/BoardingPass'
 import { FestivalBackdrop } from '../auth/parts'
 
 /**
@@ -88,6 +89,10 @@ export default function Survey() {
               : t('v.survey.thanksBooth', { booth: booth ? pick(booth.nameEn, booth.nameTh) : t('v.survey.booth') })}
           </p>
         </div>
+        {/* The keepsake for the festival survey, and — for someone at 100 points — the note
+            that the gift QR is now waiting on the Prize tab. */}
+        {festival && <BoardingPass className="w-full text-left" />}
+        {festival && <p className="text-sm text-ink-soft">{t('v.survey.qrReady')}</p>}
         <Link to={home} className="btn-primary w-full py-3.5 text-lg">
           {festival ? t('v.survey.backPrize') : t('v.survey.scanAnother')}
         </Link>

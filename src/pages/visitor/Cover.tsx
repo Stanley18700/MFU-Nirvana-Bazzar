@@ -3,6 +3,7 @@ import { useAuth } from '../../lib/auth'
 import { useBooths, useEvent, useTiers } from '../../lib/data'
 import { eventMark } from '../../lib/eventText'
 import { Crest, Spinner, fmt } from '../../components/ui'
+import { SurveyBanner } from '../../components/SurveyNudge'
 import { dayOf } from '../../../shared/model'
 import { rewardExpiry, usePointsClock, useRewardBooths } from '../../lib/points'
 import { useLocale } from '../../lib/locale'
@@ -125,6 +126,9 @@ export default function Cover() {
         * one pointing at the Stamps tab beside it. A third of the screen spent restating the tab
         * bar. This answers the question the tab bar cannot: where to walk next.
         */}
+      {/* The organisers' one ask of every visitor, kept in view until it is answered. */}
+      <SurveyBanner className="mt-6" />
+
       <section className="mt-6">
         {nextBooth ? (
           <Link to="/passport/stamps" className="card press-row flex items-center gap-4 hover:bg-white">
