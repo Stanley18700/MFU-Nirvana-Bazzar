@@ -30,7 +30,9 @@ export default function PassportLayout() {
         * stays reachable down a long list of booths.
         */}
       <div className="sticky top-0 z-30 flex justify-end px-4 pt-3">
-        <LangToggle className="shadow-card" />
+        {/* `seg-floating`, the same as the landing page: this one also sits on the sky rather
+            than inside a card, and `seg-light` over it is a 6% ink tint that all but vanishes. */}
+        <LangToggle className="seg-floating" />
       </div>
       {!online && (
         <div className="mx-4 mt-3 rounded-2xl bg-white/90 px-4 py-3 shadow-card">

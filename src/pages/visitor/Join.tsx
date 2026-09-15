@@ -117,7 +117,7 @@ export default function Join() {
           beside its heading, not three screens away in a menu that does not exist yet. */}
       <div className="flex items-start justify-between gap-3">
         <h1 className="text-2xl font-bold">{t('v.join.title')}</h1>
-        <LangToggle className="mt-0.5 shadow-card" />
+        <LangToggle className="seg-floating mt-0.5" />
       </div>
       <p className="mt-1 text-sm text-ink-soft">{t('v.join.lead')}</p>
 
