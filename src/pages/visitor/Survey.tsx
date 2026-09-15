@@ -8,6 +8,7 @@ import { SurveyForm, useAnswers, useMissing } from '../../components/SurveyForm'
 import { BackLink, Notice, Spinner } from '../../components/ui'
 import { BoardingPass } from '../../components/BoardingPass'
 import { FestivalBackdrop } from '../auth/parts'
+import { useFestivalSurvey } from '../../lib/festivalSurvey'
 
 /**
  * The booth's questions, offered after the stamp is already in the passport.
@@ -26,6 +27,10 @@ export default function Survey() {
    * differs: where the visitor came from, and where they are sent next.
    */
   const festival = boothId === EVENT_SURVEY_ID
+  // While the gift QR is being withheld, "your prize is not affected" is no longer true: the
+  // points are safe but the hand-over is waiting on this form, and the line has to say so.
+  const fs = useFestivalSurvey()
+  const gatingGift = festival && fs.gate
   const { t, pick } = useLocale()
   const { data: booth } = useBooth(festival ? null : boothId)
   const home = festival ? '/passport/prize' : '/scan'
@@ -122,7 +127,7 @@ export default function Survey() {
       <p className="mt-2 text-xs text-ink-soft">
         {t('v.survey.count', { n: questions.length })}
         {' · '}
-        {festival ? t('v.survey.noPrizeEffect') : t('v.survey.pointsSaved')}
+        {gatingGift ? t('v.survey.gateRelease') : festival ? t('v.survey.noPrizeEffect') : t('v.survey.pointsSaved')}
       </p>
 
       {/* The questions sit on a white panel, the same surface every passport card uses. */}
