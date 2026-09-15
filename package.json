@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
+    "check:stamp": "node scripts/check-stamp-fit.mjs",
     "emulators": "firebase emulators:start --export-on-exit=.emulator-data --import=.emulator-data || firebase emulators:start --export-on-exit=.emulator-data",
     "deploy": "npm run build && npm --prefix functions run build && firebase deploy",
     "seed": "npm --prefix functions run seed",
