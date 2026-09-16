@@ -17,7 +17,7 @@ if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.GCLOUD_PROJECT?.startsW
 }
 const { db, Timestamp, clearEventCache } = require('../functions/lib/lib')
 const { previewPointAdjustments, applyPointAdjustments } = require('../functions/lib/points')
-const { SEED_BOOTHS, PRIZE_DESK_BOOTH_ID } = require('../functions/lib/booths.data')
+const { SEED_BOOTHS } = require('../functions/lib/booths.data')
 const { dayOf, DEFAULT_PRIZE_SESSIONS, BOOTH_BASE_POINTS } = require('../functions/lib/shared/model')
 const { pointWindow } = require('../functions/lib/shared/points')
 
@@ -54,7 +54,7 @@ async function seed(now) {
 async function visits(now) {
   const { windowStart, windowEnd } = pointWindow(now)
   const at = Timestamp.fromMillis(windowEnd - 60_000)
-  const eligible = SEED_BOOTHS.filter((b) => b.id !== PRIZE_DESK_BOOTH_ID)
+  const eligible = SEED_BOOTHS.filter((b) => !b.isPrizeDesk)
   const plan = eligible.map((b, i) => ({ id: b.id, name: b.nameEn, count: i < 5 ? 20 : i >= eligible.length - 10 ? 1 : 6 }))
 
   let batch = db.batch(); let n = 0

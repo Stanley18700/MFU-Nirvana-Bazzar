@@ -27,8 +27,8 @@ export interface SeedBooth {
   isPrizeDesk: boolean
 }
 
-/** GRD's own booth — where the single main-organiser gift is handed over. */
-export const PRIZE_DESK_BOOTH_ID = 'ED7'
+// No booth is the prize desk yet: `isPrizeDesk` is what grants a booth's organizer the
+// Redeem screen, so it is left unset until the organisers say which desk hands out gifts.
 
 export const SEED_BOOTHS: SeedBooth[] = [
   { id: 'ED1', nameEn: 'Australia Awards Mekong-Australia Partnership Scholarships (AA-MAP)', nameTh: 'Australia Awards Mekong-Australia Partnership Scholarships (AA-MAP)', shortName: 'AA-MAP', hostUnit: 'MAP SU, Australia Embassy', category: 'educational', location: 'Educational & Study Abroad', descriptionEn: 'Information on Australian education funding and opportunities', accentColor: '#EF5F5F', zone: 'entrance', isPrizeDesk: false },
@@ -37,7 +37,7 @@ export const SEED_BOOTHS: SeedBooth[] = [
   { id: 'ED4', nameEn: 'Fulbright Thailand', nameTh: 'Fulbright Thailand', shortName: 'Fulbright', hostUnit: 'Fulbright Thailand', category: 'educational', location: 'Educational & Study Abroad', descriptionEn: 'Information on U.S. education funding and opportunities (Thailand-U.S. Educational Foundation)', accentColor: '#F5C63C', zone: 'entrance', isPrizeDesk: false },
   { id: 'ED5', nameEn: 'Taiwan Education Center, Thailand', nameTh: 'Taiwan Education Center, Thailand', shortName: 'Taiwan EC', hostUnit: 'Taiwan Education Center Thailand', category: 'educational', location: 'Educational & Study Abroad', descriptionEn: 'Information on Taiwan education funding and opportunities', accentColor: '#FF919C', zone: 'entrance', isPrizeDesk: false },
   { id: 'ED6', nameEn: 'TOEFL/IELTS Testing Center', nameTh: 'TOEFL/IELTS Testing Center', shortName: 'TOEFL/IELTS', hostUnit: 'Chiang Rai Rajabhat University', category: 'educational', location: 'Educational & Study Abroad', descriptionEn: 'TOEFL and IELTS examination information', accentColor: '#F0A445', zone: 'entrance', isPrizeDesk: false },
-  { id: 'ED7', nameEn: 'MFU Go Global', nameTh: 'MFU Go Global', shortName: 'MFU Go Global', hostUnit: 'GRD', category: 'educational', location: 'Educational & Study Abroad', descriptionEn: 'International exchange programs and funding for MFU students', accentColor: '#45CFC0', zone: 'entrance', isPrizeDesk: true },
+  { id: 'ED7', nameEn: 'MFU Go Global', nameTh: 'MFU Go Global', shortName: 'MFU Go Global', hostUnit: 'GRD', category: 'educational', location: 'Educational & Study Abroad', descriptionEn: 'International exchange programs and funding for MFU students', accentColor: '#45CFC0', zone: 'entrance', isPrizeDesk: false },
   { id: 'ED8', nameEn: 'Match the International Internship', nameTh: 'Match the International Internship', shortName: 'Internships', hostUnit: 'Student Employment and Internship Division', category: 'educational', location: 'Educational & Study Abroad', descriptionEn: 'International internship opportunities for MFU students', accentColor: '#E08761', zone: 'entrance', isPrizeDesk: false },
   { id: 'ED9', nameEn: 'MFU Nursing | Go Global', nameTh: 'MFU Nursing | Go Global', shortName: 'Nursing Global', hostUnit: 'School of Nursing 2', category: 'educational', location: 'Educational & Study Abroad', descriptionEn: 'International nursing education, student exchange, research, and partnerships', accentColor: '#2F5D3E', zone: 'entrance', isPrizeDesk: false },
   { id: 'ED10', nameEn: 'Health Beyond Borders', nameTh: 'Health Beyond Borders', shortName: 'Health Beyond', hostUnit: 'MFU Medical Center Hospital', category: 'wellness', location: 'Wellness', descriptionEn: 'Health services and wellness from Mae Fah Luang University Medical Center Hospital', accentColor: '#EF5F5F', zone: 'entrance', isPrizeDesk: false },

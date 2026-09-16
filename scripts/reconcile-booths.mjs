@@ -152,7 +152,7 @@ const ROSTER = [
   "category": "educational",
   "location": "Educational & Study Abroad",
   "descriptionEn": "International exchange programs and funding for MFU students",
-  "isPrizeDesk": true,
+  "isPrizeDesk": false,
   "sortOrder": 7
  },
  {
@@ -1140,7 +1140,7 @@ async function main() {
   })
   console.log(`\nDone. ${changed} booths updated, ${claimUpdates.length} organizer(s) moved, ${inv} invitation(s) re-pointed.`)
   console.log('Organizers whose booth moved must sign out and back in (or wait up to 15 min) for the new claim to reach their screen.')
-  console.log('Check /admin/booths: the prize desk should be ED7 "MFU Go Global".')
+  console.log('Check /admin/booths: no booth is the prize desk — the flag is assigned separately.')
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e.message ?? e); process.exit(1) })

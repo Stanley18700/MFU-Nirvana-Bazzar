@@ -49,7 +49,7 @@ const PRIZE = {
   id: 'global-passport',
   name: 'Global Passport Gift',
   thresholdPoints: 100,
-  reward: 'The MFU Go Global gift, collected at the MFU Go Global booth (ED7)',
+  reward: 'The MFU Go Global gift, collected at the prize desk',
   stockPerSession: 50,
   grantsDrawEntry: false,
 }

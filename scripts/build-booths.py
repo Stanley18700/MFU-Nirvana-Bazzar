@@ -109,7 +109,7 @@ AREA = {
     'wellness': 'Wellness',
 }
 
-PRIZE_DESK_ID = 'ED7'   # GRD's own "MFU Go Global" booth — the main organisers' desk.
+PRIZE_DESK_ID = None   # No booth is the prize desk yet; the organisers assign it separately.
 
 booths = []
 for i, (bid, cat, host, name_en, short, desc) in enumerate(ROWS):
