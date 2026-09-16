@@ -315,6 +315,54 @@ FUNCTIONS_DISCOVERY_TIMEOUT=120 npm run deploy
 As with the Eventarc case, the failure happens before the hosting release, so nothing has
 changed on the live site when you see it; rerunning the whole deploy is safe.
 
+## 3a. Automatic deploys from GitHub (CI/CD)
+
+Two workflows in `.github/workflows/` cover the pipeline. Both are optional — `firebase deploy`
+from your machine keeps working exactly as section 3 describes.
+
+**`ci.yml`** runs on every push and every pull request into `main`. It typechecks the app, builds
+the functions, runs the four test suites (`test:points`, `test:sessions`, and the two
+`:emulator` variants against a throwaway `demo-*` project) and builds the client. It needs no
+secrets and never touches the live project — a fork PR compiles fine with the `VITE_*` secrets
+unset, because Vite inlines them as empty strings.
+
+**`deploy.yml`** runs on every merge into `main`, and can be triggered by hand from the Actions
+tab. It repeats the build with the real config and then runs the same `firebase deploy` as
+section 3.
+
+### Secrets to add first **(you)**
+
+Settings → Secrets and variables → Actions → *New repository secret*:
+
+| Secret | Value |
+| --- | --- |
+| `FIREBASE_SERVICE_ACCOUNT` | the whole JSON key file, pasted as-is (see below) |
+| `VITE_FIREBASE_API_KEY` | the matching lines from your local `.env.local` |
+| `VITE_FIREBASE_AUTH_DOMAIN` | " |
+| `VITE_FIREBASE_PROJECT_ID` | " |
+| `VITE_FIREBASE_STORAGE_BUCKET` | " |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | " |
+| `VITE_FIREBASE_APP_ID` | " |
+| `VITE_APP_ORIGIN` | must match Hosting exactly — booth QR payloads embed it |
+
+The service account: Google Cloud console → IAM & Admin → Service Accounts → *Create*, on the
+`mfu-passport` project. It needs **Firebase Admin**, **Cloud Functions Admin**, **Cloud Run
+Admin**, **Artifact Registry Administrator** and **Service Account User**. Then Keys → *Add key*
+→ JSON, and paste the downloaded file into `FIREBASE_SERVICE_ACCOUNT`.
+
+The `VITE_*` values are the web app config, which ships in the client bundle and is not secret;
+they live in secrets only so the repo stays portable to another Firebase project.
+
+### Notes
+
+- Deploy the project **once from your machine** before enabling `deploy.yml`. The Eventarc
+  half-failure described above needs the wait-and-retry, and CI will just report it as a
+  failed run.
+- `deploy.yml` names a `production` environment. Add required reviewers under Settings →
+  Environments if you want a human to approve each deploy — worth doing during the event.
+- Deploys never run concurrently, and a running deploy is never cancelled by a newer one.
+- The workflow does **not** seed (section 4) or grant admin (section 5). Those stay manual.
+
 ## 4. Seed the event (12 booths, prize tiers, reference lists)
 
 ```bash
