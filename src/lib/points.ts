@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { BoothDoc } from '../../shared/model'
+import { dayOf, type BoothDoc } from '../../shared/model'
 import { effectivePoints, nextPointChange } from '../../shared/points'
 import { serverNow } from './serverClock'
 
@@ -39,9 +39,17 @@ export function useRewardBooths<T extends BoothDoc>(booths: T[]) {
  */
 export function rewardExpiry(booth: BoothDoc, now: number) {
   const next = nextPointChange(booth, now)
-  return next ? `Until ${pointTime(next.at)} · then ${next.points} points` : null
+  return next ? `Until ${pointTime(next.at, now)} · then ${next.points} points` : null
 }
 
-export function pointTime(ms: number) {
-  return new Date(ms).toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' })
+/**
+ * A moment as a Bangkok clock time — "12:00" — with the day in front when it is not today's:
+ * "Fri 18 Sep 12:00". The scheduled morning→afternoon switch is Friday noon, so on the days
+ * before it a bare "Until 12:00" read as already passed once the afternoon came.
+ */
+export function pointTime(ms: number, now = ms) {
+  const at = new Date(ms)
+  const time = at.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' })
+  if (dayOf(at) === dayOf(new Date(now))) return time
+  return `${at.toLocaleDateString('en-GB', { timeZone: 'Asia/Bangkok', weekday: 'short', day: 'numeric', month: 'short' })} ${time}`
 }

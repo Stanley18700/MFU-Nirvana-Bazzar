@@ -1,3 +1,9 @@
+/*
+ * ⚠ STALE SINCE 16 Sep 2026 evening: the planner's latest sheet renumbered ~28 booths and
+ * apply-sheet-latest.mjs moved the content (Thai text included) with them. The table below is
+ * keyed by the OLD numbers (ED14 = Lifelong Journey, OPEN13 = First Aid…). Re-running it would
+ * put yesterday's Thai names on today's booths. Do not run again; edit Thai text in /admin/booths.
+ */
 /**
  * Give every booth a Thai name (where the organisers' sheet has one) and a Thai description,
  * so a visitor who switches the app to ไทย no longer reads the English text through `pick()`.

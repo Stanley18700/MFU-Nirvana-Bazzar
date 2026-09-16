@@ -13,11 +13,19 @@
  * Needs `npm --prefix functions run build` first (firebase-admin lives under functions/) and
  * application-default credentials, like the seed, cleanup and reconcile scripts.
  *
- * WHAT THE PLANNER ASKED FOR
- *   Morning  09:00–12:00  37 scoring booths, 1,000 points   (36 × 27 + Open Space 12 × 28)
- *   Afternoon 13:00–19:00 74 scoring booths, 1,000 points   (38 food × 12 + activity 15/16)
- *   First Aid (OPEN13) is not a scoring point at all.
+ * WHAT THE PLANNER ASKED FOR (scoring document, 16 Sep) — per-booth values:
+ *   Morning  09:00–12:00  activity booths 27, Plang Plang 28
+ *   Afternoon 13:00–19:00 activity booths 15 (ED5, ED7, ED12, ED13 and the second Eco-printing
+ *                         booth ED15 at 16), food booths 12
+ *   First Aid is not a scoring point (it no longer has a booth number at all).
  *   Redemption threshold 500 points.
+ *
+ * ROSTER since the planner's sheet of 16 Sep evening ("Booths Details_Latest_06092026", applied by
+ * apply-sheet-latest.mjs): 38 activity booths (ED1–19, CL20–25, OPEN1–13) and 39 food booths
+ * (FD26–63 + OPEN14 A Taste of India). Plang Plang is OPEN11 now. That is one activity booth and
+ * one food booth MORE than the scoring document counted, so the session totals are 1,027 morning
+ * and 1,043 afternoon rather than the document's 1,000 — Stanley's decision 16 Sep: keep the
+ * per-booth values, let the totals drift; the 500 threshold is unaffected.
  *
  * HOW THE SAME BOOTH IS WORTH TWO DIFFERENT AMOUNTS
  *   The app already carries a scheduled value change per booth: `effectivePoints` returns
@@ -37,7 +45,7 @@
  * script with --commit. It is idempotent.
  *
  * WHAT IT TOUCHES: booths/{id}.points, .temporaryPoints, .pointsExpireAt, .activeDays, and
- * .active (OPEN13 only); events/{live}.days/.startsAt/.endsAt; prizeTiers/{id}.thresholdPoints.
+ * .active (every scoring booth is switched on); events/{live}.startsAt/.endsAt (.days only with --days); prizeTiers/{id}.thresholdPoints.
  * It never touches secrets, organizers, scans, stats, stock or the prize sessions.
  */
 import { readFileSync } from 'node:fs'
@@ -67,19 +75,18 @@ const EVENT_STARTS = Date.parse('2026-09-18T09:00:00+07:00')
 const EVENT_ENDS = Date.parse('2026-09-18T19:00:00+07:00')
 const THRESHOLD = 500
 
-/** Worth 16 in the afternoon instead of 15 (planner's table, §3.2). */
-const AFTERNOON_16 = new Set(['ED5', 'ED7', 'ED12', 'ED13'])
-/** Worth 28 in the morning instead of 27 — the odd point that makes the morning total 1,000. */
-const MORNING_28 = new Set(['OPEN12'])
-/** Not a scoring point: a first-aid station (§1). */
-const NOT_SCORING = 'OPEN13'
+/** Worth 16 in the afternoon instead of 15 (planner's table §3.2; ED15 = second Eco-printing booth, Stanley 16 Sep). */
+const AFTERNOON_16 = new Set(['ED5', 'ED7', 'ED12', 'ED13', 'ED15'])
+/** Worth 28 in the morning instead of 27 — Plang Plang, which the latest sheet numbers Open Space 11. */
+const MORNING_28 = new Set(['OPEN11'])
 
 const activityIds = [
   ...Array.from({ length: 19 }, (_, i) => `ED${i + 1}`),
   ...Array.from({ length: 6 }, (_, i) => `CL${i + 20}`),
-  ...Array.from({ length: 12 }, (_, i) => `OPEN${i + 1}`),
+  ...Array.from({ length: 13 }, (_, i) => `OPEN${i + 1}`),
 ]
-const foodIds = Array.from({ length: 38 }, (_, i) => `FD${i + 26}`)
+/** FD26–FD63 plus the Consulate of India's Open Space 14. */
+const foodIds = [...Array.from({ length: 38 }, (_, i) => `FD${i + 26}`), 'OPEN14']
 
 /** boothId -> { morning, afternoon } as the planner's tables specify. */
 const PLAN = new Map()
@@ -99,22 +106,20 @@ async function main() {
   console.log(`${COMMIT ? 'APPLYING' : 'DRY RUN'} — project ${projectId}${live ? ' (LIVE)' : ' (emulator)'}\n`)
 
   console.log('planned totals')
-  console.log(`  morning   ${activityIds.length} booths = ${morningTotal} points  (planner says 1000)`)
+  console.log(`  morning   ${activityIds.length} booths = ${morningTotal} points  (scoring document said 1000 for 37 booths)`)
   console.log(`  afternoon ${activityIds.length + foodIds.length} booths = ${afternoonTotal} points`)
-  console.log(`            = ${afternoonActivity} activity + ${afternoonFood} food  (planner says 1000)`)
-  if (morningTotal !== 1000) throw new Error(`morning total is ${morningTotal}, expected 1000 — check the table`)
-  if (afternoonTotal !== 1000) {
-    console.log(`  ⚠ the planner's afternoon table adds up to ${afternoonTotal}, not the 1000 its summary states.`)
-    console.log(`    The summary counts 36 activity booths (32×15 + 4×16 = 544); the table lists 37`)
-    console.log(`    (33×15 + 4×16 = ${afternoonActivity}). Per-booth values below follow the TABLE.`)
+  console.log(`            = ${afternoonActivity} activity + ${afternoonFood} food  (scoring document said 1000 for 74 booths)`)
+  if (morningTotal !== 1000 || afternoonTotal !== 1000) {
+    console.log('  ⚠ totals differ from the scoring document because the latest booth sheet has more booths than it')
+    console.log('    counted (38 activity + 39 food). Per-booth values are the document\'s; the 500 threshold is unaffected.')
   }
   if (THRESHOLD > afternoonTotal) throw new Error('threshold is above the afternoon maximum')
 
   const snap = await db.collection('booths').get()
   const booths = new Map(snap.docs.map((d) => [d.id, d.data()]))
-  const missing = [...PLAN.keys(), NOT_SCORING].filter((id) => !booths.has(id))
-  if (missing.length) throw new Error(`booth documents missing: ${missing.join(', ')}`)
-  const extra = [...booths.keys()].filter((id) => !PLAN.has(id) && id !== NOT_SCORING)
+  const missing = [...PLAN.keys()].filter((id) => !booths.has(id))
+  if (missing.length) throw new Error(`booth documents missing: ${missing.join(', ')}${missing.includes('OPEN14') ? ' — run apply-sheet-latest.mjs --commit first' : ''}`)
+  const extra = [...booths.keys()].filter((id) => !PLAN.has(id))
   if (extra.length) console.log(`\nnote: ${extra.length} booth(s) not in the planner's tables are left alone: ${extra.join(', ')}`)
 
   // Read the live event first: without --days the booths keep the days the event already
@@ -143,16 +148,8 @@ async function main() {
     if (!diff.length) continue
     changed++
     const shape = plan.morning === null ? `${plan.afternoon} all day` : `${plan.morning} → ${plan.afternoon} at 12:00`
-    console.log(`  ${id.padEnd(7)} ${String(cur.points ?? '?').padStart(3)} → ${shape.padEnd(22)} ${cur.nameEn}`)
+    console.log(`  ${id.padEnd(7)} ${String(cur.points ?? '?').padStart(3)} → ${shape.padEnd(22)} ${cur.nameEn}${cur.active === false ? '  (was inactive → active)' : ''}`)
     batch.set(db.doc(`booths/${id}`), patch, { merge: true })
-  }
-
-  // First aid: off the board entirely rather than a stamp worth nothing.
-  const fa = booths.get(NOT_SCORING)
-  if (fa.active !== false) {
-    changed++
-    console.log(`  ${NOT_SCORING.padEnd(7)} deactivated — "${fa.nameEn}" is a service point, not a scoring booth`)
-    batch.set(db.doc(`booths/${NOT_SCORING}`), { active: false }, { merge: true })
   }
 
   // ---- event ----
