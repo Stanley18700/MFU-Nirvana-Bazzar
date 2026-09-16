@@ -79,7 +79,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       # Saves re-downloading the emulator jars on every run.
       - name: Cache emulator binaries
