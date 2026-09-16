@@ -18,8 +18,8 @@ import {
   db, FieldValue, requireRole, requireAuth, str, num, audit, getActiveEvent,
 } from './lib'
 import {
-  OPTION_LIMIT, QUESTION_KINDS, QUESTION_LIMIT, QuestionKind, SurveyAnswer, SurveyDoc,
-  SurveyQuestion, SurveyResponseDoc, answerIsEmpty, hasOptions, surveyProblems,
+  EVENT_SURVEY_ID, OPTION_LIMIT, QUESTION_KINDS, QUESTION_LIMIT, QuestionKind, SurveyAnswer, SurveyDoc,
+  SurveyQuestion, SurveyResponseDoc, UserDoc, answerIsEmpty, hasOptions, surveyProblems,
 } from './shared/model'
 
 const KINDS = QUESTION_KINDS.map((k) => k.kind)
@@ -150,10 +150,16 @@ export const saveSurvey = onCall(async (req) => {
 /**
  * Publish / unpublish on its own, so an organizer can take a survey down mid-event without
  * opening the builder and risking an accidental edit.
+ *
+ * `gateGift` rides along as its own optional flag rather than a second callable, because the
+ * two decisions are made at the same desk under the same pressure: whether visitors are asked
+ * at all, and whether the gift QR waits on the answer. Omit it and the current value stands,
+ * so publishing never silently re-arms a gate somebody just took down.
  */
 export const setSurveyActive = onCall(async (req) => {
   const { boothId, actor } = boothFor(req)
   const active = req.data?.active === true
+  const gateGift = typeof req.data?.gateGift === 'boolean' ? req.data.gateGift : undefined
   const ref = db.doc(`surveys/${boothId}`)
   const snap = await ref.get()
   if (!snap.exists) throw new HttpsError('not-found', 'This booth has no survey yet')
@@ -162,9 +168,9 @@ export const setSurveyActive = onCall(async (req) => {
     const problems = surveyProblems(s.title, s.questions ?? [])
     if (problems.length) throw new HttpsError('failed-precondition', problems[0])
   }
-  await ref.set({ active }, { merge: true })
-  await audit(actor, 'setSurveyActive', 'survey', boothId, null, { active })
-  return { ok: true, active }
+  await ref.set(gateGift === undefined ? { active } : { active, gateGift }, { merge: true })
+  await audit(actor, 'setSurveyActive', 'survey', boothId, null, { active, gateGift })
+  return { ok: true, active, gateGift }
 })
 
 /**
@@ -213,8 +219,17 @@ export const submitSurveyResponse = onCall(async (req) => {
    * Only someone who actually visited the booth may answer it. `scans/{visitorId}_{boothId}` is
    * the stamp itself, so this is the same fact the passport already shows — and it keeps the
    * survey from becoming a way to spam a booth's results from a phone across the hall.
+   *
+   * The festival survey has no booth to have visited, so the equivalent bar is having been to
+   * the festival at all: one stamp. It is the same idea — an answer should come from somebody
+   * who was there — and it is the strongest claim the data can actually support.
    */
-  if (!(await db.doc(`scans/${uid}_${boothId}`).get()).exists) {
+  if (boothId === EVENT_SURVEY_ID) {
+    const me = (await db.doc(`users/${uid}`).get()).data() as UserDoc | undefined
+    if (!me || (me.stampCount ?? 0) < 1) {
+      throw new HttpsError('permission-denied', 'Collect a stamp first')
+    }
+  } else if (!(await db.doc(`scans/${uid}_${boothId}`).get()).exists) {
     throw new HttpsError('permission-denied', 'Collect this booth\'s stamp first')
   }
 

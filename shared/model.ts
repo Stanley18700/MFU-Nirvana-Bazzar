@@ -237,6 +237,39 @@ export interface InviteDoc {
 }
 
 /**
+ * Someone asking to run a booth when nobody has their email address.
+ *
+ * `inviteOrganizer` needs an address, and `acceptInvite` refuses any caller whose verified token
+ * email differs from the invited one — deliberately, since the link is the credential. That is no
+ * help for a booth host who turns up on the day and is simply not on anyone's list.
+ *
+ * This is a request, never a grant. Filing one changes no claim; an admin decides every case, so
+ * the rule the festival rests on — nobody becomes staff without an admin — survives intact. The
+ * only thing it removes is the dependency on knowing an email address in advance.
+ *
+ * Keyed by uid rather than an auto-id: one person has one open request, a re-submit corrects it
+ * rather than queueing a second, and the admin's list cannot be flooded from a single account.
+ */
+export interface StaffRequestDoc {
+  uid: string
+  displayName: string
+  /** Whatever they signed in with — an email, or a phone for a Google account without one. */
+  contact: string
+  /** A booth that already exists, chosen from the list. Mutually exclusive with `newBoothName`. */
+  boothId: string | null
+  /** The name they typed when their booth is not in the list yet. Created only on approval. */
+  newBoothName: string | null
+  note: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  requestedAt: unknown
+  decidedAt?: unknown
+  decidedBy?: string | null
+  decisionNote?: string | null
+  /** What they were actually put on, which an admin may have overridden. */
+  grantedBoothId?: string | null
+}
+
+/**
  * The counters an organizer's booth screen is allowed to see: how the event as a whole is
  * going. Nothing here describes who the visitors are — see `DemographicsShard`.
  */
@@ -416,6 +449,12 @@ export interface SurveyDoc {
   questions: SurveyQuestion[]
   /** Off by default: a half-built survey must never reach a visitor. */
   active: boolean
+  /**
+   * Withhold the gift QR on the Prize tab until this survey is answered. Deliberately separate
+   * from `active`, so taking the gate down at the prize desk does not also unpublish the survey
+   * and stop the answers coming in. Off unless explicitly turned on.
+   */
+  gateGift?: boolean
   responseCount: number
   /**
    * Bumped whenever the questions change. Answers are stored by question id, so reusing an id
@@ -513,4 +552,181 @@ export function surveyProblems(title: string, questions: SurveyQuestion[]): stri
     }
   })
   return out
+}
+
+// ---------- booth ratings (§4.3) ----------
+
+/**
+ * The one thing every booth is asked after a stamp: how was it, one to five, plus an optional
+ * sentence. It replaces the per-booth custom survey as the thing a visitor sees after scanning
+ * — one question the whole festival can be compared on, rather than 76 incomparable forms.
+ *
+ * Same two rules the surveys had:
+ *
+ * 1. **Rating never affects the passport.** `scan` has already awarded the stamp and the points
+ *    before any of this renders. Nothing here writes to `users`, `scans` or the counters.
+ * 2. **A rating carries no identity.** `boothRatings` holds no visitor id in a field or in the
+ *    document id; `boothRated/{visitorId}_{boothId}` is the separate "already rated" marker, and
+ *    it holds no score. Neither collection can be joined to the other.
+ */
+
+/** A comment longer than this is a conversation, not a comment. */
+export const RATING_COMMENT_MAX = 400
+export const RATING_STARS = [1, 2, 3, 4, 5] as const
+export type RatingStars = (typeof RATING_STARS)[number]
+
+/** `boothRatings/{autoId}` — deliberately anonymous. Admin-readable. */
+export interface BoothRatingDoc {
+  boothId: string
+  eventId: string
+  /** 1–5. */
+  stars: number
+  /** Absent when the visitor left it blank, which most will. */
+  comment?: string
+  ratedAt: unknown
+  day: string
+}
+
+/**
+ * `boothRated/{visitorId}_{boothId}` — the marker that stops a second rating. It stores no
+ * score on purpose: an admin can read both this and `boothRatings`, and a score here would let
+ * the two be joined back into "who said what".
+ */
+export interface BoothRatedDoc {
+  boothId: string
+  ratedAt: unknown
+}
+
+/**
+ * `stats/ratings/items/{boothId}` — pre-aggregated, like every other counter in the app, so
+ * the admin page reads 76 small documents instead of every rating ever left.
+ */
+export interface BoothRatingStatsDoc {
+  boothId: string
+  count: number
+  /** Total of all scores; the average is `sum / count`. Kept as a sum so it stays exact. */
+  sum: number
+  /** How many gave each score, keyed '1' through '5'. */
+  dist: Record<string, number>
+  /** How many of those also wrote something. */
+  comments: number
+  updatedAt: unknown
+}
+
+/** Average score, or null when nobody has rated the booth yet. */
+export function ratingAverage(s: { count?: number; sum?: number } | null | undefined): number | null {
+  if (!s?.count) return null
+  return (s.sum ?? 0) / s.count
+}
+
+// ---------- the festival feedback survey (§4.3) ----------
+
+/**
+ * The reserved `boothId` under which the event-wide feedback survey is stored, so it can reuse
+ * the booth survey machinery whole — `surveys/{id}`, `surveyResponses`, `surveyTaken`, the
+ * builder, the renderer and the results screen — instead of growing a parallel one.
+ *
+ * The property that matters: no organizer's `boothId` claim can be this, so the rule on
+ * `surveyResponses` that lets a booth's organizer read their own answers admits nobody here and
+ * festival answers are admin-only. `createBooth` refuses the id outright, which is what turns
+ * that from a convention into a guarantee.
+ *
+ * **Single underscores, and it must stay that way.** Firestore reserves every document id
+ * matching `__.*__` for its own use and rejects the write with INVALID_ARGUMENT, so the
+ * obvious-looking `__festival__` is not a legal document id — `surveys/__festival__` cannot
+ * exist. This was deployed once and every read of it failed.
+ */
+export const EVENT_SURVEY_ID = '_festival_'
+
+/**
+ * The questions, as the Office of International Affairs wrote them.
+ *
+ * Bilingual in one string, the way the original form is: `SurveyQuestion.title` is a single
+ * field, and splitting it into `titleEn`/`titleTh` would mean a schema change, a builder
+ * change and a renderer change for a survey that is asked once a year. "Thai / English" in the
+ * order the paper form uses.
+ *
+ * The one departure from the original: its 6-row satisfaction matrix is six `scale` questions.
+ * There is no matrix kind, and a 6 x 5 grid on a 320px phone is unusable — which is what these
+ * visitors will be holding, one-handed, on their way out.
+ *
+ * Ids are what answers are stored under, so **never reuse an id for different wording**: doing
+ * so relabels answers already given. `saveSurvey` retires the old question set to
+ * `surveys/{id}/versions/{n}` when the set changes, which is what makes that recoverable.
+ */
+export const FESTIVAL_SURVEY: { title: string; description: string; questions: SurveyQuestion[] } = {
+  title: 'แบบประเมินความพึงพอใจ / Participant Feedback',
+  description:
+    'ขอบคุณที่เข้าร่วมงาน ความคิดเห็นของท่านจะช่วยให้เราพัฒนากิจกรรมในอนาคต'
+    + ' · Thank you for joining. Your feedback helps us improve future activities.',
+  questions: [
+    {
+      id: 'participant', kind: 'choice', required: true,
+      title: 'ประเภทผู้เข้าร่วม / You are',
+      options: [
+        'นักศึกษา มฟล. / MFU Student',
+        'บุคลากร มฟล. / MFU Staff',
+        'บุคคลทั่วไป / General Public',
+      ],
+    },
+    {
+      id: 'heard', kind: 'choice', required: true,
+      title: 'ท่านทราบข่าวกิจกรรมจากช่องทางใด / How did you hear about the event?',
+      options: [
+        'Facebook / Social Media',
+        'เว็บไซต์ มฟล. / MFU Website',
+        'เพื่อนหรือเพื่อนร่วมงาน / Friends or colleagues',
+        'ประชาสัมพันธ์ภายใน มฟล. / MFU Announcement',
+        'อื่น ๆ / Other',
+      ],
+    },
+    {
+      id: 'overall', kind: 'scale', required: true,
+      title: 'โดยภาพรวม ท่านพึงพอใจต่อการจัดงานในระดับใด / Overall, how satisfied are you with the event?',
+      scaleMin: 1, scaleMax: 5,
+      scaleMinLabel: 'น้อยที่สุด / Lowest', scaleMaxLabel: 'มากที่สุด / Highest',
+    },
+    ...([
+      ['variety', 'ความหลากหลายของกิจกรรม / Variety of activities'],
+      ['quality', 'คุณภาพของกิจกรรม / Quality of activities'],
+      ['cultures', 'โอกาสในการเรียนรู้วัฒนธรรมที่หลากหลาย / Opportunities to learn about other cultures'],
+      ['connect', 'โอกาสในการพบปะและเชื่อมโยงกับผู้อื่น / Opportunities to connect with others'],
+      ['atmosphere', 'บรรยากาศของงาน / Event atmosphere'],
+      ['organization', 'การจัดงานโดยภาพรวม / Overall organization'],
+    ] as const).map(([id, title]): SurveyQuestion => ({
+      id, kind: 'scale', title, required: true,
+      scaleMin: 1, scaleMax: 5,
+      scaleMinLabel: 'น้อยที่สุด / Lowest', scaleMaxLabel: 'มากที่สุด / Highest',
+    })),
+    {
+      id: 'learned', kind: 'choice', required: true,
+      title: 'กิจกรรมนี้ช่วยให้ท่านเข้าใจวัฒนธรรมและมุมมองที่หลากหลายมากขึ้นหรือไม่'
+        + ' / Did the event help you understand different cultures and perspectives?',
+      options: [
+        'ไม่เลย / Not at all',
+        'เล็กน้อย / A little',
+        'ในระดับหนึ่ง / Somewhat',
+        'มาก / Much',
+        'มากที่สุด / Very much',
+      ],
+    },
+    {
+      id: 'moreInterested', kind: 'choice', required: true,
+      title: 'หลังเข้าร่วมงาน ท่านสนใจที่จะมีปฏิสัมพันธ์กับผู้คนจากหลากหลายวัฒนธรรมมากขึ้นหรือไม่'
+        + ' / After attending, are you more interested in engaging with people from other cultures?',
+      options: ['ใช่ / Yes', 'ไม่แน่ใจ / Not sure', 'ไม่ใช่ / No'],
+    },
+    {
+      id: 'enjoyed', kind: 'paragraph', required: true,
+      title: 'ท่านชื่นชอบกิจกรรมหรือส่วนใดของงานมากที่สุด / What did you enjoy most about the event?',
+    },
+    {
+      id: 'improve', kind: 'paragraph', required: true,
+      title: 'ท่านมีข้อเสนอแนะอะไรสำหรับการจัดงานครั้งต่อไป / What could we improve for future events?',
+    },
+    {
+      id: 'oneWord', kind: 'short', required: true,
+      title: 'หนึ่งคำที่อธิบายประสบการณ์ของท่าน / One word to describe your experience',
+    },
+  ],
 }

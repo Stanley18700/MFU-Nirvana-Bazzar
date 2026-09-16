@@ -35,16 +35,53 @@ function continueTo(path: string): ActionCodeSettings {
 }
 
 /**
- * Popup first: it keeps the half-filled page alive and works on every modern mobile browser.
- * Where the browser blocks it (in-app webviews, strict pop-up settings) fall back to a
- * redirect, which AuthProvider collects with getRedirectResult on the way back.
+ * LINE, Facebook, Instagram, Messenger, WeChat and TikTok open links in their own webview, and
+ * `signInWithPopup` is worse than useless in one: the child window opens, Google signs in, and
+ * then it cannot reach the opener across the webview boundary — so the promise never settles
+ * and the button spins until the visitor gives up. There is no error to catch, which is why
+ * this has to be decided before the popup is attempted rather than in the catch below.
+ *
+ * Matched on `Line/<version>` rather than a bare "Line": the bare word turns up in unrelated
+ * agent strings, and a false positive would push a working desktop browser onto the slower
+ * redirect path for no reason.
+ */
+const IN_APP_WEBVIEW = /FBAN|FBAV|FB_IAB|Instagram|Messenger|MicroMessenger|TikTok|\bLine\/\d/i
+
+export function isInAppWebView(ua: string = navigator.userAgent): boolean {
+  return IN_APP_WEBVIEW.test(ua)
+}
+
+/**
+ * Codes that mean "a popup cannot work here", so a redirect is worth trying instead.
+ *
+ * `auth/popup-closed-by-user` is deliberately NOT in this list. Closing the window is a
+ * decision, and answering it by throwing the whole page into a redirect takes the choice back
+ * off the visitor — they get sent to Google again having just said no.
+ */
+const POPUP_UNAVAILABLE = new Set([
+  'auth/popup-blocked',
+  'auth/operation-not-supported-in-this-environment',
+  'auth/web-storage-unsupported',
+])
+
+/**
+ * Popup first, because it keeps the half-filled page alive — except in the webviews above,
+ * which go straight to a redirect. AuthProvider collects the result with getRedirectResult on
+ * the way back, and surfaces the error if there is one.
+ *
+ * Returns null when a redirect has been started: the page is already navigating away, so the
+ * caller must not treat null as failure.
  */
 export async function signInWithGoogle(): Promise<UserCredential | null> {
+  if (isInAppWebView()) {
+    await signInWithRedirect(auth, googleProvider)
+    return null
+  }
   try {
     return await signInWithPopup(auth, googleProvider)
   } catch (e) {
     const code = (e as { code?: string }).code ?? ''
-    if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+    if (POPUP_UNAVAILABLE.has(code)) {
       await signInWithRedirect(auth, googleProvider)
       return null
     }
@@ -141,6 +178,20 @@ const MESSAGES: Record<string, string> = {
   'auth/invalid-action-code': 'This link is not valid — it may already have been used.',
   'auth/unauthorized-continue-uri': 'This site is not on the Firebase authorised-domains list yet (see SETUP.md).',
   'auth/operation-not-allowed': 'That sign-in method is switched off in the Firebase console (see SETUP.md).',
+  // The redirect half of Google sign-in. These only ever surface after the trip to Google and
+  // back, which is why they were invisible while getRedirectResult swallowed its error.
+  'auth/unauthorized-domain':
+    'This address is not on the Firebase authorised-domains list, so Google sign-in cannot finish here (see SETUP.md).',
+  // Thrown when the sessionStorage written before the redirect is gone on the way back — the
+  // signature of an in-app browser or of Safari clearing storage across the navigation. There
+  // is nothing the visitor can fix inside that webview, so the message says how to leave it.
+  'auth/missing-initial-state':
+    'This app’s built-in browser cleared the sign-in midway. Open the site in Safari or Chrome — use the ⋯ menu and “Open in browser” — then sign in again.',
+  'auth/web-storage-unsupported':
+    'This browser is blocking the storage sign-in needs. Open the site in Safari or Chrome, or turn off private browsing, then try again.',
+  'auth/redirect-cancelled-by-user': 'Sign-in was cancelled before it finished.',
+  'auth/redirect-operation-pending': 'Sign-in is already in progress — give it a moment.',
+  'auth/timeout': 'Google took too long to answer. Check the connection and try again.',
 }
 
 export function authError(e: unknown): string {

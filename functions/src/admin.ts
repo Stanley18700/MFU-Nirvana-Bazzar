@@ -6,10 +6,10 @@ import {
   getActiveEvent, toMillis, type ActiveEvent,
 } from './lib'
 import {
-  ACCENTS, BoothDoc, DEFAULT_PRIZE_SESSIONS, InviteDoc, PrizeTierDoc, Role, UserDoc, VisitorType, Zone,
+  ACCENTS, BoothDoc, DEFAULT_PRIZE_SESSIONS, EVENT_SURVEY_ID, InviteDoc, PrizeTierDoc, Role, UserDoc, VisitorType, Zone,
   currentPrizeSession, dayOf, minuteToHHMM, nextPrizeSession, passportNo,
 } from './shared/model'
-import { APP_ORIGIN, RESEND_API_KEY, mailConfigured, sendInvite } from './mailer'
+import { APP_ORIGIN, EMAILJS_PRIVATE_KEY, mailConfigured, sendInvite } from './mailer'
 import { recomputeRanks } from './triggers'
 
 const ZONES: Zone[] = ['entrance', 'middle', 'far']
@@ -251,16 +251,46 @@ function boothFromData(ev: ActiveEvent, d: Record<string, unknown>, existing?: B
   }
 }
 
-export const createBooth = onCall(async (req) => {
-  const { uid: actor } = requireRole(req, 'admin')
-  const d = req.data ?? {}
-  const ev = await getActiveEvent(true)
+/**
+ * Everything creating a booth entails, in one place.
+ *
+ * A booth is four documents, not one: the booth, its HMAC secret, its stats row, and the event's
+ * `boothCount`. `decideStaffRequest` also creates booths — for a host whose booth was never on the
+ * sheet — and a second copy of this would drift from it, most likely by forgetting the secret and
+ * leaving a booth whose screen cannot start.
+ *
+ * Exported rather than local so that path calls exactly this, and the audit row names the real
+ * action ('createBooth' or the approval) rather than a shared euphemism.
+ */
+export async function createBoothDoc(
+  ev: ActiveEvent, d: Record<string, unknown>, actor: string,
+): Promise<{ id: string; booth: ReturnType<typeof boothFromData> }> {
   const count = (await db.collection('booths').count().get()).data().count
   const booth = boothFromData(ev, d)
   if (!d.accentColor) booth.accentColor = ACCENTS[count % ACCENTS.length]
   if (typeof d.sortOrder !== 'number') booth.sortOrder = count + 1
-  const id = str(d.id, 'id', { required: false, max: 40 }) || `booth-${String(count + 1).padStart(2, '0')}`
+  /*
+   * A generated id used to be `booth-{count+1}` and nothing more, which collides for good the
+   * moment any booth has ever been deleted: the count drops by one, the next id is one already
+   * taken, and every later create fails with "Booth id in use" no matter how often it is retried.
+   * That was tolerable when only an admin at a desk hit it. It is not tolerable when the create is
+   * an approval a host is standing there waiting on, so a generated id now walks forward until it
+   * finds a free one. A caller-supplied id is still refused if taken — that one is a real conflict.
+   */
+  let id = str(d.id, 'id', { required: false, max: 40 })
+  if (!id) {
+    for (let n = count + 1; ; n++) {
+      const candidate = `booth-${String(n).padStart(2, '0')}`
+      if (!(await db.doc(`booths/${candidate}`).get()).exists) { id = candidate; break }
+    }
+  }
   if (!/^[A-Za-z0-9_-]+$/.test(id)) throw new HttpsError('invalid-argument', 'Bad booth id')
+  /*
+   * The festival survey is stored as a booth survey under this id, and is admin-only precisely
+   * because no organizer's `boothId` claim can equal it. A booth created with it would hand
+   * that booth's organizer every festival response.
+   */
+  if (id === EVENT_SURVEY_ID) throw new HttpsError('invalid-argument', 'That booth id is reserved')
   const ref = db.doc(`booths/${id}`)
   if ((await ref.get()).exists) throw new HttpsError('already-exists', 'Booth id in use')
   const batch = db.batch()
@@ -269,6 +299,13 @@ export const createBooth = onCall(async (req) => {
   batch.set(db.doc(`stats/booths/items/${id}`), { boothId: id, stamps: 0, byVisitorType: {}, byDay: {}, byHour: {} }, { merge: true })
   batch.set(db.doc(`events/${ev.id}`), { boothCount: FieldValue.increment(1) }, { merge: true })
   await batch.commit()
+  return { id, booth }
+}
+
+export const createBooth = onCall(async (req) => {
+  const { uid: actor } = requireRole(req, 'admin')
+  const ev = await getActiveEvent(true)
+  const { id, booth } = await createBoothDoc(ev, req.data ?? {}, actor)
   await audit(actor, 'createBooth', 'booth', id, null, booth)
   return { id }
 })
@@ -500,6 +537,71 @@ export const adjustStock = onCall(async (req) => {
   return { ok: true, sessionKey }
 })
 
+/**
+ * §6.7 — the other half of stock: how many each session starts with.
+ *
+ * `adjustStock` above answers "a box turned up, put ten more out this morning". This answers
+ * "from now on a session is worth thirty, not fifty" — a different question, so a different
+ * verb rather than a flag on the same one. NEXT.md left the choice between them open; it is
+ * both, named separately, because an organiser means one or the other and never half of each.
+ *
+ * What it does NOT do is write `sessionRemaining`. An untouched session has no entry there and
+ * falls back to `stockPerSession` (shared/model.ts), so changing the allowance re-bases every
+ * session nobody has spent from yet, with no backfill and no migration. A session already in
+ * progress keeps the number it is on: gifts handed over cannot be un-handed, and quietly
+ * re-basing the open window would change the figure under the desk's feet mid-queue.
+ *
+ * Unlike `adjustStock` this is allowed while the desk is shut, which is when it will actually
+ * be used — nobody sets tomorrow's allowance in the middle of today's queue.
+ */
+export const setSessionAllowance = onCall(async (req) => {
+  const { uid: actor } = requireRole(req, 'admin')
+  const tierId = str(req.data?.tierId, 'tierId')
+  const stockPerSession = num(req.data?.stockPerSession, 'stockPerSession', { min: 0, max: 10_000 })
+  const reason = str(req.data?.reason, 'reason', { max: 300 })
+  const ev = await getActiveEvent(true)
+  const sessions = ev.prizeSessions?.length ? ev.prizeSessions : DEFAULT_PRIZE_SESSIONS
+  const windows = (ev.days?.length ?? 0) * sessions.length
+  let before = 0
+
+  await db.runTransaction(async (tx) => {
+    const ref = db.doc(`prizeTiers/${tierId}`)
+    const t = (await tx.get(ref)).data() as PrizeTierDoc | undefined
+    if (!t) throw new HttpsError('not-found', 'Tier not found')
+    if (typeof t.stockPerSession !== 'number') {
+      throw new HttpsError('failed-precondition', 'This prize is stocked from one event-wide pool, not per session. Use Add stock instead.')
+    }
+    before = t.stockPerSession
+
+    /*
+     * The event-wide figures are the audit trail and what the archive reports, so they follow
+     * the allowance rather than drifting away from it. Moving both by the same delta keeps
+     * `remaining = total - redeemed` true, which is the only invariant anything downstream
+     * relies on. Refused rather than clamped when that would put remaining below zero: more
+     * gifts have already gone out than the new allowance can account for, and silently
+     * inventing the difference would make the archive lie.
+     */
+    const delta = (stockPerSession - before) * windows
+    if (t.stockRemaining + delta < 0) {
+      throw new HttpsError('invalid-argument', `Would take remaining stock below zero — ${t.stockRemaining} left across the event`)
+    }
+
+    tx.update(ref, {
+      stockPerSession,
+      stockTotal: FieldValue.increment(delta),
+      stockRemaining: FieldValue.increment(delta),
+    })
+    tx.create(db.collection('stockAdjustments').doc(), {
+      tierId, delta, reason, actorUid: actor, kind: 'allowance',
+      stockPerSession, previousPerSession: before,
+      createdAt: FieldValue.serverTimestamp(),
+    })
+  })
+
+  await audit(actor, 'setSessionAllowance', 'prizeTier', tierId, { stockPerSession: before }, { stockPerSession, reason })
+  return { ok: true, stockPerSession, previousPerSession: before }
+})
+
 /** §6.7 — stage draw. */
 export const runDraw = onCall(async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
@@ -601,7 +703,7 @@ function eventDates(ev: ActiveEvent): string {
   return a && b ? (a === b ? a : a + ' - ' + b) : ev.days.join(' / ')
 }
 
-export const inviteOrganizer = onCall({ secrets: [RESEND_API_KEY] }, async (req) => {
+export const inviteOrganizer = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
   const ev = await getActiveEvent(true)
   const list: Array<{ name: string; email: string; boothId: string; role?: Role }> = Array.isArray(req.data?.invites)
@@ -632,7 +734,7 @@ export const inviteOrganizer = onCall({ secrets: [RESEND_API_KEY] }, async (req)
     let mailed = false
     try {
       mailed = await sendInvite({
-        to: email, name: displayName, boothName, link,
+        to: email, name: displayName, boothName, link, role,
         expires: expiresAt.toDate().toLocaleDateString('en-GB'),
         eventName: ev.nameEn, eventDates: eventDates(ev),
       })
@@ -640,13 +742,17 @@ export const inviteOrganizer = onCall({ secrets: [RESEND_API_KEY] }, async (req)
       console.error('invite mail failed', e)
     }
     await audit(actor, 'inviteOrganizer', 'invite', ref.id, null, { email, boothId, role, mailed })
-    // The link is returned to the admin only when mail did not go out, so it can be copied by hand.
-    results.push({ inviteId: ref.id, email, mailed, link: mailed ? undefined : link })
+    // The link always comes back, whether or not the mail went out. When it did, the admin screen
+    // keeps it folded away — but an invitation that lands in spam is common, and the only other
+    // way to hand the organizer their link is `resendInvite`, which rotates the token and kills
+    // the copy already sitting in their inbox. This is not an extra exposure: the token is
+    // single-use and refuses any address but the invited one (see `acceptInvite`).
+    results.push({ inviteId: ref.id, email, mailed, link })
   }
   return { results, mailConfigured: mailConfigured() }
 })
 
-export const resendInvite = onCall({ secrets: [RESEND_API_KEY] }, async (req) => {
+export const resendInvite = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async (req) => {
   const { uid: actor } = requireRole(req, 'admin')
   const id = str(req.data?.inviteId, 'inviteId')
   const ref = db.doc(`invites/${id}`)
@@ -662,12 +768,13 @@ export const resendInvite = onCall({ secrets: [RESEND_API_KEY] }, async (req) =>
   try {
     mailed = await sendInvite({
       to: inv.email, name: inv.displayName, boothName, link,
+      role: inv.role === 'admin' ? 'admin' : 'organizer',
       expires: expiresAt.toDate().toLocaleDateString('en-GB'),
       eventName: ev.nameEn, eventDates: eventDates(ev),
     })
   } catch (e) { console.error(e) }
   await audit(actor, 'resendInvite', 'invite', id, null, { mailed })
-  return { mailed, link: mailed ? undefined : link }
+  return { mailed, link }
 })
 
 export const revokeInvite = onCall(async (req) => {
@@ -759,7 +866,7 @@ export const acceptInvite = onCall(async (req) => {
 // ---------- misc ----------
 
 /** What the dashboard's readiness checklist cannot see from the client: whether invitation mail can be sent. */
-export const setupStatus = onCall({ secrets: [RESEND_API_KEY] }, async (req) => {
+export const setupStatus = onCall({ secrets: [EMAILJS_PRIVATE_KEY] }, async (req) => {
   requireRole(req, 'admin')
   return { mailConfigured: mailConfigured() }
 })

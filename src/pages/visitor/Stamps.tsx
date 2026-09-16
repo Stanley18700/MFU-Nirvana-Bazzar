@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../../lib/auth'
-import { useLocale } from '../../lib/locale'
 import { useBooths, useEvent, useMyScans } from '../../lib/data'
 import { Stamp } from '../../components/Stamp'
 import { stampMarks } from '../../lib/eventText'
@@ -8,6 +7,7 @@ import { Spinner } from '../../components/ui'
 import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { dayOf, type BoothDoc } from '../../../shared/model'
 import { rewardExpiry, usePointsClock, useRewardBooths } from '../../lib/points'
+import { useLocale } from '../../lib/locale'
 
 function tiltFor(id: string) {
   let h = 0
@@ -15,10 +15,10 @@ function tiltFor(id: string) {
   return ((Math.abs(h) % 9) - 4) * 1.5 // -6 … +6 degrees, stable per booth
 }
 
-function makeDayLabel(days: string[]) {
+function makeDayLabel(days: string[], dayName: (n: number) => string) {
   return (day: string) => {
     const i = days.indexOf(day)
-    return i >= 0 ? `Day ${i + 1}` : day
+    return i >= 0 ? dayName(i + 1) : day
   }
 }
 
@@ -28,7 +28,8 @@ export default function Stamps() {
   const now = usePointsClock()
   const scans = useMyScans(user?.uid).data
   const event = useEvent()
-  const dayLabel = makeDayLabel(event.days)
+  const { t, pick } = useLocale()
+  const dayLabel = makeDayLabel(event.days, (n) => t('v.stamps.day', { n }))
   const marks = stampMarks(event)
   const [openId, setOpen] = useState<string | null>(null)
   const [fullId, setFull] = useState<string | null>(null)
@@ -54,17 +55,16 @@ export default function Stamps() {
   if (!profile) return <Spinner />
   const have = !!open && (profile.stampedBoothIds?.includes(open.id) ?? false)
   const remainingPoints = remaining.reduce((s, b) => s + b.rewardPoints, 0)
-  const { t, pick } = useLocale()
 
   return (
     <main className="px-5 pt-6">
       <header>
-        <div className="stamp-text text-ink-soft">{t('stamps.title')}</div>
+        <div className="stamp-text text-ink-soft">{t('v.stamps.title')}</div>
         <div className="mt-1 flex items-baseline gap-3">
-          <h1 className="text-2xl font-bold">{t('stamps.ofTotal', { done: collected.length, total: rows.length })}</h1>
+          <h1 className="text-2xl font-bold">{t('v.stamps.ofTotal', { have: collected.length, total: rows.length })}</h1>
         </div>
         {/* "1 of 12" was the only account of progress on a page whose whole subject is progress. */}
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink/10" role="img" aria-label={`${collected.length} of ${rows.length} booths stamped`}>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-ink/10" role="img" aria-label={t('v.stamps.progress', { have: collected.length, total: rows.length })}>
           <div className="h-full rounded-full bg-action transition-[width] duration-500 ease-out" style={{ width: `${rows.length ? (collected.length / rows.length) * 100 : 0}%` }} />
         </div>
       </header>
@@ -76,9 +76,9 @@ export default function Stamps() {
         * reading; the two-up grid put a detailed document at thumbnail size.
         */}
       <section className="mt-7">
-        <h2 className="stamp-text text-ink-soft">{t('stamps.yours')}</h2>
+        <h2 className="stamp-text text-ink-soft">{t('v.stamps.yours')}</h2>
         {collected.length === 0 ? (
-          <p className="mt-3 rounded-[20px] bg-white p-6 text-center text-sm text-ink-soft shadow-card">{t('stamps.none')} <b>{t('scan.title')}</b> {t('stamps.noneAfter')}</p>
+          <p className="mt-3 rounded-[20px] bg-white p-6 text-center text-sm text-ink-soft shadow-card">{t('v.stamps.none')}</p>
         ) : (
           <ul className="mt-3 flex flex-col gap-3">
             {collected.map((b) => (
@@ -86,8 +86,11 @@ export default function Stamps() {
                 <button onClick={() => setOpen(b.id)} className="press-row flex w-full cursor-pointer items-center gap-4 rounded-[20px] bg-white p-3 text-left shadow-card transition hover:shadow-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-action/45">
                   <Stamp booth={b} collected tilt={tiltFor(b.id)} size={132} points={b.displayPoints} {...marks} />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold leading-tight">{b.nameEn}</span>
-                    <span className="mt-1 block text-xs text-success-text">Stamped{b.displayPoints === undefined ? ' · Loading earned points…' : ` · +${b.displayPoints} pts`}</span>
+                    <span className="block text-sm font-semibold leading-tight">{pick(b.nameEn, b.nameTh)}</span>
+                    <span className="mt-1 block text-xs text-success-text">
+                      {t('v.stamps.stamped')}
+                      {b.displayPoints === undefined ? ` · ${t('v.stamps.earning')}` : ` · ${t('v.stamps.plusPts', { n: b.displayPoints })}`}
+                    </span>
                   </span>
                 </button>
               </li>
@@ -104,10 +107,10 @@ export default function Stamps() {
       {remaining.length > 0 && (
         <section className="mt-8">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-            <h2 className="stamp-text text-ink-soft">{t('stamps.stillToCollect')}</h2>
-            <span className="text-xs text-ink-soft">{t('stamps.pointsOnFloor', { n: remainingPoints })}</span>
+            <h2 className="stamp-text text-ink-soft">{t('v.stamps.left')}</h2>
+            <span className="text-xs text-ink-soft">{t('v.stamps.onFloor', { n: remainingPoints })}</span>
           </div>
-          <p className="mt-2 text-xs text-ink-soft">{t('stamps.note')}</p>
+          <p className="mt-2 text-xs text-ink-soft">{t('v.stamps.rewardsNote')}</p>
           <ul className="mt-3 overflow-hidden rounded-[20px] bg-white shadow-card">
             {remaining.map((b) => {
               const notToday = !b.activeDays.includes(today) && event.days.includes(today)
@@ -119,11 +122,11 @@ export default function Stamps() {
                         own code, not the micro-print. */}
                     <Stamp booth={b} collected={false} size={84} points={b.displayPoints} {...marks} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm">{b.nameEn}</span>
+                      <span className="block truncate text-sm">{pick(b.nameEn, b.nameTh)}</span>
                       {rewardExpiry(b, now) && <span className="block text-xs text-ink-soft">{rewardExpiry(b, now)}</span>}
-                      {notToday && <span className="block text-[11px] text-warn-text">{b.activeDays.map(dayLabel).join(' · ')} only</span>}
+                      {notToday && <span className="block text-[11px] text-warn-text">{t('v.stamps.onlyOn', { days: b.activeDays.map(dayLabel).join(' · ') })}</span>}
                     </span>
-                    <span className="shrink-0 text-xs font-semibold tabular-nums text-ink">{b.displayPoints} pts</span>
+                    <span className="shrink-0 text-xs font-semibold tabular-nums text-ink">{t('v.stamps.pts', { n: b.displayPoints })}</span>
                     <span aria-hidden className="shrink-0 text-ink-soft">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
                     </span>
@@ -141,19 +144,19 @@ export default function Stamps() {
             <div className="flex items-start gap-4">
               <Stamp booth={open} collected={have} size={152} points={open.displayPoints} {...marks} />
               <div className="min-w-0 flex-1">
-                <div className="stamp-text text-ink-soft">{open.location} · {open.displayPoints ?? '…'} {have ? 'points earned' : 'points'}</div>
+                <div className="stamp-text text-ink-soft">{open.location} · {open.displayPoints ?? '…'} {have ? t('v.stamps.pointsEarned') : t('v.stamps.pointsWorth')}</div>
                 {!have && rewardExpiry(open, now) && <p className="text-xs text-ink-soft">{rewardExpiry(open, now)}</p>}
-                <h3 className="text-lg font-bold leading-tight">{open.nameEn}</h3>
+                <h3 className="text-lg font-bold leading-tight">{pick(open.nameEn, open.nameTh)}</h3>
                 <div className="text-sm text-ink-soft">{open.hostUnit}</div>
               </div>
             </div>
-            {pick(open.descriptionEn, open.descriptionTh) && <p className="mt-3 text-sm">{pick(open.descriptionEn, open.descriptionTh)}</p>}
-            <p className="mt-2 text-xs text-ink-soft">{t('stamps.present', { days: open.activeDays.map(dayLabel).join(', ') })}</p>
+            {(open.descriptionEn || open.descriptionTh) && <p className="mt-3 text-sm">{pick(open.descriptionEn, open.descriptionTh)}</p>}
+            <p className="mt-2 text-xs text-ink-soft">{t('v.stamps.present', { days: open.activeDays.map(dayLabel).join(', ') })}</p>
             <div className="mt-4 flex gap-2">
               {/* Only for a visa that has actually been issued — there is nothing to admire about
                   an unstamped one, and offering it would read as a way to claim it. */}
-              {have && <button className="btn-secondary flex-1" onClick={() => setFull(open.id)}>{t('stamps.fullScreen')}</button>}
-              <button className={`btn-ghost ${have ? '' : 'flex-1'} ${have ? 'px-5' : 'w-full'}`} onClick={() => setOpen(null)}>{t('stamps.close')}</button>
+              {have && <button className="btn-secondary flex-1" onClick={() => setFull(open.id)}>{t('v.stamps.viewFull')}</button>}
+              <button className={`btn-ghost ${have ? '' : 'flex-1'} ${have ? 'px-5' : 'w-full'}`} onClick={() => setOpen(null)}>{t('v.close')}</button>
             </div>
           </div>
         </div>
@@ -178,6 +181,7 @@ function StampViewer({ booth, points, marks, onClose }: {
   marks: { markTop: string; markBottom: string }
   onClose: () => void
 }) {
+  const { t, pick } = useLocale()
   const dlg = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const d = dlg.current
@@ -185,7 +189,7 @@ function StampViewer({ booth, points, marks, onClose }: {
   }, [])
   return (
     <dialog
-      ref={dlg} onClose={onClose} onClick={onClose} aria-label={`${booth.nameEn} visa`}
+      ref={dlg} onClose={onClose} onClick={onClose} aria-label={t('v.stamps.visa', { booth: pick(booth.nameEn, booth.nameTh) })}
       // The ground is on the dialog itself, not on `::backdrop`: the element already covers
       // the viewport, and one fill is cheaper than a variant that has to survive a Tailwind upgrade.
       className="m-0 h-dvh max-h-none w-full max-w-none bg-ink/90 p-0"
@@ -203,7 +207,7 @@ function StampViewer({ booth, points, marks, onClose }: {
         type="button" onClick={onClose} autoFocus
         className="btn-quiet btn-sm fixed right-4 top-4 shadow-raised"
       >
-        Close
+        {t('v.close')}
       </button>
     </dialog>
   )

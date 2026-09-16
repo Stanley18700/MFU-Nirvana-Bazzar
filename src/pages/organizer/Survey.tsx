@@ -13,8 +13,9 @@ import { DataErrors, Notice, Spinner, Toast, fmt, type Msg } from '../../compone
 import { useUnsavedGuard } from '../../lib/useUnsavedGuard'
 import { num } from '../../lib/form'
 import { onStage } from '../../lib/onStage'
+import { Select } from '../../components/Select'
 import {
-  OPTION_LIMIT, QUESTION_KINDS, QUESTION_LIMIT, blankQuestion, hasOptions, surveyProblems,
+  EVENT_SURVEY_ID, OPTION_LIMIT, QUESTION_KINDS, QUESTION_LIMIT, blankQuestion, hasOptions, surveyProblems,
   type QuestionKind, type SurveyDoc, type SurveyQuestion,
 } from '../../../shared/model'
 
@@ -33,8 +34,15 @@ export default function Survey() {
   const { role, boothId: claimBooth } = useAuth()
   const [params] = useSearchParams()
   const boothId = role === 'admin' ? params.get('boothId') : claimBooth
+  /*
+   * The festival's own survey is stored under a reserved id with no booth behind it (see
+   * EVENT_SURVEY_ID). An admin edits its wording here rather than in a redeploy, so the two
+   * places that insist on a booth document give way for it: the guard below, and the heading.
+   * Nothing else in the builder cares what the id refers to.
+   */
+  const festival = boothId === EVENT_SURVEY_ID
   const { t, pick } = useLocale()
-  const { data: booth, loading } = useBooth(boothId)
+  const { data: booth, loading } = useBooth(festival ? null : boothId)
   const saved = useDoc<SurveyDoc>(boothId ? doc(db, 'surveys', boothId) : null, [boothId], 'this survey')
 
   const [title, setTitle] = useState('')
@@ -106,44 +114,46 @@ export default function Survey() {
     setBusy(alsoPublish === undefined ? 'save' : 'publish'); setMsg(null)
     try {
       await api.saveSurvey({ boothId, title, description, headerImageUrl, questions, active })
-      setMsg({ tone: 'green', text: active ? t('sb.savedLive') : t('sb.savedDraft') })
+      setMsg({ tone: 'green', text: active ? 'Saved and live — visitors see it after they collect this booth\'s stamp.' : 'Saved as a draft. Visitors see nothing until you publish it.' })
     } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(null) }
   }
 
   async function togglePublished() {
     if (!boothId) return
-    if (dirty) { setMsg({ tone: 'amber', text: t('sb.saveFirst') }); return }
+    if (dirty) { setMsg({ tone: 'amber', text: 'Save your changes first — publishing sends whatever is stored, not what is on screen.' }); return }
     setBusy('publish'); setMsg(null)
     try {
       const r = await api.setSurveyActive({ boothId, active: !published })
-      setMsg({ tone: 'green', text: r.active ? t('sb.liveNow') : t('sb.takenDown') })
+      setMsg({ tone: 'green', text: r.active ? 'Live now.' : 'Taken down. Answers already given are kept.' })
     } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(null) }
   }
 
   async function clearAll() {
     if (!boothId) return
-    if (!window.confirm(t('sb.confirmClear'))) return
+    if (!window.confirm('Remove every question and unpublish? Answers already collected are kept.')) return
     setBusy('clear'); setMsg(null)
     try {
       await api.deleteSurvey({ boothId })
       setQuestions([]); setTitle(saved.data?.title ?? ''); setLoaded(false)
-      setMsg({ tone: 'green', text: t('sb.cleared') })
+      setMsg({ tone: 'green', text: 'Questions removed. The responses are still under Results.' })
     } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(null) }
   }
 
   const shell = (children: React.ReactNode) => (
     <OrganizerPage boothId={boothId} booth={booth} marks={undefined}>{children}</OrganizerPage>
   )
-  if (boothId && loading) return shell(<Spinner label={t('stats.loading')} />)
-  if (!boothId || !booth) return shell(<Notice tone="amber">{!boothId ? t('stats.noBooth') : t('stats.boothGone')}</Notice>)
+  if (boothId && !festival && loading) return shell(<Spinner label={t('stats.loading')} />)
+  if (!boothId || (!booth && !festival)) return shell(<Notice tone="amber">{!boothId ? t('stats.noBooth') : t('stats.boothGone')}</Notice>)
 
   return shell(
     <>
       <Toast msg={msg} onClose={() => setMsg(null)} />
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
-          <div className="stamp-text" style={{ color: onStage(booth.accentColor) }}>{t('sb.title')}</div>
-          <h1 className="text-2xl font-bold">{pick(booth.nameEn, booth.nameTh)}</h1>
+          <div className="stamp-text" style={{ color: booth ? onStage(booth.accentColor) : undefined }}>Survey</div>
+          <h1 className="text-2xl font-bold">
+            {festival ? 'Festival feedback' : booth ? pick(booth.nameEn, booth.nameTh) : ''}
+          </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className={`rounded-full px-2.5 py-1 text-xs ${published ? 'bg-success/20 text-success-text' : 'bg-white/10 text-ink-soft'}`}>
@@ -155,23 +165,24 @@ export default function Survey() {
         </div>
       </div>
       <p className="mt-2 max-w-prose text-sm text-ink-soft">
-        Offered to a visitor straight after they collect this booth's stamp. Answering is optional
-        and never changes their points, and you see the answers without seeing who gave them.
+        {festival
+          ? 'Offered on the prize page to any visitor with at least one stamp. Answering is optional and never changes their points, and you see the answers without seeing who gave them. The results live under Festival feedback in the admin console.'
+          : "Offered to a visitor straight after they collect this booth's stamp. Answering is optional and never changes their points, and you see the answers without seeing who gave them."}
       </p>
       <DataErrors className="mt-3" />
 
       <section className="card mt-5">
-        <h2 className="stamp-text text-ink-soft">{t('sb.theForm')}</h2>
+        <h2 className="stamp-text text-ink-soft">The form</h2>
         <label className="mt-3 block text-sm">Title
           <input className="field mt-1" maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)}
-            placeholder={t('sb.titlePlaceholder')} />
+            placeholder="Tell us about your visit" />
         </label>
-        <label className="mt-3 block text-sm">{t('sb.description')} <span className="text-ink-soft">{t('sb.optional')}</span>
+        <label className="mt-3 block text-sm">Description <span className="text-ink-soft">(optional)</span>
           <textarea className="field mt-1" rows={2} maxLength={1000} value={description}
-            onChange={(e) => setDescription(e.target.value)} placeholder={t('sb.descriptionPlaceholder')} />
+            onChange={(e) => setDescription(e.target.value)} placeholder="Two or three questions, about 30 seconds." />
         </label>
         <ImageField boothId={boothId} slot="header" url={headerImageUrl} onChange={setHeaderImageUrl}
-          label={t('sb.headerImage')} onError={(text) => setMsg({ tone: 'red', text })} />
+          label="Header image (optional)" onError={(text) => setMsg({ tone: 'red', text })} />
       </section>
 
       <section className="mt-4 flex flex-col gap-3">
@@ -185,7 +196,7 @@ export default function Survey() {
       </section>
 
       <section className="card mt-4">
-        <h2 className="stamp-text text-ink-soft">{t('sb.addQuestion')}</h2>
+        <h2 className="stamp-text text-ink-soft">Add a question</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {QUESTION_KINDS.map((k) => (
             <button key={k.kind} className="btn-quiet btn-sm" onClick={() => add(k.kind)}>+ {k.label}</button>
@@ -196,7 +207,7 @@ export default function Survey() {
       {problems.length > 0 && (
         <div className="glass mt-4 p-3">
           <Notice tone="amber">
-            <span className="font-semibold">{t('sb.notPublishable')}</span>
+            <span className="font-semibold">Not publishable yet</span>
             <ul className="mt-1 ml-4 list-disc">{problems.map((p) => <li key={p}>{p}</li>)}</ul>
           </Notice>
         </div>
@@ -213,27 +224,27 @@ export default function Survey() {
       <div className="glass mt-5 flex flex-col gap-2 p-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="flex gap-2 sm:contents">
           <button className="btn-primary flex-1 sm:flex-none" onClick={() => save()} disabled={!!busy || !dirty}>
-            {busy === 'save' ? t('sb.saving') : t('sb.save')}
+            {busy === 'save' ? 'Saving…' : 'Save'}
           </button>
           {!published
-            ? <button className="btn-gold flex-1 sm:flex-none" onClick={() => save(true)} disabled={!!busy || problems.length > 0}>{t('sb.saveAndPublish')}</button>
-            : <button className="btn-quiet flex-1 sm:flex-none" onClick={togglePublished} disabled={!!busy}>{t('sb.takeDown')}</button>}
+            ? <button className="btn-gold flex-1 sm:flex-none" onClick={() => save(true)} disabled={!!busy || problems.length > 0}>Save and publish</button>
+            : <button className="btn-quiet flex-1 sm:flex-none" onClick={togglePublished} disabled={!!busy}>Take it down</button>}
         </div>
         <div className="flex gap-2 sm:contents">
           <button className="btn-ghost flex-1 sm:flex-none" disabled={!!busy || !dirty}
-            onClick={() => { setLoaded(false); setMsg(null) }}>{t('sb.discard')}</button>
+            onClick={() => { setLoaded(false); setMsg(null) }}>Discard changes</button>
           <button className="btn-quiet flex-1 sm:ml-auto sm:flex-none" onClick={() => setPreview((p) => !p)} disabled={questions.length === 0}>
-            {preview ? t('sb.hidePreview') : t('sb.preview')}
+            {preview ? 'Hide preview' : 'Preview'}
           </button>
         </div>
       </div>
 
       {preview && questions.length > 0 && (
         <section className="mt-5">
-          <h2 className="stamp-text text-ink-soft">{t('sb.previewTitle')}</h2>
+          <h2 className="stamp-text text-ink-soft">Preview — exactly what a visitor sees</h2>
           <div className="mt-3">
             {/* The visitor's own renderer, read-only. Nothing here is an approximation. */}
-            <SurveyForm questions={questions} answers={{}} onChange={() => undefined} readOnly accent={onStage(booth.accentColor)} />
+            <SurveyForm questions={questions} answers={{}} onChange={() => undefined} readOnly accent={booth ? onStage(booth.accentColor) : undefined} />
           </div>
         </section>
       )}
@@ -262,15 +273,18 @@ function QuestionCard({ q, index, count, boothId, onPatch, onRetype, onMove, onD
   onRemove: () => void
   onError: (text: string) => void
 }) {
-  const { t } = useLocale()
   const options = q.options ?? []
   return (
     <div className="card">
       <div className="flex flex-wrap items-center gap-2">
         <span className="stamp-text text-ink-soft">Question {index + 1}</span>
-        <select className="field w-auto" value={q.kind} onChange={(e) => onRetype(e.target.value as QuestionKind)}>
-          {QUESTION_KINDS.map((k) => <option key={k.kind} value={k.kind}>{k.label}</option>)}
-        </select>
+        {/* `w-44`, not `w-auto`: the trigger is a div rather than a native select, so it has no
+            intrinsic width to shrink to and would otherwise fill the row. */}
+        <Select
+          ariaLabel="Question type" className="w-44"
+          value={q.kind} onChange={(v) => onRetype(v as QuestionKind)}
+          options={QUESTION_KINDS.map((k) => ({ value: k.kind, label: k.label }))}
+        />
         <label className="flex min-h-11 items-center gap-2 text-sm">
           <input type="checkbox" className="h-5 w-5" checked={q.required} onChange={(e) => onPatch({ required: e.target.checked })} />
           Required
@@ -279,24 +293,24 @@ function QuestionCard({ q, index, count, boothId, onPatch, onRetype, onMove, onD
             On a phone the four take a row of their own (`basis-full`) rather than wrapping one
             at a time; the arrows are icon buttons so the touch bump reaches them. */}
         <div className="flex basis-full items-center justify-end gap-1 sm:ml-auto sm:basis-auto">
-          <button className="btn-quiet btn-sm btn-icon-sm" onClick={() => onMove(-1)} disabled={index === 0} aria-label={t('sb.moveUp')}>↑</button>
-          <button className="btn-quiet btn-sm btn-icon-sm" onClick={() => onMove(1)} disabled={index === count - 1} aria-label={t('sb.moveDown')}>↓</button>
-          <button className="btn-quiet btn-sm" onClick={onDuplicate}>{t('sb.duplicate')}</button>
-          <button className="btn-danger-soft btn-sm" onClick={onRemove}>{t('sb.remove')}</button>
+          <button className="btn-quiet btn-sm btn-icon-sm" onClick={() => onMove(-1)} disabled={index === 0} aria-label="Move up">↑</button>
+          <button className="btn-quiet btn-sm btn-icon-sm" onClick={() => onMove(1)} disabled={index === count - 1} aria-label="Move down">↓</button>
+          <button className="btn-quiet btn-sm" onClick={onDuplicate}>Duplicate</button>
+          <button className="btn-danger-soft btn-sm" onClick={onRemove}>Remove</button>
         </div>
       </div>
 
       <input className="field mt-3" maxLength={300} value={q.title} onChange={(e) => onPatch({ title: e.target.value })}
-        placeholder={t('sb.questionPlaceholder')} />
+        placeholder="What do you want to ask?" />
       <input className="field mt-2 text-sm" maxLength={300} value={q.help ?? ''}
-        onChange={(e) => onPatch({ help: e.target.value })} placeholder={t('sb.helpPlaceholder')} />
+        onChange={(e) => onPatch({ help: e.target.value })} placeholder="Help text under the question (optional)" />
 
       <ImageField boothId={boothId} slot={q.id} url={q.imageUrl ?? null} onChange={(u) => onPatch({ imageUrl: u })}
-        label={t('sb.image')} onError={onError} />
+        label="Image (optional)" onError={onError} />
 
       {hasOptions(q.kind) && (
         <div className="mt-3">
-          <div className="stamp-text text-ink-soft">{t('sb.options')}</div>
+          <div className="stamp-text text-ink-soft">Options</div>
           <div className="mt-2 flex flex-col gap-1.5">
             {options.map((o, i) => (
               <div key={i} className="flex items-center gap-2">
@@ -325,11 +339,11 @@ function QuestionCard({ q, index, count, boothId, onPatch, onRetype, onMove, onD
           </label>
           <label className="text-sm">Label for the low end
             <input className="field mt-1" maxLength={40} value={q.scaleMinLabel ?? ''}
-              onChange={(e) => onPatch({ scaleMinLabel: e.target.value })} placeholder={t('sb.scaleMin')} />
+              onChange={(e) => onPatch({ scaleMinLabel: e.target.value })} placeholder="Not at all" />
           </label>
           <label className="text-sm">Label for the high end
             <input className="field mt-1" maxLength={40} value={q.scaleMaxLabel ?? ''}
-              onChange={(e) => onPatch({ scaleMaxLabel: e.target.value })} placeholder={t('sb.scaleMax')} />
+              onChange={(e) => onPatch({ scaleMaxLabel: e.target.value })} placeholder="Very much" />
           </label>
         </div>
       )}
@@ -358,7 +372,6 @@ function ImageField({ boothId, slot, url, onChange, label, onError }: {
   label: string
   onError: (text: string) => void
 }) {
-  const { t } = useLocale()
   const [busy, setBusy] = useState(false)
   // Collapsed until asked for. Most questions have no image, and a file input on every card
   // made a five-question survey scroll twice as far as it needed to.
@@ -368,8 +381,8 @@ function ImageField({ boothId, slot, url, onChange, label, onError }: {
   async function pick(file: File) {
     setBusy(true)
     try {
-      if (!file.type.startsWith('image/')) throw new Error(t('sb.notAnImage'))
-      if (file.size > 2 * 1024 * 1024) throw new Error(t('sb.tooBig'))
+      if (!file.type.startsWith('image/')) throw new Error('That is not an image file.')
+      if (file.size > 2 * 1024 * 1024) throw new Error('Images must be under 2 MB.')
       const ext = file.name.split('.').pop()?.toLowerCase() || 'png'
       const r = sref(storage, `surveys/${boothId}/${slot}.${ext}`)
       await uploadBytes(r, file, { contentType: file.type })
@@ -400,11 +413,11 @@ function ImageField({ boothId, slot, url, onChange, label, onError }: {
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <input ref={input} type="file" accept="image/*" className="field w-auto text-sm" disabled={busy}
               onChange={(e) => { const f = e.target.files?.[0]; if (f) void pick(f) }} />
-            {busy && <span className="text-xs text-ink-soft">{t('sb.uploading')}</span>}
+            {busy && <span className="text-xs text-ink-soft">Uploading…</span>}
           </div>
         )}
       <button className="btn-danger-soft btn-sm mt-2" onClick={remove}>
-        {url ? t('sb.removeImage') : t('sb.cancel')}
+        {url ? 'Remove image' : 'Cancel'}
       </button>
     </div>
   )

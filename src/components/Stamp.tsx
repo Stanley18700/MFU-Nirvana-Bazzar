@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import type { BoothDoc } from '../../shared/model'
+import { DISPLAY, MARK_BOX, MARK_BOX_SMALL, fitBlock, fitName, nameBaseline } from '../lib/stampText'
 
 interface Props {
   booth: Pick<BoothDoc, 'shortName' | 'accentColor' | 'badgeThumbUrl' | 'badgeUrl' | 'nameEn'>
@@ -59,6 +60,16 @@ export function Stamp({ booth, collected, size = 148, tilt = 0, animate = false,
   const mono = { fontFamily: 'var(--font-mono)', fontWeight: 600, fill: ink }
   const display = { fontFamily: 'var(--font-display)', fontWeight: 800, fill: ink }
   const emblemX = dense ? 330 : 210, emblemY = dense ? 122 : 148
+  const name = fitName(booth.nameEn || markTop)
+  /*
+   * The booth code, which is a code for nine booths and the booth's whole name for the other
+   * sixty-seven — "Dress Like Chinese", "Tea Shop Fritters". At a fixed 42px those ran clean off
+   * the right edge of the card and out of the rosette they are supposed to sit in, so the mark is
+   * fitted too: two lines if that buys a larger size, one if it does not.
+   */
+  const mark = dense
+    ? fitBlock(shortName, MARK_BOX, [42, 36, 31, 27, 23, 20, 17, 14, 12], 2, DISPLAY)
+    : fitBlock(shortName, MARK_BOX_SMALL, [92, 78, 66, 56, 46, 40, 34, 28, 24], 2, DISPLAY)
 
   return (
     <div className={`relative shrink-0 select-none ${animate ? 'stamp-land' : ''} ${className}`} style={style} aria-hidden>
@@ -95,13 +106,19 @@ export function Stamp({ booth, collected, size = 148, tilt = 0, animate = false,
             <text x="28" y="44" style={display} fontSize="30" letterSpacing="1.5">VISA</text>
             <text x="106" y="43" lang="th" style={{ fontFamily: 'Mitr, var(--font-sans)', fill: inkSoft }} fontSize="17">วีซ่า</text>
             <text x="28" y="60" style={label} fontSize="8">{markTop} · PASSPORT</text>
-            <text x={VB_W - 28} y="33" textAnchor="end" style={label} fontSize="8">VISA NO.</text>
+            <text x={VB_W - 28} y="33" textAnchor="end" style={label} fontSize="8">VISA NO. / N° DU VISA</text>
             <text x={VB_W - 28} y="52" textAnchor="end" style={{ ...mono, fill: collected ? accent : inkSoft }} fontSize="15" letterSpacing="1">{num}</text>
             <line x1="28" y1="72" x2={VB_W - 28} y2="72" stroke={line} strokeWidth="1" opacity=".6" />
 
-            <text x="28" y="94" style={label} fontSize="8">VALID FOR</text>
-            <text x="28" y="112" style={value} fontSize="15">{(booth.nameEn || markTop).slice(0, 17)}</text>
-            <text x="28" y="138" style={label} fontSize="8">FROM – UNTIL</text>
+            <text x="28" y="94" style={label} fontSize="8">VALID FOR / VALABLE POUR</text>
+            {/* One line keeps the baseline it always had; a block of two or three is centred in
+                the band between the label above it and the one below. */}
+            {name.lines.map((line, i) => (
+              <text key={line + i} x="28" style={value} fontSize={name.size} y={nameBaseline(i, name.lines.length, name.size)}>
+                {line}
+              </text>
+            ))}
+            <text x="28" y="138" style={label} fontSize="8">FROM – UNTIL / DU – AU</text>
             <text x="28" y="155" style={mono} fontSize="12.5">{validFor}</text>
             <text x="28" y="181" style={label} fontSize="8">ISSUED IN / ON</text>
             <text x="28" y="197" style={{ ...mono, fill: inkSoft }} fontSize="10.5">{markBottom}</text>
@@ -109,20 +126,32 @@ export function Stamp({ booth, collected, size = 148, tilt = 0, animate = false,
             <text x="186" y="112" style={mono} fontSize="12.5">B</text>
             <text x="186" y="138" style={label} fontSize="8">ENTRIES</text>
             <text x="186" y="155" style={mono} fontSize="12.5">01</text>
-            <text x="186" y="181" style={label} fontSize="8">STAY</text>
+            <text x="186" y="181" style={label} fontSize="8">STAY / SÉJOUR</text>
             <text x="186" y="197" style={mono} fontSize="12.5">3 DAYS</text>
-            {!badge && (
-              <text x={emblemX} y="134" textAnchor="middle" style={display} fontSize={az(shortName).length > 3 ? 34 : 42} letterSpacing="1">{shortName}</text>
-            )}
+            {!badge && mark.lines.map((line, i) => (
+              <text
+                key={line + i} x={emblemX} textAnchor="middle" style={display} fontSize={mark.size} letterSpacing="1"
+                y={134 + (i - (mark.lines.length - 1) / 2) * mark.size}
+              >
+                {line}
+              </text>
+            ))}
           </>
         ) : (
           <>
             <text x="24" y="42" style={display} fontSize="26" letterSpacing="1.5">VISA</text>
             <text x={VB_W - 24} y="40" textAnchor="end" style={{ ...mono, fill: collected ? accent : inkSoft }} fontSize="17" letterSpacing="1">{num}</text>
             <line x1="24" y1="58" x2={VB_W - 24} y2="58" stroke={line} strokeWidth="1.4" opacity=".6" />
-            {!badge && (
-              <text x={emblemX} y="152" textAnchor="middle" style={display} fontSize={az(shortName).length > 3 ? 72 : 92} letterSpacing="1">{shortName}</text>
-            )}
+            {/* Centred on 140 rather than 152 when it takes two lines, so the second one clears
+                the ADMITTED rule below it. */}
+            {!badge && mark.lines.map((line, i) => (
+              <text
+                key={line + i} x={emblemX} textAnchor="middle" style={display} fontSize={mark.size} letterSpacing="1"
+                y={(mark.lines.length === 1 ? 152 : 140) + (i - (mark.lines.length - 1) / 2) * mark.size}
+              >
+                {line}
+              </text>
+            ))}
             <text x={emblemX} y="196" textAnchor="middle" style={{ ...value, fill: collected ? accent : inkSoft }} fontSize="26" letterSpacing="4">{collected ? 'ADMITTED' : `${points ?? 0} PTS`}</text>
           </>
         )}

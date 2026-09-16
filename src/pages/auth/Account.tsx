@@ -6,7 +6,7 @@ import { doc } from 'firebase/firestore'
 import { auth, db } from '../../lib/firebase'
 import { api, errorMessage } from '../../lib/api'
 import { ms, useDoc } from '../../lib/data'
-import { BackLink, LangToggle, Notice, Spinner } from '../../components/ui'
+import { BackLink, Notice, Spinner } from '../../components/ui'
 import { FestivalBackdrop } from './parts'
 import { useLocale } from '../../lib/locale'
 import { useLabels } from '../../lib/labels'
@@ -84,17 +84,6 @@ export default function Account({ variant = 'page' }: { variant?: 'page' | 'pass
           >
             {(close) => (hasPassword(user) ? <ChangePassword close={close} /> : <AddPassword close={close} />)}
           </Row>
-
-          {/*
-            * Language. The admin console and the organizer bar reach this through AccountMenu; the
-            * passport has no such bar, so a signed-in visitor had no way to change it anywhere —
-            * the one panel of the three where the switch was unreachable after sign-in. Same row
-            * shape as the menu's, so the control reads the same in all three.
-            */}
-          <div className="flex items-center justify-between gap-3 border-t rule px-5 py-4">
-            <span className="text-sm font-semibold">{t('lang.label')}</span>
-            <LangToggle />
-          </div>
 
           {/* No disclosure: there is nothing to open. It is two facts, so it is two rows of facts. */}
           <div className="border-t rule px-5 py-4">

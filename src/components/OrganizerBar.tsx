@@ -43,7 +43,6 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
   const items: Array<{ to: string; label: string; end?: boolean }> = [
     { to: `/booth${q}`, label: t('nav.booth'), end: true },
     { to: `/booth/stats${q}`, label: t('nav.stats') },
-    { to: `/booth/survey${q}`, label: t('nav.survey') },
     ...(desk ? [{ to: '/redeem', label: t('nav.desk') }] : []),
     ...(role === 'admin' ? [{ to: '/admin', label: t('nav.admin') }] : []),
   ]
@@ -92,12 +91,7 @@ export function OrganizerBar({ boothId, dark = false, compact = false, actions, 
               aria-label={t('nav.pages')}
             >
               <span className="shrink-0">{current?.label ?? t('nav.pages')}</span>
-              {/* The same arrow as every other disclosure in the app — AccountMenu, Select,
-                  DateTimeField, the booths "More" menu — but a size up, because this one is a
-                  page switcher rather than a field's affordance and it carries the whole nav.
-                  Still a fixed size, not the bar's `em`: on the kiosk that grew it to 14px beside
-                  a 10px account arrow. */}
-              <span aria-hidden className="shrink-0 text-[13px] leading-none opacity-70 transition-transform duration-150 [[open]_&]:rotate-180">▾</span>
+              <span aria-hidden className="text-[0.7em]">▾</span>
             </summary>
             <div className="pop absolute left-0 z-40 mt-1 flex w-56 flex-col rounded-xl bg-white p-1.5 text-sm text-ink shadow-lg ring-1 ring-black/10">
               {items.map((n) => (

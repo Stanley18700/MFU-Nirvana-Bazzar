@@ -11,6 +11,7 @@ import { QR } from '../../components/QR'
 import { BoothCard } from '../../components/BoothCard'
 import { OrganizerBar } from '../../components/OrganizerBar'
 import { BoothWatermark, StageGround } from '../../components/OrganizerPage'
+import { OrganizerWelcome } from '../../components/Welcome'
 import { onStage } from '../../lib/onStage'
 import { DataErrors, Icon, IconButton, LiveDot, Notice, Spinner, fmt } from '../../components/ui'
 import { APP_ORIGIN } from '../../lib/firebase'
@@ -294,7 +295,7 @@ export default function Booth() {
           <Notice tone="red">{err}</Notice>
           <p className="text-sm text-ink-soft">
             Signed in as <b className="text-ink">{user?.email ?? 'this account'}</b>.
-            {role === 'organizer' && !claimBooth && <> No booth is linked to it yet — ask the admin to assign one, then open this page again.</>}
+            {role === 'organizer' && !claimBooth && <> No booth is linked to it yet — <Link to="/booth-access" className="link">ask for one</Link>, or speak to the admin.</>}
           </p>
           <div className="flex flex-wrap gap-2">
             <button className="btn-gold" onClick={() => { setErr(null); void load(true) }}>{t('booth.retry')}</button>
@@ -397,7 +398,7 @@ export default function Booth() {
                 colour. `onChrome` is what makes that safe for the dark-green booths. */}
           <div className="stamp-text" style={{ color: accentSmall }}>{t('booth.worth', { location: b.location, points: effectivePoints(b, pointsNow + session.skew) })}</div>
           {rewardExpiry(b, pointsNow + session.skew) && <p className="text-xs">{rewardExpiry(b, pointsNow + session.skew)} (Bangkok)</p>}
-          <p className="text-xs">{t('booth.pointsWhenEarned')}</p>
+          <p className="text-xs">Points are set when your stamp is earned.</p>
             <h1 className="mt-1 text-[1.6em] font-extrabold leading-[1.08]" style={{ color: accent }}>{pick(b.nameEn, b.nameTh)}</h1>
             <div className="text-[0.6em] text-ink-soft">{b.hostUnit}</div>
           </div>
@@ -459,6 +460,9 @@ export default function Booth() {
           </div>
         ))}
       </footer>
+      {/* Why this screen has to stay on. An overlay, not a card in the column above: it must
+          never push the QR down the page. Shown once per booth on this device. */}
+      <OrganizerWelcome boothId={session.boothId} />
     </main>
     {/*
       * Show code. White, not the sky ground: a phone camera locks onto a QR fastest against a flat

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../lib/auth'
-import { useLocale } from '../../lib/locale'
 import { api, errorMessage } from '../../lib/api'
 import type { ScanResult } from '../../../shared/model'
 import { ScanResultView } from './ScanResult'
 import { BackLink, Notice, Spinner } from '../../components/ui'
 import { FestivalBackdrop } from '../auth/parts'
+import { useLocale } from '../../lib/locale'
 
 /** §4.3 — `/s/<token>`: the booth QR opened with the phone's native camera app. */
 export default function ScanLanding() {
@@ -30,7 +30,7 @@ export default function ScanLanding() {
     }).catch((e) => setErr(errorMessage(e)))
   }, [ready, role, token])
 
-  if (!ready) return <Spinner label={t('scan.checkingStamp')} page />
+  if (!ready) return <Spinner label={t('v.scan.checkingStamp')} page />
   // No account, or a half-finished one: sign in / confirm / register and come straight back
   // to this token afterwards, so the visitor never loses the booth they just scanned (§4.3).
   if (!user) return <Navigate to="/signup" state={{ from: `/s/${token}` }} replace />
@@ -42,8 +42,8 @@ export default function ScanLanding() {
   return (
     <><FestivalBackdrop hills={false} /><main className="relative mx-auto min-h-full max-w-md p-4 text-ink">
       <header className="flex items-center justify-between gap-2 px-1 py-3">
-        <BackLink to="/passport">{t('pp.passport')}</BackLink>
-        <div className="stamp-text text-ink">{t('scan.checkin')}</div>
+        <BackLink to="/passport">{t('v.back.passport')}</BackLink>
+        <div className="stamp-text text-ink">{t('v.scan.checkin')}</div>
         <span className="w-16" />
       </header>
       <div className="rounded-3xl bg-white text-ink">
@@ -51,7 +51,7 @@ export default function ScanLanding() {
           // `replace`: from a camera-opened tab the history is just [/s/token], and Back landing
           // there would re-fire the scan and show "already stamped".
           : result ? <ScanResultView result={result} onRetry={() => nav('/scan', { replace: true })} />
-          : <Spinner label={t('scan.stamping')} />}
+          : <Spinner label={t('v.scan.stamping')} />}
       </div>
     </main></>
   )

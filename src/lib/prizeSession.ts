@@ -45,7 +45,13 @@ export function usePrizeSession() {
  * only have to wait — so this returns a tagged state rather than a number that invites `<= 0`.
  */
 export type PrizeStock =
-  | { state: 'closed' }
+  /**
+   * `capacity` on a shut desk is the allowance a session *will* start from, not a count of
+   * anything available now — there is no such count while the desk is closed. The passport
+   * needs it to answer "how many each session?" before the festival opens and between windows,
+   * which is most of the clock; without it the number simply disappeared for hours at a time.
+   */
+  | { state: 'closed'; capacity: number }
   | { state: 'gone'; capacity: number }
   | { state: 'open'; remaining: number; capacity: number; low: boolean }
 
@@ -56,7 +62,7 @@ export function prizeStock(
   const remaining = sessionStockRemaining(tier, active)
   const perSession = typeof tier.stockPerSession === 'number'
   const capacity = perSession ? tier.stockPerSession as number : tier.stockTotal
-  if (remaining === null) return { state: 'closed' }
+  if (remaining === null) return { state: 'closed', capacity }
   if (remaining <= 0) return { state: 'gone', capacity }
   return { state: 'open', remaining, capacity, low: capacity > 0 && remaining / capacity < 0.2 }
 }

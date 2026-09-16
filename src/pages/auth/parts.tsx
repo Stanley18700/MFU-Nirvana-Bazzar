@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
 import { useEvent } from '../../lib/data'
-import { useLocale } from '../../lib/locale'
 import { eventDateLine } from '../../lib/eventText'
-import { BackLink, LangToggle } from '../../components/ui'
+import { BackLink } from '../../components/ui'
 
 // DarkNotice moved to components/ui so the booth screen and shared notices can use it; kept here for the auth pages.
 export { Notice } from '../../components/ui'
@@ -114,22 +113,16 @@ export function AuthShell({ title, lead, children, foot, back = '/' }: {
   back?: string | null
 }) {
   const event = useEvent()
-  const { t, pick } = useLocale()
   return (
     <>
       <FestivalBackdrop />
       <main className="relative mx-auto flex min-h-full max-w-md flex-col px-5 pb-[max(15vh,130px)] pt-6 text-ink sm:pb-12">
         <div className="flex items-center justify-between gap-3">
-          {back ? <BackLink to={back} label={t('auth.back')} /> : <span />}
-          {/* Inline rather than fixed: this row already is the top-right corner, and a floating
-              control here would land on top of the university mark. */}
-          <div className="flex items-center gap-3">
-            <LangToggle className="seg-floating" />
-            <UniversityMark className="h-11 w-11" />
-          </div>
+          {back ? <BackLink to={back} label="Back" /> : <span />}
+          <UniversityMark className="h-11 w-11" />
         </div>
         <div className="haze mt-5 self-start">
-          <div className="stamp-text text-ink">{pick(event.nameEn, event.nameTh)}</div>
+          <div className="stamp-text text-ink">{event.nameEn}</div>
           <div className="text-xs text-ink-soft">{eventDateLine(event, false)}</div>
         </div>
 

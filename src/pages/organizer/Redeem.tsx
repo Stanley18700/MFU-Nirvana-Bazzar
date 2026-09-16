@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Scanner } from '../../components/Scanner'
 import { api, friendlyError, type LookupResult, type RedemptionCred } from '../../lib/api'
-import { useLocale } from '../../lib/locale'
 import { useBooth, useBooths, useEvent, useTiersState } from '../../lib/data'
 import { OrganizerPage } from '../../components/OrganizerPage'
 import { DataErrors, fmt, LiveDot, type Msg, Notice, Spinner } from '../../components/ui'
@@ -19,8 +18,6 @@ const ARM_MS = 6000
 
 /** §4.4 — prize desk: scan the visitor's rotating code (or type passport number + code), confirm twice, hand over. */
 export default function Redeem() {
-  const { t, pick } = useLocale()
-  const t2 = t
   const { role, boothId: claimBooth } = useAuth()
   const event = useEvent()
   const tiersState = useTiersState()
@@ -69,7 +66,7 @@ export default function Redeem() {
     setBusy(true); setMsg(null)
     try {
       const r = await api.lookupRedemption(c)
-      if (r.status === 'invalid') setMsg({ tone: 'amber', text: t('desk.invalidCode') })
+      if (r.status === 'invalid') setMsg({ tone: 'amber', text: 'Code expired or not recognised — ask the visitor to show a fresh code, and check the passport number.' })
       else { setLookup(r); setCred(c); setStale(false); setFreshCode('') }
     } catch (e) { setMsg({ tone: 'red', text: friendlyError(e) }) } finally { setBusy(false) }
   }
@@ -111,8 +108,8 @@ export default function Redeem() {
         setMsg({
           tone: 'amber',
           text: opens
-            ? t('desk.closedUntil', { time: opens.at })
-            : t('desk.deskClosedToday'),
+            ? `The desk is closed until ${opens.at}. Their points are safe — ask them to come back then.`
+            : 'The desk is closed for today. Their points are safe.',
         })
       } else {
         // Open, but this session's gifts are gone. The server cannot say when to come back here
@@ -122,15 +119,15 @@ export default function Redeem() {
         setMsg({
           tone: 'red',
           text: [
-            t('desk.outOfStockSession'),
+            'Out of stock for this session.',
             note,
-            opens ? t('desk.pointsStayFrom', { time: opens.at }) : t('desk.pointsStay'),
+            opens ? `Their points stay — they can collect from ${opens.at}.` : 'Their points stay.',
           ].filter(Boolean).join(' '),
         })
       }
     } catch (e) {
       const text = friendlyError(e)
-      if (/expired/i.test(text)) { setStale(true); setMsg({ tone: 'amber', text: t('desk.codeExpired') }) }
+      if (/expired/i.test(text)) { setStale(true); setMsg({ tone: 'amber', text: 'That code has expired. Ask the visitor for the new 8-character code and enter it below.' }) }
       else setMsg({ tone: 'red', text })
     } finally { setBusy(false) }
   }
@@ -142,7 +139,7 @@ export default function Redeem() {
     if (PAYLOAD_RE.test(freshCode)) { setCred({ payload: freshCode.trim() }) }
     else if (lookup.visitor.passportNo) setCred({ passportNo: lookup.visitor.passportNo, code: c })
     else return
-    setStale(false); setFreshCode(''); setMsg({ tone: 'green', text: t('desk.codeNoted') })
+    setStale(false); setFreshCode(''); setMsg({ tone: 'green', text: 'New code noted — press Hand over again.' })
   }
 
   useEffect(() => {
@@ -157,7 +154,7 @@ export default function Redeem() {
 
   const shell = (children: React.ReactNode) => (
     <OrganizerPage boothId={role === 'admin' ? null : claimBooth} booth={mine.data} compact>
-      <header className="py-2"><div className="stamp-text text-ink-soft">{t('desk.title')}</div></header>
+      <header className="py-2"><div className="stamp-text text-ink-soft">Prize desk</div></header>
       {children}
     </OrganizerPage>
   )
@@ -165,17 +162,17 @@ export default function Redeem() {
   // Gate: only a prize-desk booth (or an admin) may run this screen. Before, anyone with the role
   // saw the camera and learned otherwise from the server after scanning a visitor.
   if (role === 'organizer') {
-    if (mine.loading) return shell(<Spinner label={t('desk.checkingBooth')} />)
+    if (mine.loading) return shell(<Spinner label="Checking your booth…" />)
     if (!mine.data?.isPrizeDesk) {
       return shell(
         <div className="flex flex-col gap-4 pt-4">
           {/* `Notice`, not `DarkNotice`: this screen sits on the stage now, and the dark variant's
               amber is #FFD9A3 — written for chrome, and all but invisible on light glass. */}
           <Notice tone="amber">
-            {t('desk.notADesk', { booth: pick(mine.data?.nameEn, mine.data?.nameTh) || t('desk.yourBooth') })}
-            {desks.length > 0 && <> {t('desk.otherDesk', { booths: desks.map((d) => pick(d.nameEn, d.nameTh)).join(', ') })}</>}
+            <b>{mine.data?.nameEn ?? 'Your booth'}</b> is not a prize desk, so this screen is not yours to run.
+            {desks.length > 0 && <> The prize desk is <b>{desks.map((d) => d.nameEn).join(', ')}</b>.</>}
           </Notice>
-          <Link to="/booth" className="btn-gold">{t('desk.openMyBooth')}</Link>
+          <Link to="/booth" className="btn-gold">Open my booth screen</Link>
         </div>,
       )
     }
@@ -188,9 +185,9 @@ export default function Redeem() {
     <>
       {/* §4.4 — live stock strip, with a stale flag when the figures come from the cache */}
       <div className="flex items-center justify-between text-xs text-ink-soft">
-        <span>{t('desk.stock')}</span>
+        <span>Stock</span>
         <LiveDot state={offline ? 'offline' : stockStale ? 'stale' : 'live'} size="sm">
-          {offline ? t('desk.offline') : tiersState.fromCache ? t('desk.reconnecting') : t('desk.live')}
+          {offline ? 'Offline — figures may be old' : tiersState.fromCache ? 'Reconnecting' : 'Live'}
         </LiveDot>
       </div>
       {/* Chips that wrap, not a three-column grid: on a phone three tiers at 110px each clipped
@@ -213,7 +210,7 @@ export default function Redeem() {
               {stock.state === 'closed' ? (
                 /* Closed is not zero. A shut window says nothing about how many gifts are left,
                    and staff who read "0" will turn people away for the rest of the day. */
-                <span className={`text-sm ${tone}`}>{nextSession ? t2('desk.opensAt', { time: minuteToHHMM(nextSession.session.startMinute) }) : t2('desk.closed')}</span>
+                <span className={`text-sm ${tone}`}>{nextSession ? `Opens ${minuteToHHMM(nextSession.session.startMinute)}` : 'Desk closed'}</span>
               ) : (
                 <span className={`fig text-lg ${tone}`}>
                   {fmt(stock.state === 'gone' ? 0 : stock.remaining)}
@@ -228,28 +225,28 @@ export default function Redeem() {
 
       {done ? (
         <section className="mt-4 rounded-3xl bg-success p-6 text-center text-white page-in" role="status" aria-live="polite">
-          <div className="stamp-text text-white/70">{t('desk.handedOver')}</div>
+          <div className="stamp-text text-white/70">Handed over</div>
           <div className="fig mt-2 text-4xl">{done.tier}</div>
           {done.reward && <div className="mt-1 text-white/85">{done.reward}</div>}
           <div className="mt-4 text-lg font-semibold">{done.name}</div>
           <div className="text-sm text-white/75">{[done.passportNo, clock(done.at)].filter(Boolean).join(' · ')}</div>
-          <button className="btn-gold btn-lg mt-6 w-full" onClick={reset} autoFocus>{t('desk.nextVisitor')}</button>
+          <button className="btn-gold btn-lg mt-6 w-full" onClick={reset} autoFocus>Next visitor</button>
           <button className="btn-quiet btn-sm mt-3" onClick={() => setDone(null)}>Another tier for {done.name.split(' ')[0]}</button>
         </section>
       ) : lookup ? (
         <section className="mt-4 rounded-3xl bg-white p-5 text-ink page-in">
-          <div className="stamp-text text-ink-soft">{t('desk.visitor')}</div>
+          <div className="stamp-text text-ink-soft">Visitor</div>
           <div className="text-2xl font-bold">{lookup.visitor.displayName}</div>
           <div className="text-sm text-ink-soft">{[lookup.visitor.passportNo, `${lookup.visitor.points} points`, `${lookup.visitor.stampCount} stamps`].filter(Boolean).join(' · ')}</div>
           <ul className="mt-4 flex flex-col gap-2">
             {lookup.tiers.map((t) => (
               <li key={t.id} className={`flex items-center gap-3 rounded-2xl p-3 ${t.unlocked ? 'bg-white' : 'bg-ink/5 opacity-70'}`}>
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold">{t.name} <span className="text-xs font-normal text-ink-soft">{t2('desk.pts', { n: t.thresholdPoints })}</span></div>
+                  <div className="font-semibold">{t.name} <span className="text-xs font-normal text-ink-soft">{t.thresholdPoints} pts</span></div>
                   <div className="text-xs text-ink-soft">{t.reward}</div>
-                  {t.redeemedAt && <div className="text-xs text-success-text">{t.redeemedByName ? t2('desk.handedOverBy', { time: clock(t.redeemedAt), who: t.redeemedByName }) : t2('desk.handedOverAt', { time: clock(t.redeemedAt) })}</div>}
+                  {t.redeemedAt && <div className="text-xs text-success-text">Handed over {clock(t.redeemedAt)}{t.redeemedByName ? ` by ${t.redeemedByName}` : ''}</div>}
                 </div>
-                {t.redeemedAt ? <span className="shrink-0 rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success-text">{t2('desk.done')}</span>
+                {t.redeemedAt ? <span className="shrink-0 rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success-text">Done</span>
                   : t.unlocked ? (
                     <button
                       // Capped: an armed "Confirm Gold — festival tote" otherwise pushed the tier's
@@ -265,9 +262,9 @@ export default function Redeem() {
                     >
                       <span className="min-w-0 truncate">{
                         t.sessionRemaining === null
-                          ? (lookup.nextOpensAt ? t2('desk.opensAt', { time: lookup.nextOpensAt.at }) : t2('desk.closed'))
-                          : t.sessionRemaining <= 0 ? t2('desk.outOfStock')
-                          : armed === t.id ? t2('desk.confirm', { tier: t.name }) : t2('desk.handOver')
+                          ? (lookup.nextOpensAt ? `Opens ${lookup.nextOpensAt.at}` : 'Desk closed')
+                          : t.sessionRemaining <= 0 ? 'Out of stock'
+                          : armed === t.id ? `Confirm ${t.name}` : 'Hand over'
                       }</span>
                     </button>
                   )
@@ -275,15 +272,15 @@ export default function Redeem() {
               </li>
             ))}
           </ul>
-          {armed && <p className="mt-2 text-xs text-ink-soft">{t('desk.armedNote')}</p>}
+          {armed && <p className="mt-2 text-xs text-ink-soft">Press the gold button again to confirm — a hand-over cannot be undone at the desk.</p>}
           {msg && <div className="mt-3"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
           {stale && (
             <form onSubmit={useFreshCode} className="mt-3 flex gap-2">
-              <input className="field flex-1 font-mono uppercase" value={freshCode} onChange={(e) => setFreshCode(e.target.value)} placeholder={t('desk.freshCodePlaceholder')} autoFocus aria-label={t('desk.freshCodePlaceholder')} />
-              <button className="btn-primary shrink-0" disabled={freshCode.replace(/\s+/g, '').length !== 8}>{t('desk.useIt')}</button>
+              <input className="field flex-1 font-mono uppercase" value={freshCode} onChange={(e) => setFreshCode(e.target.value)} placeholder="New 8-character code" autoFocus aria-label="New 8-character code" />
+              <button className="btn-primary shrink-0" disabled={freshCode.replace(/\s+/g, '').length !== 8}>Use it</button>
             </form>
           )}
-          <button className="btn-ghost mt-4 w-full" onClick={reset}>{t('desk.nextVisitor')}</button>
+          <button className="btn-ghost mt-4 w-full" onClick={reset}>Next visitor</button>
         </section>
       ) : null}
 
@@ -293,9 +290,9 @@ export default function Redeem() {
             stretched to 1600px is neither easier to aim at nor pleasant to stand in front of. */}
         <Scanner onResult={(t) => void onCred({ payload: t })} paused={busy || !!lookup || !!done} className="mx-auto mt-4 aspect-[4/3] w-full max-w-2xl"
           fallback="Type the visitor's passport number and 8-character code below instead." />
-        {busy && <Spinner label={t('desk.lookingUp')} />}
+        {busy && <Spinner label="Looking up…" />}
         <form onSubmit={submitManual} className="glass mt-4 p-4">
-          <div className="stamp-text text-ink-soft">{t('desk.orType')}</div>
+          <div className="stamp-text text-ink-soft">Or type what the visitor reads out</div>
           <div className="mt-2 grid gap-2 [&>*]:min-w-0 sm:grid-cols-[1fr_1fr_auto]">
             <label className="block text-xs text-ink-soft">Passport number
               <input className="field mt-1 bg-white/90 font-mono text-base uppercase" value={passport} onChange={(e) => setPassport(e.target.value.toUpperCase())}
@@ -303,16 +300,16 @@ export default function Redeem() {
             </label>
             <label className="block text-xs text-ink-soft">8-character code
               <input className="field mt-1 bg-white/90 font-mono text-base uppercase" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder={t('desk.codePlaceholder')} autoCapitalize="characters" autoComplete="off" />
+                placeholder="ABCD EFGH" autoCapitalize="characters" autoComplete="off" />
             </label>
-            <button className="btn-gold self-end" disabled={busy || !(PAYLOAD_RE.test(code) || (passport.trim() && code.replace(/\s+/g, '').length === 8))}>{t('desk.lookUp')}</button>
+            <button className="btn-gold self-end" disabled={busy || !(PAYLOAD_RE.test(code) || (passport.trim() && code.replace(/\s+/g, '').length === 8))}>Look up</button>
           </div>
           <p className="mt-2 text-xs text-ink-soft">Both are on the visitor's Prize page. Just the digits work for the passport number ("42" means {prefix}-0042).</p>
         </form>
         {msg && <div className="mt-3"><Notice tone={msg.tone}>{msg.text}</Notice></div>}
         {recent.length > 0 && (
           <section className="mt-5">
-            <h2 className="stamp-text text-ink-soft">{t('desk.onThisDevice')}</h2>
+            <h2 className="stamp-text text-ink-soft">Handed over on this device</h2>
             <ul className="mt-2 flex flex-col gap-1 text-sm">
               {recent.map((r) => (
                 <li key={r.at} className="flex justify-between gap-3 rounded-lg bg-white/5 px-3 py-2">

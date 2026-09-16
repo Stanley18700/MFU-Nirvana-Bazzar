@@ -1,178 +1,149 @@
 /**
  * §6.4 — mail is sent from Cloud Functions, never the browser.
  *
- * This file carries exactly one message: the organizer invitation. The three account mails a
- * visitor sees — address verification, password reset, address change — are sent by Firebase
- * Auth itself from the templates under Authentication → Templates, triggered from
+ * This file carries exactly one message: the organizer/admin invitation. The three account
+ * mails a visitor sees — address verification, password reset, address change — are sent by
+ * Firebase Auth itself from the templates under Authentication → Templates, triggered from
  * src/lib/authActions.ts. Nothing here affects them.
  *
- * Resend, not EmailJS. EmailJS is built for a browser posting a form, and using it from a
- * server meant a *private* key, a *public* key, a service id and a dashboard-hosted template
- * id — four pieces of configuration to get one email out, with the wording living somewhere
- * nobody working on this repository could see. Resend needs a key and a verified sender, and
- * takes the HTML in the request, so the invitation below is the invitation: it is reviewed in
- * a pull request like everything else, and changing it is a deploy rather than a login.
+ * EmailJS. The wording and the layout live in the EmailJS dashboard, not in this repository:
+ * whoever owns the event can restyle the invitation without a deploy, which is the point.
+ * What lives here is only the set of variables the template is allowed to interpolate — keep
+ * `templateParams` below and the `{{...}}` placeholders in the dashboard in step, because a
+ * placeholder with no matching key renders as empty text rather than failing.
  *
- *   firebase functions:secrets:set RESEND_API_KEY
- *   (RESEND_FROM, RESEND_REPLY_TO and APP_ORIGIN are plain params — the CLI prompts for them
- *    on first deploy, or reads functions/.env. See functions/.env.example.)
+ * Four pieces of configuration, three of them public and kept in functions/.env:
+ *
+ *   EMAILJS_SERVICE_ID            the connected mail service (Gmail, in this account)
+ *   EMAILJS_PUBLIC_KEY            the account's public key
+ *   EMAILJS_TEMPLATE_INVITE       booth organizer invitation
+ *   EMAILJS_TEMPLATE_INVITE_ADMIN administrator invitation (no booth); optional
+ *
+ * and the one real secret, which is never written to a file:
+ *
+ *   firebase functions:secrets:set EMAILJS_PRIVATE_KEY
+ *
+ * The private key is what lets a server — as opposed to a browser — call the API at all. It
+ * also requires "Allow EmailJS API for non-browser applications" to stay on under
+ * Account → Security in the dashboard; with it off every send comes back 403.
  *
  * Unconfigured is a supported state, not a failure: `inviteOrganizer` hands the admin a
  * copyable single-use link instead, which is a perfectly good way to invite twelve people.
  */
 import { defineSecret, defineString } from 'firebase-functions/params'
 
-export const RESEND_API_KEY = defineSecret('RESEND_API_KEY')
+/** EmailJS → Account → General → Private Key. The only value here that is a real secret. */
+export const EMAILJS_PRIVATE_KEY = defineSecret('EMAILJS_PRIVATE_KEY')
+export const EMAILJS_SERVICE_ID = defineString('EMAILJS_SERVICE_ID', { default: '' })
+export const EMAILJS_PUBLIC_KEY = defineString('EMAILJS_PUBLIC_KEY', { default: '' })
+/** Booth organizer invitation. Uses every variable in `templateParams`. */
+export const EMAILJS_TEMPLATE_INVITE = defineString('EMAILJS_TEMPLATE_INVITE', { default: '' })
 /**
- * The sender, as `Name <address@domain>`. The domain has to be verified in the Resend
- * dashboard — mail from an unverified one is refused outright, which is the single most
- * common reason a first send fails.
+ * Administrator invitation — same design, wording without a booth. Optional: left blank, an
+ * admin invitation is not emailed and falls back to the copyable link, because sending an
+ * admin the organizer template would greet them with "run the booth screen for" and a gap
+ * where the booth name should be.
  */
-export const RESEND_FROM = defineString('RESEND_FROM', { default: '' })
-/** Optional: where a confused organizer's reply should land. Falls back to the sender. */
-export const RESEND_REPLY_TO = defineString('RESEND_REPLY_TO', { default: '' })
+export const EMAILJS_TEMPLATE_INVITE_ADMIN = defineString('EMAILJS_TEMPLATE_INVITE_ADMIN', { default: '' })
 export const APP_ORIGIN = defineString('APP_ORIGIN', { default: 'https://mfu-passport.web.app' })
+
+const EMAILJS_ENDPOINT = 'https://api.emailjs.com/api/v1.0/email/send'
 
 /**
  * The emulator fetches secrets from the live project's Secret Manager, so once a real key is
- * set there, `npm run e2e` would email every invitation it creates. Sending from the emulator
- * is therefore off unless EMULATOR_SEND_MAIL=1 is set for the session.
+ * set there, `npm run e2e` would email every invitation it creates — and spend the account's
+ * 200 requests a month doing it. Sending from the emulator is therefore off unless
+ * EMULATOR_SEND_MAIL=1 is set for the session.
  */
 const emulatorMailOff = process.env.FUNCTIONS_EMULATOR === 'true' && process.env.EMULATOR_SEND_MAIL !== '1'
 
-export function mailConfigured(): boolean {
-  if (emulatorMailOff) return false
+/** `.value()` throws when a param is read outside a request, hence the try. */
+function conf(): { service: string; user: string; token: string } | null {
+  if (emulatorMailOff) return null
   try {
-    return !!(RESEND_API_KEY.value() && RESEND_FROM.value())
+    const service = EMAILJS_SERVICE_ID.value()
+    const user = EMAILJS_PUBLIC_KEY.value()
+    const token = EMAILJS_PRIVATE_KEY.value()
+    return service && user && token ? { service, user, token } : null
+  } catch {
+    return null
+  }
+}
+
+export function mailConfigured(): boolean {
+  try {
+    return !!(conf() && EMAILJS_TEMPLATE_INVITE.value())
   } catch {
     return false
   }
 }
 
-/** Values go into HTML; a booth called `Arts & Crafts <East>` must not break the markup. */
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
-
-interface Message {
-  to: string
-  subject: string
-  html: string
-  text: string
-}
-
-async function send(m: Message): Promise<boolean> {
-  if (!mailConfigured()) return false
-  const replyTo = RESEND_REPLY_TO.value()
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY.value()}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: RESEND_FROM.value(),
-      to: [m.to],
-      subject: m.subject,
-      html: m.html,
-      // Sent alongside the HTML rather than instead of it: a message with no plain-text part
-      // scores worse with spam filters, and university mail is filtered hard.
-      text: m.text,
-      ...(replyTo ? { reply_to: replyTo } : {}),
-    }),
-  })
-  if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`)
-  return true
-}
-
 export interface InviteMail {
   to: string
   name: string
+  /** Empty for an admin invitation. */
   boothName: string
   link: string
   expires: string
   eventName: string
   eventDates: string
+  role: 'organizer' | 'admin'
 }
 
 /**
- * The invitation itself.
- *
- * Table-based and inline-styled on purpose: this is email, where a stylesheet is stripped,
- * flexbox is unreliable and Outlook renders through Word. The button is a padded anchor rather
- * than anything clever, and the URL is repeated as text underneath because a good number of
- * clients will not make the button clickable at all.
+ * Exactly the variables the dashboard templates may use. Anything a template references that
+ * is not in here renders empty, so add the key here first and the `{{placeholder}}` second.
  */
-function inviteHtml(m: InviteMail): string {
-  const link = esc(m.link)
-  return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
-<body style="margin:0;padding:0;background:#F4FBFD;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4FBFD;padding:24px 12px;">
-    <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#17414E;">
-        <tr><td style="background:#7EDFF2;padding:20px 28px;">
-          <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#17414E;">
-            ${esc(m.eventName)} &middot; ${esc(m.eventDates)}
-          </div>
-        </td></tr>
-        <tr><td style="padding:28px;">
-          <p style="margin:0 0 16px;font-size:16px;">Hello ${esc(m.name)},</p>
-          <p style="margin:0 0 16px;font-size:16px;line-height:1.5;">
-            You are invited to run the booth screen for <strong>${esc(m.boothName)}</strong>.
-          </p>
-          <p style="margin:0 0 24px;font-size:15px;line-height:1.5;color:#3A6B78;">
-            Open the link below on the tablet or laptop that will sit on your booth. It sets up your
-            organizer account and takes you straight to your booth's QR screen.
-          </p>
-          <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
-            <tr><td style="border-radius:10px;background:#12708A;">
-              <a href="${link}" style="display:inline-block;padding:14px 28px;font-size:16px;font-weight:600;color:#ffffff;text-decoration:none;">Set up my booth</a>
-            </td></tr>
-          </table>
-          <p style="margin:0 0 8px;font-size:13px;line-height:1.5;color:#3A6B78;">
-            The link works once and expires on ${esc(m.expires)}. If the button does nothing,
-            paste this into your browser:
-          </p>
-          <p style="margin:0;font-size:13px;word-break:break-all;"><a href="${link}" style="color:#12708A;">${link}</a></p>
-        </td></tr>
-        <tr><td style="padding:0 28px 28px;">
-          <p style="margin:0;border-top:1px solid #E3EFF3;padding-top:16px;font-size:12px;color:#6B8D97;">
-            Office of International Affairs, Mae Fah Luang University.
-            If you were not expecting this, you can ignore it — the link does nothing until someone signs in with this address.
-          </p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body></html>`
+function templateParams(m: InviteMail): Record<string, string> {
+  return {
+    to_email: m.to,
+    to_name: m.name,
+    booth_name: m.boothName,
+    event_name: m.eventName,
+    event_dates: m.eventDates,
+    expires: m.expires,
+    invite_link: m.link,
+  }
 }
 
-function inviteText(m: InviteMail): string {
-  return [
-    `${m.eventName} · ${m.eventDates}`,
-    '',
-    `Hello ${m.name},`,
-    '',
-    `You are invited to run the booth screen for ${m.boothName}.`,
-    '',
-    "Open this link on the tablet or laptop that will sit on your booth. It sets up your organizer account and takes you straight to your booth's QR screen.",
-    '',
-    m.link,
-    '',
-    `The link works once and expires on ${m.expires}.`,
-    '',
-    'Office of International Affairs, Mae Fah Luang University.',
-    'If you were not expecting this, you can ignore it — the link does nothing until someone signs in with this address.',
-  ].join('\n')
+function templateFor(role: InviteMail['role']): string {
+  try {
+    return role === 'admin' ? EMAILJS_TEMPLATE_INVITE_ADMIN.value() : EMAILJS_TEMPLATE_INVITE.value()
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * Returns true if EmailJS accepted the message.
+ *
+ * A refusal throws rather than returning false: the caller logs it and still hands the admin
+ * the copyable link, and the audit entry records `mailed: false`. The body EmailJS returns on
+ * an error is a short plain-text reason ("The Public Key is invalid", "API calls are disabled
+ * for non-browser applications", …), which is worth having in the log verbatim.
+ */
+async function send(m: InviteMail): Promise<boolean> {
+  const c = conf()
+  if (!c) return false
+  const template = templateFor(m.role)
+  if (!template) return false
+
+  const res = await fetch(EMAILJS_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      service_id: c.service,
+      template_id: template,
+      user_id: c.user,
+      accessToken: c.token,
+      template_params: templateParams(m),
+    }),
+  })
+  if (!res.ok) throw new Error(`EmailJS ${res.status}: ${(await res.text()).slice(0, 300)}`)
+  return true
 }
 
 /** Returns true if an email actually went out. */
 export async function sendInvite(m: InviteMail): Promise<boolean> {
-  return send({
-    to: m.to,
-    subject: `You are running ${m.boothName} at ${m.eventName}`,
-    html: inviteHtml(m),
-    text: inviteText(m),
-  })
+  return send(m)
 }

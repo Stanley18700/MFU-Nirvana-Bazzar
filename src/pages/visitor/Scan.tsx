@@ -1,7 +1,6 @@
 import { useCallback, useState, type FormEvent } from 'react'
 import { Scanner } from '../../components/Scanner'
 import { api, errorMessage } from '../../lib/api'
-import { useLocale } from '../../lib/locale'
 import { normaliseManualCode } from '../../../shared/token'
 import type { ScanResult } from '../../../shared/model'
 import { ScanResultView } from './ScanResult'
@@ -9,6 +8,7 @@ import { BackLink, Notice, Spinner } from '../../components/ui'
 import { FestivalBackdrop } from '../auth/parts'
 import { useOnline } from '../../lib/useOnline'
 import { setServerTime } from '../../lib/serverClock'
+import { useLocale } from '../../lib/locale'
 
 export default function Scan() {
   const { t } = useLocale()
@@ -42,8 +42,8 @@ export default function Scan() {
   return (
     <><FestivalBackdrop hills={false} /><main className="relative mx-auto flex min-h-full max-w-md flex-col text-ink">
       <header className="flex items-center justify-between gap-2 px-5 py-4">
-        <BackLink to="/passport">{t('pp.passport')}</BackLink>
-        <div className="stamp-text text-ink">{t('scan.title')}</div>
+        <BackLink to="/passport">{t('v.back.passport')}</BackLink>
+        <div className="stamp-text text-ink">{t('v.scan.title')}</div>
         <span className="w-16" />
       </header>
 
@@ -55,20 +55,20 @@ export default function Scan() {
           <div className="mx-4 overflow-hidden rounded-[28px] bg-chrome p-2 shadow-float">
             <Scanner onResult={(t) => void submit(t)} paused={busy} className="aspect-square max-h-[50dvh] w-full" />
           </div>
-          {busy && <Spinner label={t('scan.checking')} />}
+          {busy && <Spinner label={t('v.scan.checking')} />}
           {/*
             * Ahead of the error, because it explains it. A stamp is recorded by the server, so
             * scanning offline cannot work — and without this the visitor reads a network
             * failure as a broken QR code and tries the booth's sign again and again.
             */}
-          {!online && <div className="mx-4 mt-3"><Notice tone="amber">{t('scan.offline')}</Notice></div>}
+          {!online && <div className="mx-4 mt-3"><Notice tone="amber">{t('v.scan.offline')}</Notice></div>}
           {err && <div className="mx-4 mt-3"><Notice tone="red">{err}</Notice></div>}
           <form onSubmit={onManual} className="card card-static mx-4 mt-4 mb-8">
-            <label className="stamp-text text-ink-soft" htmlFor="manual">{t('scan.manualLabel')}</label>
+            <label className="stamp-text text-ink-soft" htmlFor="manual">{t('v.scan.manualLabel')}</label>
             <div className="mt-2 flex gap-2">
               <input id="manual" className="field flex-1 text-center font-mono text-xl tracking-[0.35em] uppercase" maxLength={7} autoCapitalize="characters" autoCorrect="off" spellCheck={false}
-                value={manual} onChange={(e) => setManual(normaliseManualCode(e.target.value))} placeholder={t('scan.manualPlaceholder')} />
-              <button className="btn-primary shrink-0" disabled={normaliseManualCode(manual).length !== 6 || busy}>{t('scan.submit')}</button>
+                value={manual} onChange={(e) => setManual(normaliseManualCode(e.target.value))} placeholder="ABC234" />
+              <button className="btn-primary shrink-0" disabled={normaliseManualCode(manual).length !== 6 || busy}>{t('v.scan.stamp')}</button>
             </div>
           </form>
         </>

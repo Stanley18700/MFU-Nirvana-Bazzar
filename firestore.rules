@@ -80,6 +80,26 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    /*
+     * Booth ratings (§4.3). The same two-collection shape the surveys use, for the same reason:
+     * `boothRatings` holds the score and the comment with no visitor id anywhere — not in a
+     * field, not in the document id — and `boothRated` holds the "already rated" marker with no
+     * score. Reading either one tells you nothing about the other, and that is what lets an
+     * admin read every comment without reading every visitor.
+     *
+     * Admin-only, unlike survey answers: a booth's own score next to its neighbours' is a
+     * comparison the console is for, not something to put on 76 organizer tablets.
+     */
+    match /boothRatings/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /boothRated/{id} {
+      allow read: if isAdmin() || (signedIn() && id.split('_')[0] == request.auth.uid);
+      allow write: if false;
+    }
+
     match /refData/{doc} {
       allow read: if true;
       allow write: if false;
@@ -108,6 +128,24 @@ service cloud.firestore {
      */
     match /tierUnlocks/{id} {
       allow read: if isAdmin() || (signedIn() && resource.data.visitorId == request.auth.uid);
+      allow write: if false;
+    }
+
+    /*
+     * A request to run a booth, from someone nobody has an email address for. Readable by the
+     * person who filed it — the screen watches its own row so an approval lands without a reload —
+     * and by an admin, who is the only one who can act on it. Written by the callables only, like
+     * everything else: the request must never be the thing that grants the role.
+     */
+    /*
+     * Matched on the document id, not on `resource.data.uid`, and the difference is load-bearing:
+     * the request screen subscribes before the document exists, and on a missing document
+     * `resource` is null, so dereferencing it throws and the listener dies for good — the row then
+     * appears and the screen never notices. The id is the uid, so this says the same thing and
+     * survives the document not being there yet.
+     */
+    match /staffRequests/{id} {
+      allow read: if isAdmin() || (signedIn() && id == request.auth.uid);
       allow write: if false;
     }
 
@@ -146,6 +184,12 @@ service cloud.firestore {
       allow write: if false;
     }
     match /stats/buckets/items/{bucketId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Per-booth rating counters — count, total, distribution. Admin only, like the ratings.
+    match /stats/ratings/items/{boothId} {
       allow read: if isAdmin();
       allow write: if false;
     }

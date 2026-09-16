@@ -25,6 +25,8 @@ export const api = {
   // visitor
   join: call<JoinInput, { ok: true; passportNo: string; existing: boolean }>('join'),
   scan: call<{ payload: string }, ScanResult>('scan'),
+  /** One to five stars for a booth already stamped. `already` means this visitor had rated it before. */
+  rateBooth: call<{ boothId: string; stars: number; comment?: string }, { ok: true; already: boolean }>('rateBooth'),
   redemptionCode: call<Record<string, never>, { code: string; counter: number; period: number; payload: string; serverTime: number }>('redemptionCode'),
   /** Copies the address on the Auth account onto users/{uid} after an email change. */
   syncAccount: call<Record<string, never>, { ok: true; synced: boolean; contact: string | null; contactVerified?: boolean }>('syncAccount'),
@@ -53,14 +55,19 @@ export const api = {
   rotateBoothSecret: call<{ id: string }, { ok: true }>('rotateBoothSecret'),
   savePrizePolicy: call<{ tiers: TierInput[]; dryRun?: boolean }, { ok?: true; preview: Record<string, number>; available: number }>('savePrizePolicy'),
   adjustStock: call<{ tierId: string; delta: number; reason: string; kind?: 'load-in' | 'restock' | 'correction' }, { ok: true }>('adjustStock'),
+  /** How many each session starts with, for sessions nobody has spent from yet. Not a top-up: see adjustStock. */
+  setSessionAllowance: call<{ tierId: string; stockPerSession: number; reason: string }, { ok: true; stockPerSession: number; previousPerSession: number }>('setSessionAllowance'),
   saveRefData: call<
     { name: 'institutions' | 'mfuSchools' } & { list: string[] }
     | { name: 'ethnicGroups'; byCountry: Record<string, string[]> },
     { ok: true; count?: number; countries?: number }
   >('saveRefData'),
+  /** Ask to run a booth when nobody has your email address. Grants nothing — an admin decides. */
+  requestBoothAccess: call<{ boothId?: string; newBoothName?: string; note?: string }, { ok: true; status: 'pending' }>('requestBoothAccess'),
+  decideStaffRequest: call<{ uid: string; approve: boolean; boothId?: string; decisionNote?: string }, { ok: true; approved: boolean; boothId?: string; boothName?: string; createdBooth?: string | null }>('decideStaffRequest'),
   runDraw: call<{ count: number }, { winners: Array<{ uid: string; displayName: string; passportNo: string }>; poolSize: number }>('runDraw'),
-  inviteOrganizer: call<{ invites: Array<{ name: string; email: string; boothId?: string; role?: Role }> }, { results: Array<{ inviteId: string; email: string; mailed: boolean; link?: string }>; mailConfigured: boolean }>('inviteOrganizer'),
-  resendInvite: call<{ inviteId: string }, { mailed: boolean; link?: string }>('resendInvite'),
+  inviteOrganizer: call<{ invites: Array<{ name: string; email: string; boothId?: string; role?: Role }> }, { results: Array<{ inviteId: string; email: string; mailed: boolean; link: string }>; mailConfigured: boolean }>('inviteOrganizer'),
+  resendInvite: call<{ inviteId: string }, { mailed: boolean; link: string }>('resendInvite'),
   revokeInvite: call<{ inviteId: string }, { ok: true }>('revokeInvite'),
   inviteInfo: call<{ token: string }, { status: 'invalid' | 'revoked' | 'accepted' | 'expired' } | { status: 'ok'; displayName: string; email: string; role: Role; boothId: string | null; boothName: string }>('inviteInfo'),
   acceptInvite: call<{ token: string }, { ok: true; role: Role; boothId: string | null }>('acceptInvite'),
@@ -79,7 +86,7 @@ export const api = {
   bootstrapAdmin: call<{ key: string; displayName?: string }, { ok: true }>('bootstrapAdmin'),
   // booth surveys — an organizer builds one for their own booth; an admin must name the booth
   saveSurvey: call<SurveyInput, { ok: true }>('saveSurvey'),
-  setSurveyActive: call<{ active: boolean; boothId?: string }, { ok: true; active: boolean }>('setSurveyActive'),
+  setSurveyActive: call<{ active: boolean; boothId?: string; gateGift?: boolean }, { ok: true; active: boolean; gateGift?: boolean }>('setSurveyActive'),
   deleteSurvey: call<{ boothId?: string }, { ok: true }>('deleteSurvey'),
   /** What the visitor is offered after a stamp. 'none' when the booth has no live survey. */
   surveyForBooth: call<{ boothId: string }, SurveyOffer>('surveyForBooth'),

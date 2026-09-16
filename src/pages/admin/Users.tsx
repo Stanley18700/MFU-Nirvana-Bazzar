@@ -1,15 +1,15 @@
-import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react'
-import { collection, limit, orderBy, query, where } from 'firebase/firestore'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { collection, doc, documentId, getCountFromServer, getDocs, limit, limitToLast, orderBy, query, startAfter, where } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { api, errorMessage, type CreateUserInput, type UpdateUserInput } from '../../lib/api'
-import { useBooths, useCollection, useRefList, useTiers } from '../../lib/data'
+import { useBooths, useCollection, useDoc, useRefList, useTiers, type WithId } from '../../lib/data'
 import { CopyButton, Drawer, Notice, Toast, type Msg } from '../../components/ui'
 import { Select } from '../../components/Select'
 import { COUNTRIES, countryName } from '../../lib/countries'
 import { ts } from '../../lib/eventText'
 import { useSlidingPill } from '../../lib/useSlidingPill'
 import { useLabels } from '../../lib/labels'
-import type { InviteDoc, Role, ScanDoc, TierUnlockDoc, UserDoc, VisitorType } from '../../../shared/model'
+import type { BoothDoc, InviteDoc, Role, ScanDoc, StaffRequestDoc, TierUnlockDoc, UserDoc, VisitorType } from '../../../shared/model'
 import { useLocale } from '../../lib/locale'
 
 type Row = UserDoc & { id: string }
@@ -18,9 +18,92 @@ type ErasureRequest = { uid: string; displayName: string | null; passportNo: str
 
 const VISITOR_TYPES: VisitorType[] = ['student', 'staff', 'alumni', 'guest']
 const ROLES: Role[] = ['visitor', 'organizer', 'admin']
+/** Rows per page. Fifty is a screen and a half on a laptop and one long thumb-scroll on a phone. */
 const PAGE = 50
-/** Firestore has no substring search; while a search is typed the page widens to the whole list (1,500 expected) and filters here. */
+/**
+ * Firestore has no substring search, so a search reads the newest users once and filters here.
+ * 2,000 covers the 1,500 expected at the festival with room; past it the page says so rather than
+ * pretending. This is a one-shot read, not a listener — the old page kept a live snapshot of
+ * every user open for as long as the search box had text in it.
+ */
 const SEARCH_ALL = 2000
+
+/** The last row of a page, which is where the next page starts. */
+type Cursor = { createdAt: unknown; id: string }
+
+/**
+ * The seven cells of the strip: first, last, the current page and its neighbours, and an ellipsis
+ * standing in for whatever is skipped. Always seven when there are more than seven pages, so the
+ * control keeps one width and every number keeps its place.
+ */
+function cellsFor(page: number, total: number): Array<number | '…'> {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i)
+  if (page <= 3) return [0, 1, 2, 3, 4, '…', total - 1]
+  if (page >= total - 4) return [0, '…', total - 5, total - 4, total - 3, total - 2, total - 1]
+  return [0, '…', page - 1, page, page + 1, '…', total - 1]
+}
+
+/**
+ * The pager: a numbered strip with the current page as the sliding pill, and an arrow either side.
+ *
+ * Numbers rather than a "Page 3" label between two buttons, because the label was status dressed
+ * as a control — same weight as the buttons beside it, and no way to act on it. In the strip the
+ * current page is the pill, so status and control are one thing.
+ *
+ * Every number shown can be reached. That is the constraint the shape had to satisfy, not the
+ * other way round: the first page needs no cursor, the last is read backwards off the index, and
+ * the rest are a step from where you already are. An ellipsis is a gap, not a button — it says
+ * "pages here" without pretending you can land on one by pressing dots.
+ */
+function Pager({ page, total, onPage, from, to, count, busy }: {
+  page: number; total: number; onPage: (p: number) => void; from: number; to: number; count?: number; busy?: boolean
+}) {
+  const { t } = useLocale()
+  const strip = useSlidingPill()
+  if (total <= 1) return null
+  return (
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-soft">
+      <span>{count === undefined ? t('users.showingPage', { from, to }) : t('users.showingPageOf', { from, to, total: count.toLocaleString('en-US') })}</span>
+      <nav className="flex items-center gap-1.5" aria-label={t('users.pages')} aria-busy={busy || undefined}>
+        <button type="button" className="btn-ghost btn-sm btn-icon-sm" onClick={() => onPage(page - 1)} disabled={page === 0 || busy} aria-label={t('users.prev')}>
+          <span aria-hidden>‹</span>
+        </button>
+        <div ref={strip} className="seg seg-light" role="group">
+          {cellsFor(page, total).map((c, i) => c === '…'
+            ? <span key={`gap${i}`} aria-hidden className="seg-item pointer-events-none min-w-6 text-center opacity-60">…</span>
+            : (
+              <button
+                key={c} type="button" onClick={() => onPage(c)} disabled={busy}
+                className="seg-item min-w-8 tabular-nums" aria-current={c === page ? 'page' : undefined} aria-label={t('users.page', { n: c + 1 })}
+              >
+                {c + 1}
+              </button>
+            ))}
+        </div>
+        <button type="button" className="btn-ghost btn-sm btn-icon-sm" onClick={() => onPage(page + 1)} disabled={page >= total - 1 || busy} aria-label={t('users.next')}>
+          <span aria-hidden>›</span>
+        </button>
+      </nav>
+    </div>
+  )
+}
+
+/**
+ * Back to the top of a list after a page change.
+ *
+ * Smooth rather than instant, because the jump gave no sense of having moved — the rows simply
+ * became different rows. Carried, you can see the table you were reading leave. The target is the
+ * heading above the rows, so it does not shift when the new page turns out to be shorter than the
+ * old one, and nothing above it moves on a page press.
+ *
+ * `prefers-reduced-motion` gets the jump: a long carried scroll is exactly the motion that setting
+ * is for.
+ */
+function toTop(el: HTMLElement | null) {
+  if (!el) return
+  const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  el.scrollIntoView({ block: 'start', behavior: still ? 'auto' : 'smooth' })
+}
 
 /** §6.2 users, §6.4 invitations, §10 erasure requests. */
 export default function Users() {
@@ -30,13 +113,115 @@ export default function Users() {
   const filter = useSlidingPill()
   const [roleFilter, setRoleFilter] = useState<Role | 'all'>('all')
   const [q, setQ] = useState('')
-  const [pageSize, setPageSize] = useState(PAGE)
-  const searching = q.trim().length >= 2
-  const fetchLimit = searching ? SEARCH_ALL : pageSize
-  const users = useCollection<UserDoc>(
-    roleFilter === 'all' ? query(collection(db, 'users'), orderBy('createdAt', 'desc'), limit(fetchLimit)) : query(collection(db, 'users'), where('role', '==', roleFilter), orderBy('createdAt', 'desc'), limit(fetchLimit)),
-    [roleFilter, fetchLimit], 'the user list',
-  ).data
+  // Debounced: the search reads the whole list once, and it should not do that on every keystroke.
+  const [qd, setQd] = useState('')
+  useEffect(() => { const id = setTimeout(() => setQd(q), 300); return () => clearTimeout(id) }, [q])
+  const searching = qd.trim().length >= 2
+
+  /*
+   * One page of users, live, and only that page. The cursor for page n is the last row of page
+   * n-1, kept per page so Previous is a lookup rather than a second query. `documentId()` is the
+   * tie-break: two people who joined in the same millisecond of the gate rush share a
+   * `createdAt`, and without it one of them would fall between two pages.
+   *
+   * PAGE + 1 rows are asked for so the page knows whether there is a next one without a count.
+   */
+  const [page, setPage] = useState(0)
+  const [cursors, setCursors] = useState<Cursor[]>([])
+  const base = roleFilter === 'all'
+    ? query(collection(db, 'users'), orderBy('createdAt', 'desc'), orderBy(documentId(), 'desc'))
+    : query(collection(db, 'users'), where('role', '==', roleFilter), orderBy('createdAt', 'desc'), orderBy(documentId(), 'desc'))
+  const cursor = page > 0 ? cursors[page - 1] : undefined
+
+  /*
+   * How long the list is, so the strip can show real page numbers from the first render instead of
+   * discovering them one press at a time. `getCountFromServer` is an aggregation — it reads index
+   * entries, not documents, and bills one read per thousand, so the whole festival costs two. It
+   * runs again when the role filter changes, because that is a different list.
+   *
+   * If it fails the page still works: `null` falls back to counting the pages we have cursors for
+   * plus the one the fifty-first row proves is there.
+   */
+  const [count, setCount] = useState<number | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    setCount(null)
+    getCountFromServer(base).then((s) => { if (!cancelled) setCount(s.data().count) }).catch(() => { if (!cancelled) setCount(null) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roleFilter])
+
+  /*
+   * Which end to read from.
+   *
+   * A cursor is the last row of the page before it, so reaching page thirty from page one means
+   * fetching twenty-nine pages to throw away. `limitToLast` does not: it is the same query read
+   * backwards off the same index, so the last page costs its own rows and nothing else. Whichever
+   * end the wanted page is nearer to is the end it is fetched from — which is what makes every
+   * number in the strip reachable rather than only the ones next door.
+   */
+  const knownTotal = count === null ? null : Math.max(1, Math.ceil(count / PAGE))
+  const tailRows = knownTotal === null || count === null ? 0 : count - (knownTotal - 1) * PAGE
+  const fromEnd = knownTotal === null ? Infinity : knownTotal - 1 - page
+  const useTail = knownTotal !== null && fromEnd < page && page > cursors.length
+  const tailLimit = useTail ? fromEnd * PAGE + tailRows : 0
+  const live = useCollection<UserDoc>(
+    searching ? null
+      : useTail ? query(base, limitToLast(tailLimit))
+      : cursor ? query(base, startAfter(cursor.createdAt, cursor.id), limit(PAGE + 1))
+      : query(base, limit(PAGE + 1)),
+    [roleFilter, page, searching, cursor?.id, useTail, tailLimit], 'the user list',
+  )
+  const pageRows = live.data.slice(0, PAGE)
+  const liveHasNext = useTail ? fromEnd > 0 : live.data.length > PAGE
+
+  /*
+   * Which page the rows on screen are actually from.
+   *
+   * A snapshot arrives a few hundred milliseconds after the press, and until it does the table
+   * still holds the previous page while the pill has already moved — the control saying one thing
+   * and the table showing another. `live.data` is a fresh array on every snapshot, so the page
+   * number recorded when it changes is the page those rows belong to, and anything else means the
+   * table is still catching up.
+   */
+  const [rowsFrom, setRowsFrom] = useState(0)
+  useEffect(() => {
+    /*
+     * A cached snapshot does not count. Firestore answers from the local cache first, and its
+     * answer to `limitToLast(88)` is drawn from whatever documents happen to be cached — stepping
+     * back from the last page briefly showed rows from the top of the list, undimmed, because
+     * those were the documents most recently fetched. Only the server's answer says which page
+     * these rows are.
+     *
+     * The wait is capped so a desk on failing wifi is left with a dimmed table rather than a dim
+     * one forever; offline, cached rows are the best answer there is.
+     */
+    if (!live.fromCache) { setRowsFrom(page); return }
+    const id = setTimeout(() => setRowsFrom(page), 1200)
+    return () => clearTimeout(id)
+  }, [live.data, live.fromCache]) // eslint-disable-line react-hooks/exhaustive-deps
+  const catchingUp = !searching && rowsFrom !== page
+
+  const livePages = knownTotal ?? Math.max(cursors.length + 1, page + 1 + (liveHasNext ? 1 : 0))
+
+  // A filter or a search is a new list: start it from the top.
+  useEffect(() => { setPage(0); setCursors([]) }, [roleFilter, searching, qd])
+
+  /* The search: one read of the newest SEARCH_ALL, filtered here, paged here. */
+  const [found, setFound] = useState<Row[]>([])
+  const [searchState, setSearchState] = useState<'idle' | 'busy' | 'error'>('idle')
+  useEffect(() => {
+    if (!searching) { setFound([]); setSearchState('idle'); return }
+    let cancelled = false
+    setSearchState('busy')
+    getDocs(query(base, limit(SEARCH_ALL)))
+      .then((snap) => { if (!cancelled) { setFound(snap.docs.map((d) => ({ id: d.id, ...(d.data() as UserDoc) }))); setSearchState('idle') } })
+      .catch(() => { if (!cancelled) setSearchState('error') })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searching, qd, roleFilter])
+
+  const users = searching ? found : pageRows
   const invites = useCollection<InviteDoc>(query(collection(db, 'invites'), orderBy('sentAt', 'desc'), limit(100)), [], 'the invitations').data
   const erasures = useCollection<ErasureRequest>(query(collection(db, 'erasureRequests'), orderBy('requestedAt', 'desc'), limit(100)), [], 'the erasure requests').data
     .filter((r) => r.status === 'open')
@@ -46,14 +231,117 @@ export default function Users() {
   const closeDrawer = useCallback(() => setOpenId(null), [])
   const [msg, setMsg] = useState<Msg | null>(null)
   const [inv, setInv] = useState({ name: '', email: '', boothId: '', role: 'organizer' as Role, bulk: '' })
-  const [links, setLinks] = useState<Array<{ email: string; link?: string; mailed: boolean }>>([])
+  const [links, setLinks] = useState<Array<{ email: string; link: string; mailed: boolean }>>([])
   const [inviteFilter, setInviteFilter] = useState<'pending' | 'all'>('pending')
 
   const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase()
-    return s ? users.filter((u) => [u.displayName, u.contact, u.studentId, u.passportNo].some((v) => v?.toLowerCase().includes(s))) : users
-  }, [users, q])
+    const s = qd.trim().toLowerCase()
+    return searching ? users.filter((u) => [u.displayName, u.contact, u.studentId, u.passportNo].some((v) => v?.toLowerCase().includes(s))) : users
+  }, [users, qd, searching])
+  const totalPages = searching ? Math.max(1, Math.ceil(filtered.length / PAGE)) : livePages
+  // What is on screen this page. Server pages arrive already cut; a search is cut here.
+  const visible = searching ? filtered.slice(page * PAGE, (page + 1) * PAGE) : filtered
+  /*
+   * Moving forward leaves this page's last row behind as the cursor for the next one, recorded on
+   * the press rather than in an effect. An effect that watched the rows instead would fire once
+   * with the page number already advanced and the previous page's rows still on screen, and file
+   * that page's cursor under the new number — a duplicated page, found by walking nine of them.
+   *
+   * Cursors are kept, not truncated, so the numbers stay reachable after jumping back. They do
+   * not go stale: a cursor names a document, not an offset, so people arriving at the gate land
+   * on page one and shift nothing underneath it.
+   */
+
+  /*
+   * Moving. A page that is nearer the end than the start is read backwards and needs no cursor at
+   * all; one that is nearer the start needs the cursors up to it, and the only forward move the
+   * strip offers without them is the very next page, whose last row is already on screen.
+   *
+   * The walk is kept for the case the count is unavailable, where there is no "nearer the end" to
+   * measure against — it fetches whole pages to keep their last rows, which is why the strip does
+   * not offer distant numbers when it cannot tell how far away they are.
+   */
+  /*
+   * The top of the list, to return to on a page change. The pager sits at the foot of a table
+   * fifty rows tall, so without this the new page opens wherever the old one left the scroll: at
+   * its middle when the page grows, and hauled up by the browser when it shrinks, which is what
+   * made stepping back from the last page feel like it had lost its place.
+   */
+  const listTop = useRef<HTMLDivElement>(null)
+  const invTop = useRef<HTMLDivElement>(null)
+  /*
+   * The carry waits for the rows.
+   *
+   * Starting it on the press looked right and was not: a smooth scroll is timed, and it cannot
+   * tick while React is replacing fifty rows, so it sat still for 235ms and then jumped 637px to
+   * catch up with its own clock. The press is already answered — the pill moves and the table
+   * dims — so the motion can wait for a free frame and then run as one movement.
+   */
+  const settle = useRef(false)
+  const tableBox = useRef<HTMLDivElement>(null)
+  /*
+   * Hold the table's height from the press until the carry has finished — not until the rows
+   * arrive, which is what it did at first and which held nothing, since the rows arriving is the
+   * moment the height would change. A shorter page moves the bottom of the document up, the
+   * browser clamps the scroll to follow it, and the carry begins with a lurch nobody asked for.
+   */
+  const [heldHeight, setHeldHeight] = useState<number>()
+  const release = useRef<() => void>(undefined)
+  const show = (p: number) => {
+    release.current?.()
+    setHeldHeight(tableBox.current?.offsetHeight)
+    setPage(p)
+    settle.current = true
+  }
+
+  useEffect(() => {
+    if (catchingUp || !settle.current) return
+    settle.current = false
+    // Two frames: one for the new rows to paint, one for the scroll to start on a quiet thread.
+    const frame = requestAnimationFrame(() => requestAnimationFrame(() => {
+      toTop(listTop.current)
+      // Let go of the height once the movement is over. `scrollend` is the honest signal; the
+      // timer is for the browsers that do not send it, and for a scroll that had nowhere to go.
+      const done = () => { window.removeEventListener('scrollend', done); clearTimeout(timer); setHeldHeight(undefined) }
+      const timer = setTimeout(done, 1200)
+      window.addEventListener('scrollend', done, { once: true })
+      release.current = done
+    }))
+    return () => cancelAnimationFrame(frame)
+  }, [catchingUp, page])
+  // A second press mid-carry: drop the old hold before taking a new one.
+  useEffect(() => () => release.current?.(), [])
+
+  const [jumping, setJumping] = useState(false)
+  const goPage = async (p: number) => {
+    if (p < 0 || p >= totalPages || p === page) return
+    if (searching) { show(p); return }
+    if (p <= cursors.length) { show(p); return }
+    if (knownTotal !== null && knownTotal - 1 - p < p) { show(p); return }   // read from the end
+    if (p === page + 1 && pageRows.length) {
+      const last = pageRows[pageRows.length - 1]
+      setCursors((c) => Object.assign([...c], { [page]: { createdAt: last.createdAt, id: last.id } }))
+      show(p)
+      return
+    }
+    setJumping(true)
+    try {
+      const next = [...cursors]
+      for (let i = next.length; i < p; i++) {
+        const c = i === 0 ? undefined : next[i - 1]
+        const snap = await getDocs(c ? query(base, startAfter(c.createdAt, c.id), limit(PAGE)) : query(base, limit(PAGE)))
+        const last = snap.docs[snap.docs.length - 1]
+        if (!last) break
+        next[i] = { createdAt: last.get('createdAt'), id: last.id }
+      }
+      if (next.length >= p) { setCursors(next); show(p) }
+    } catch { /* the list itself reports the failure; the page simply does not move */ }
+    finally { setJumping(false) }
+  }
+  const [invPage, setInvPage] = useState(0)
   const shownInvites = inviteFilter === 'all' ? invites : invites.filter((i) => i.status === 'sent' || i.status === 'opened')
+  useEffect(() => { setInvPage(0) }, [inviteFilter])
+  const visibleInvites = shownInvites.slice(invPage * PAGE, (invPage + 1) * PAGE)
 
   const fail = (e: unknown) => setMsg({ tone: 'red', text: errorMessage(e) })
 
@@ -86,7 +374,16 @@ export default function Users() {
     try {
       const r = await api.inviteOrganizer({ invites: list })
       setLinks(r.results)
-      setMsg({ tone: r.mailConfigured ? 'green' : 'amber', text: r.mailConfigured ? t('users.invitesSent', { count: r.results.filter((x) => x.mailed).length }) : t('users.mailOff') })
+      // Keyed off what actually went out, not off whether mail is *configured*: a configured
+      // sender still fails per-recipient (an unverified domain, or Resend's test sender, which
+      // delivers only to the account owner). Reading `mailConfigured` here put a green
+      // "0 invitations emailed." directly above a row of links the admin had to send by hand.
+      const mailed = r.results.filter((x) => x.mailed).length
+      setMsg(mailed === r.results.length
+        ? { tone: 'green', text: t('users.invitesSent', { count: mailed }) }
+        : { tone: 'amber', text: r.mailConfigured
+            ? t('users.mailFailed', { failed: r.results.length - mailed, total: r.results.length })
+            : t('users.mailOff') })
       setInv({ ...inv, name: '', email: '', bulk: '' })
     } catch (e) { fail(e) }
   }
@@ -111,7 +408,9 @@ export default function Users() {
 
       <ErasureInbox requests={erasures} onErase={hardDelete} onDismiss={dismissErasure} />
 
-      <section className="card mt-4">
+      <StaffRequests booths={booths} onDone={setMsg} fail={fail} />
+
+      <section className="card mt-4" ref={invTop}>
         <h2 className="stamp-text text-ink-soft">{t('users.inviteHeading')}</h2>
         <p className="mt-1 text-xs text-ink-soft">{t('users.inviteLead')}</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -126,9 +425,9 @@ export default function Users() {
           <textarea className="field mt-2 font-mono text-xs" rows={4} value={inv.bulk} onChange={(e) => setInv({ ...inv, bulk: e.target.value })} placeholder={'Somchai Thongdee, somchai@mfu.ac.th, booth-01\n…'} />
         </details>
         <button className="btn-primary mt-3" onClick={sendInvites} disabled={!inv.bulk.trim() && (!inv.name || !inv.email || (inv.role === 'organizer' && !inv.boothId))}>{t(inv.bulk.trim() ? 'users.sendInvitations' : 'users.sendInvitation')}</button>
-        {links.some((l) => l.link) && (
+        {links.length > 0 && (
           <ul className="mt-3 flex flex-col gap-1 text-xs">
-            {links.filter((l) => l.link).map((l) => <LinkRow key={l.email} email={l.email} link={l.link!} />)}
+            {links.map((l) => <LinkRow key={l.email} email={l.email} link={l.link} mailed={l.mailed} />)}
           </ul>
         )}
         {invites.length > 0 && (
@@ -148,7 +447,7 @@ export default function Users() {
             <table className="w-full min-w-[36rem] text-sm">
               <thead><tr className="text-left text-xs text-ink-soft"><th className="py-1">{t('users.name')}</th><th>{t('users.email')}</th><th>{t('users.booth')}</th><th>{t('users.thStatus')}</th><th>{t('users.thSent')}</th><th></th></tr></thead>
               <tbody>
-                {shownInvites.map((i) => (
+                {visibleInvites.map((i) => (
                   <tr key={i.id} className="border-t rule">
                     <td className="py-1.5">{i.displayName}</td><td className="truncate">{i.email}</td><td>{booths.find((b) => b.id === i.boothId)?.nameEn ?? ROLE_LABEL[i.role]}</td>
                     <td><span className={`rounded-full px-2 py-0.5 text-xs ${i.status === 'accepted' ? 'bg-success/15 text-success-text' : i.status === 'opened' ? 'bg-action/10 text-ink' : i.status === 'sent' ? 'bg-ink/5' : 'bg-danger/10 text-danger-text'}`}>{i.status}</span></td>
@@ -165,41 +464,76 @@ export default function Users() {
               </tbody>
             </table>
             </div>
+            <Pager page={invPage} total={Math.max(1, Math.ceil(shownInvites.length / PAGE))}
+              onPage={(p) => { setInvPage(p); toTop(invTop.current) }}
+              from={invPage * PAGE + 1} to={Math.min(shownInvites.length, (invPage + 1) * PAGE)} count={shownInvites.length} />
           </>
         )}
       </section>
 
       <CreateUser booths={booths} onCreated={(text, uid) => { setMsg({ tone: 'green', text }); setOpenId(uid) }} onError={fail} />
 
-      <section className="card mt-4">
+      {/* No scroll anchoring anywhere in here. Chrome keeps whatever you are looking at in place
+          when content changes height, which is right for a list that grows under you and wrong for
+          one that is replaced wholesale: a fifty-row page after a thirty-eight-row one pushed the
+          scroll down 588px, and the reverse pulled it up by the same, both with nothing pressed.
+          The pager below the table is anchor enough to do it even when the table itself opts out. */}
+      <section className="card mt-4 [overflow-anchor:none]" ref={listTop}>
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="stamp-text mr-auto text-ink-soft">{t('users.usersHeading')}</h2>
           <input className="field w-56" placeholder={t('users.search')} aria-label={t('users.searchAria')} value={q} onChange={(e) => setQ(e.target.value)} />
           <Select className="w-44" ariaLabel={t('users.filterRole')} value={roleFilter} onChange={(v) => setRoleFilter(v as Role | 'all')}
             options={[{ value: 'all', label: t('users.allRoles') }, ...ROLES.map((r) => ({ value: r, label: `${ROLE_LABEL[r]}s` }))]} />
         </div>
-        <p className="mt-1 text-xs text-ink-soft">{searching ? t('users.searchingAll', { count: users.length.toLocaleString('en-US') }) : t('users.showingLatest', { count: Math.min(users.length, pageSize) })} · {t('users.pressRow')}</p>
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-sm">
+        <p className="mt-1 text-xs text-ink-soft">
+          {searching
+            ? searchState === 'busy' ? t('users.searching')
+              : searchState === 'error' ? t('users.searchFailed')
+              : `${t('users.searchingAll', { count: found.length.toLocaleString('en-US') })}${found.length >= SEARCH_ALL ? ` · ${t('users.searchCapped', { count: SEARCH_ALL.toLocaleString('en-US') })}` : ''}`
+            : t('users.newestFirst')}
+          {' · '}{t('users.pressRow')}
+        </p>
+        {/* Seven columns need a floor, like the invitations table has: without one a 390px
+            screen crushes them instead of scrolling them, and "Registered" arrives as "15/0". */}
+        {/* Dimmed, not emptied, while the rows catch up with the pill: a table that blanks for
+            three hundred milliseconds reads as a page that broke, and the rows underneath are
+            still the ones the admin was looking at. */}
+        <div
+          ref={tableBox} style={heldHeight ? { minHeight: heldHeight } : undefined} aria-busy={catchingUp || undefined}
+          className={`mt-3 overflow-x-auto transition-opacity duration-150 ${catchingUp ? 'pointer-events-none opacity-45' : ''}`}
+        >
+          {/*
+            * Fixed columns, not auto. Auto layout measures the rows it happens to be showing, so
+            * the grid re-cut itself on every page: a page of visitors from one school gave the
+            * affiliation column 234px and the timestamp 151, and a page of guests from "Other"
+            * gave them 106 and 230 — the same table, redrawn, which is what looked like it had
+            * stopped filling the card. These widths hold whatever is in the rows.
+            */}
+          <table className="w-full min-w-[44rem] table-fixed text-sm">
+            <colgroup>
+              <col className="w-[26%]" /><col className="w-[11%]" /><col className="w-[23%]" /><col className="w-[12%]" />
+              <col className="w-[7%]" /><col className="w-[7%]" /><col className="w-[14%]" />
+            </colgroup>
             <thead><tr className="text-left text-xs text-ink-soft"><th className="py-1">{t('users.name')}</th><th>{t('users.role')}</th><th>{t('users.thAffiliation')}</th><th>{t('users.thCountry')}</th><th>{t('users.thStamps')}</th><th>{t('users.thPoints')}</th><th>{t('users.thRegistered')}</th></tr></thead>
             <tbody>
-              {filtered.map((u) => (
+              {visible.map((u) => (
                 <tr key={u.id} tabIndex={0} role="button" aria-label={t('users.openRow', { name: u.displayName })}
                   className={`cursor-pointer border-t rule hover:bg-white/50 focus:outline-none focus-visible:bg-white/60 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-action/50 ${u.deletedAt ? 'opacity-50' : ''}`}
                   onClick={() => openRow(u.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRow(u.id) } }}>
-                  <td className="py-1.5 font-medium">{u.displayName}<div className="text-xs text-ink-soft">{u.passportNo ?? u.contact}</div></td>
-                  <td>{ROLE_LABEL[u.role]}{u.boothId ? <div className="text-xs text-ink-soft">{booths.find((b) => b.id === u.boothId)?.nameEn}</div> : null}</td>
-                  <td className="text-xs">{u.institution}{u.school ? ` · ${u.school}` : ''}</td>
-                  <td className="text-xs">{u.countryCode ? countryName(u.countryCode) : ''}</td>
+                  <td className="py-1.5 pr-3 font-medium"><div className="truncate">{u.displayName}</div><div className="truncate text-xs text-ink-soft">{u.passportNo ?? u.contact}</div></td>
+                  <td className="pr-3"><div className="truncate">{ROLE_LABEL[u.role]}</div>{u.boothId ? <div className="truncate text-xs text-ink-soft">{booths.find((b) => b.id === u.boothId)?.nameEn}</div> : null}</td>
+                  <td className="pr-3 text-xs"><div className="truncate" title={`${u.institution}${u.school ? ` · ${u.school}` : ''}`}>{u.institution}{u.school ? ` · ${u.school}` : ''}</div></td>
+                  <td className="pr-3 text-xs"><div className="truncate">{u.countryCode ? countryName(u.countryCode) : ''}</div></td>
                   <td className="fig">{u.stampCount}</td><td className="fig">{u.points}</td>
-                  <td className="text-xs text-ink-soft">{ts(u.createdAt)}</td>
+                  <td className="whitespace-nowrap text-xs text-ink-soft">{ts(u.createdAt)}</td>
                 </tr>
               ))}
-              {filtered.length === 0 && <tr><td colSpan={7} className="py-4 text-center text-ink-soft">{t(users.length ? 'users.nothingMatches' : 'users.noUsers')}</td></tr>}
+              {visible.length === 0 && searchState !== 'busy' && <tr><td colSpan={7} className="py-4 text-center text-ink-soft">{t(searching ? 'users.nothingMatches' : 'users.noUsers')}</td></tr>}
             </tbody>
           </table>
         </div>
-        {!searching && users.length >= pageSize && <button className="btn-ghost mt-3" onClick={() => setPageSize(pageSize + PAGE)}>{t('users.loadMore')}</button>}
+        <Pager page={page} total={totalPages} onPage={goPage} busy={jumping || catchingUp}
+          from={page * PAGE + 1} to={page * PAGE + visible.length} count={searching ? filtered.length : count ?? undefined} />
       </section>
 
       {open && <UserDrawer u={open} booths={booths} onClose={closeDrawer} onRole={changeRole} onUpdate={updateUser} onSoftDelete={softDelete} onHardDelete={hardDelete} onMsg={setMsg} />}
@@ -207,17 +541,33 @@ export default function Users() {
   )
 }
 
-/** One copyable invite link. The input is the fallback when the clipboard API refuses. */
-function LinkRow({ email, link }: { email: string; link: string }) {
+/**
+ * One copyable invite link. The input is the fallback when the clipboard API refuses.
+ *
+ * When the invitation was emailed the link is folded behind a toggle rather than dropped: the
+ * admin does not need it, until the organizer says it never arrived and it is the only thing
+ * that will help. Unmailed, it is the whole point of the row and stays open.
+ */
+function LinkRow({ email, link, mailed }: { email: string; link: string; mailed: boolean }) {
   const { t } = useLocale()
   const ref = useRef<HTMLInputElement>(null)
-  return (
-    // `min-w-0` on the input: a flex item will not shrink below its intrinsic width without it,
-    // and this row is the path an admin uses whenever email delivery is not configured.
-    <li className="flex flex-wrap items-center gap-2">
+  // `min-w-0` on the input: a flex item will not shrink below its intrinsic width without it,
+  // and this row is the path an admin uses whenever email delivery is not configured.
+  const row = (
+    <div className="flex flex-wrap items-center gap-2">
       <span className="w-full truncate sm:w-48">{email}</span>
       <input ref={ref} readOnly className="field min-w-0 flex-1 font-mono text-[11px]" value={link} onFocus={(e) => e.currentTarget.select()} aria-label={t('users.inviteLinkFor', { email })} />
       <CopyButton text={link} inputRef={ref} />
+    </div>
+  )
+  return (
+    <li>
+      {mailed ? (
+        <details className="reveal-host">
+          <summary className="cursor-pointer text-ink-soft">{t('users.showLink', { email })}</summary>
+          <div className="mt-1">{row}</div>
+        </details>
+      ) : row}
     </li>
   )
 }
@@ -343,13 +693,15 @@ function CreateUser({ booths, onCreated, onError }: { booths: BoothOpt[]; onCrea
               options={VISITOR_TYPES.map((t) => ({ value: t, label: VISITOR_TYPE_LABEL[t] }))} />
             <Select ariaLabel={t('users.country')} value={f.countryCode} onChange={(v) => set('countryCode', v)}
               options={COUNTRIES.map((c) => ({ value: c.code, label: c.name }))} />
-            <input className="field" list="create-institutions" placeholder={t('users.institution')} aria-label={t('users.institution')} value={f.institution} onChange={(e) => set('institution', e.target.value)} />
-            <datalist id="create-institutions">{institutions.map((i) => <option key={i} value={i} />)}</datalist>
+            {/* The same lists the visitor's own form offers, chosen the same way. A `<datalist>`
+                draws its suggestions in the OS, and half this row is already `Select`. */}
+            <Select ariaLabel={t('users.institution')} placeholder={t('users.institution')} value={f.institution}
+              onChange={(v) => set('institution', v)}
+              options={institutions.map((i) => ({ value: i, label: i }))} />
             {f.institution === 'MFU' ? (
-              <>
-                <input className="field" list="create-schools" placeholder={t('users.school')} aria-label={t('users.schoolAria')} value={f.school} onChange={(e) => set('school', e.target.value)} />
-                <datalist id="create-schools">{schools.map((s) => <option key={s} value={s} />)}</datalist>
-              </>
+              <Select ariaLabel={t('users.schoolAria')} placeholder={t('users.school')} value={f.school}
+                onChange={(v) => set('school', v)}
+                options={schools.map((x) => ({ value: x, label: x }))} />
             ) : <span className="hidden md:block" />}
             <input className="field" placeholder={t('users.studentId')} aria-label={t('users.studentIdAria')} maxLength={40} value={f.studentId} onChange={(e) => set('studentId', e.target.value)} />
           </>
@@ -503,15 +855,94 @@ function EditForm({ u, onSave, onCancel }: { u: Row; onSave: (patch: Omit<Update
         options={VISITOR_TYPES.map((t) => ({ value: t, label: VISITOR_TYPE_LABEL[t] }))} /></div></div>
       <div>Country<div className="mt-1"><Select ariaLabel={t('users.country')} value={f.countryCode} onChange={(v) => set('countryCode', v)}
         options={COUNTRIES.map((c) => ({ value: c.code, label: c.name }))} /></div></div>
-      <label>{t('users.institution')}<input className="field mt-1" list="edit-institutions" required value={f.institution} onChange={(e) => set('institution', e.target.value)} /></label>
-      <datalist id="edit-institutions">{institutions.map((i) => <option key={i} value={i} />)}</datalist>
-      <label>{t('users.schoolAria')}<input className="field mt-1" list="edit-schools" value={f.school} onChange={(e) => set('school', e.target.value)} placeholder={t('users.mfuOnly')} /></label>
-      <datalist id="edit-schools">{schools.map((s) => <option key={s} value={s} />)}</datalist>
+      <div>{t('users.institution')}<div className="mt-1"><Select ariaLabel={t('users.institution')} value={f.institution}
+        onChange={(v) => set('institution', v)} options={institutions.map((i) => ({ value: i, label: i }))} /></div></div>
+      <div>{t('users.schoolAria')}<div className="mt-1"><Select ariaLabel={t('users.schoolAria')} placeholder={t('users.mfuOnly')} value={f.school}
+        onChange={(v) => set('school', v)} options={schools.map((x) => ({ value: x, label: x }))} /></div></div>
       <label className="col-span-2">{t('users.studentIdAria')}<input className="field mt-1" maxLength={40} value={f.studentId} onChange={(e) => set('studentId', e.target.value)} /></label>
       <div className="col-span-2 flex gap-2">
         <button className="btn-primary" disabled={busy || !changed}>{t(busy ? 'common.saving' : 'users.saveChanges')}</button>
         <button type="button" className="btn-ghost" onClick={onCancel} disabled={busy}>{t('users.cancel')}</button>
       </div>
     </form>
+  )
+}
+
+/** Who currently runs the booth a request names, so an approval is a choice and not a surprise. */
+function CurrentHolder({ uid, self }: { uid: string; self: string }) {
+  const { t } = useLocale()
+  const holder = useDoc<UserDoc>(doc(db, 'users', uid), [uid], 'the current organizer').data
+  // Their own re-request for a booth they already hold is not a conflict worth flagging.
+  if (uid === self) return null
+  return <p className="mt-1 text-xs font-medium text-warn-text">{t('users.reqHeldBy', { name: holder?.displayName || holder?.contact || uid })}</p>
+}
+
+/**
+ * Booth hosts who asked for access without an invitation.
+ *
+ * Above the invite form deliberately: an invitation is a task an admin chose to start, a pending
+ * request is someone standing at the desk waiting. The order on the page should match that.
+ */
+function StaffRequests({ booths, onDone, fail }: {
+  booths: WithId<BoothDoc>[]
+  onDone: (m: Msg) => void
+  fail: (e: unknown) => void
+}) {
+  const { t } = useLocale()
+  const rows = useCollection<StaffRequestDoc>(
+    query(collection(db, 'staffRequests'), where('status', '==', 'pending')), [], 'the booth access requests').data
+  const [override, setOverride] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState<string | null>(null)
+  if (!rows.length) return null
+
+  async function decide(uid: string, approve: boolean) {
+    setBusy(uid)
+    try {
+      const r = await api.decideStaffRequest({ uid, approve, ...(override[uid] ? { boothId: override[uid] } : {}) })
+      onDone(approve
+        ? { tone: 'green', text: t('users.reqApproved', { booth: r.boothName ?? '', n: r.createdBooth ? 1 : 0 }) }
+        : { tone: 'amber', text: t('users.reqRejected') })
+    } catch (e) { fail(e) } finally { setBusy(null) }
+  }
+
+  return (
+    <section className="card mt-4 ring-2 ring-action/40">
+      <h2 className="stamp-text text-ink-soft">{t('users.reqHeading')}</h2>
+      <p className="mt-1 text-xs text-ink-soft">{t('users.reqLead')}</p>
+      <ul className="mt-3 flex flex-col gap-3">
+        {rows.map((r) => (
+          <li key={r.id} className="rounded-xl bg-ink/4 p-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="font-medium">{r.displayName}</span>
+              <span className="text-xs text-ink-soft">{r.contact}</span>
+            </div>
+            <p className="mt-1 text-sm">
+              {r.boothId
+                ? t('users.reqWants', { booth: booths.find((b) => b.id === r.boothId)?.nameEn ?? r.boothId })
+                : t('users.reqWantsNew', { booth: r.newBoothName ?? '' })}
+            </p>
+            {/* The decision the admin is actually making when the booth is already staffed is
+                "a second person, or a mistake?" — and they cannot make it without being told there
+                is a first person. The booth's own pointer names them. */}
+            {r.boothId && booths.find((b) => b.id === r.boothId)?.organizerUid && (
+              <CurrentHolder uid={booths.find((b) => b.id === r.boothId)!.organizerUid!} self={r.id} />
+            )}
+            {r.note && <p className="mt-1 text-xs italic text-ink-soft">{r.note}</p>}
+            <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+              {/* An override, because the name someone gives their booth and the name on the
+                  sheet are often not the same — "the Korea table" against ED12. */}
+              <Select
+                ariaLabel={t('users.reqOverride')} value={override[r.id] ?? ''}
+                onChange={(v) => setOverride({ ...override, [r.id]: v })}
+                placeholder={t('users.reqOverride')}
+                options={booths.map((b) => ({ value: b.id, label: b.nameEn }))}
+              />
+              <button className="btn-primary" disabled={busy !== null} onClick={() => decide(r.id, true)}>{t('users.reqApprove')}</button>
+              <button className="btn-ghost" disabled={busy !== null} onClick={() => decide(r.id, false)}>{t('users.reqReject')}</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

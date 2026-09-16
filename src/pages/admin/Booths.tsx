@@ -335,6 +335,7 @@ function OrganizerPanel({ booth, organizer, pending, onMsg }: {
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const [link, setLink] = useState<string | null>(null)
+  const [linkMailed, setLinkMailed] = useState(false)
   const ref = useRef<HTMLInputElement>(null)
 
   async function invite(e: FormEvent) {
@@ -343,7 +344,7 @@ function OrganizerPanel({ booth, organizer, pending, onMsg }: {
     try {
       const r = await api.inviteOrganizer({ invites: [{ name: name.trim(), email: email.trim(), boothId: booth.id }] })
       const res = r.results[0]
-      setLink(res.link ?? null)
+      setLink(res.link); setLinkMailed(res.mailed)
       onMsg(res.mailed ? { tone: 'green', text: t('booths.mailed', { email: res.email }) } : { tone: 'amber', text: t('booths.mailOff', { name: booth.nameEn }) })
       setOpen(false); setName(''); setEmail('')
     } catch (err) { onMsg({ tone: 'red', text: errorMessage(err) }) } finally { setBusy(false) }
@@ -354,7 +355,7 @@ function OrganizerPanel({ booth, organizer, pending, onMsg }: {
     setBusy(true)
     try {
       const r = await api.resendInvite({ inviteId: pending.id })
-      setLink(r.link ?? null)
+      setLink(r.link); setLinkMailed(r.mailed)
       onMsg(r.mailed ? { tone: 'green', text: t('booths.resent', { email: pending.email }) } : { tone: 'amber', text: t('booths.resentLink', { name: booth.nameEn }) })
     } catch (err) { onMsg({ tone: 'red', text: errorMessage(err) }) } finally { setBusy(false) }
   }
@@ -387,12 +388,21 @@ function OrganizerPanel({ booth, organizer, pending, onMsg }: {
           <button className="btn-quiet btn-sm ml-auto" onClick={() => setOpen(true)}>{t('booths.inviteOrganizer')}</button>
         </div>
       )}
-      {link && (
-        <div className="mt-2 flex items-center gap-2">
-          <input ref={ref} readOnly className="field flex-1 py-1 font-mono text-[11px]" value={link} onFocus={(e) => e.currentTarget.select()} aria-label={t('booths.inviteLink')} />
-          <CopyButton text={link} inputRef={ref} />
-        </div>
-      )}
+      {link && (() => {
+        const row = (
+          <div className="mt-1 flex items-center gap-2">
+            <input ref={ref} readOnly className="field flex-1 py-1 font-mono text-[11px]" value={link} onFocus={(e) => e.currentTarget.select()} aria-label={t('booths.inviteLink')} />
+            <CopyButton text={link} inputRef={ref} />
+          </div>
+        )
+        // Emailed, the link folds away — it is only wanted when the invitation never arrived.
+        return linkMailed ? (
+          <details className="reveal-host mt-2">
+            <summary className="cursor-pointer text-ink-soft">{t('booths.showLink')}</summary>
+            {row}
+          </details>
+        ) : row
+      })()}
     </div>
   )
 }

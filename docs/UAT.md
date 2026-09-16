@@ -18,7 +18,7 @@ to `spec/spec.md`. Anything listed in §6 *Known gaps* at the end is already kno
 | What | State |
 | --- | --- |
 | Project | `mfu-passport`, live at https://mfu-passport.web.app (HANDOVER.md §1) |
-| Invitations | `RESEND_API_KEY` is not set, so **invites are not emailed**: the admin gets a copyable link instead (HANDOVER.md §2) |
+| Invitations | No working Resend key and no `RESEND_FROM`, so **invites are not emailed**: the admin gets a copyable link instead (HANDOVER.md §2). Once mail is on, watch the trap in G-5 |
 | Account emails | Sent by Firebase Auth itself (verification, password reset, address change). The action URL should point at `/auth/action` (SETUP.md §1a); if it does not, the links still work on Firebase's own page |
 | Data reset | There is none on production. Walk the loop once per fresh event, or finish with the Danger zone on `/admin/event` |
 
@@ -173,12 +173,12 @@ Have two visitors with a **Voyager** unlock (100 points) before §4, and one at 
 | A-23 | **Rotate secret** on a booth whose screen is open | Confirm dialog; the booth screen shows new codes when its tab is refocused (or within 15 min), no reload; a photo of the old code is refused | 5.2 | |
 | A-24 | **Delete** a booth with stamps | "Booth has stamps — deactivated instead"; it greys out; scanning it says invalid | 6.3 | |
 | A-25 | **Delete** a booth with no stamps | Removed outright | 6.3 | |
-| A-26 | `/admin/users` → invite one organizer | Amber "Email is not configured" and a link row with **Copy** | 6.4 | |
+| A-26 | `/admin/users` → invite one organizer | Mail off: amber "Email is not configured" and an open link row with **Copy**. Mail on and it sent: green "1 invitations emailed." and the link folded behind "Show the link anyway". Mail on but Resend refused this address: amber "Email did not go out for 1 of 1" and an open link row — never green | 6.4 | |
 | A-27 | Press **Copy** | Button reads **Copied** for two seconds; pasted text is the link | 6.4 | |
 | A-28 | Same on an `http://` address (insecure) | Button reads *Select and copy* and the link text is selected | 6.4 | |
 | A-29 | Bulk paste three `name, email, boothId` lines | Three rows appear in the invitations table as *sent* | 6.4 | |
 | A-30 | **Revoke** one | Green "Invitation to … revoked"; status pill turns *revoked* | 6.4 | |
-| A-31 | **Resend** one | New link in the copy row; old link invalid (O-06) | 6.4 | |
+| A-31 | **Resend** one | New link in the copy row (folded if it emailed); old link invalid (O-06) | 6.4 | |
 | A-32 | Open **Create a user at the desk**, role Visitor, email + password (10+ chars) | Green "… created — passport MFU-GG-…"; the drawer opens on them | 6.2 | |
 | A-33 | Sign in as that visitor on another device | Straight to `/passport` with the passport number; no verify-email detour | 6.2 | |
 | A-34 | Create a user with a contact that already exists | Refused: "already has an account" | 6.2 | |
@@ -289,7 +289,8 @@ Still open by design or deferred:
 | G-2 | Hard delete | Removing a visitor decrements the visitor counters via `onUserWrite`; spec §10 says counters stay intact | accepted |
 | G-3 | Ranks | Recomputed every 1 min (Cloud Scheduler floor), spec says 30 s | accepted |
 | G-4 | App Check | Not enforced yet; turn on reCAPTCHA Enterprise before the real event | before event |
-| G-5 | Email | Invites are copyable links until `RESEND_API_KEY` and a verified `RESEND_FROM` are set; account mails come from `noreply@mfu-passport.firebaseapp.com` and may be filtered by university mail | before event |
+| G-5 | Email | Invites are copyable links until a **real** `RESEND_API_KEY` (the stored one is a placeholder Resend rejects) and a `RESEND_FROM` are set; account mails come from `noreply@mfu-passport.firebaseapp.com` and may be filtered by university mail | before event |
+| G-5a | Readiness lies about email | `mailConfigured()` only checks that a key and sender are *non-empty*, so the readiness line reads "Invitation email is configured" even with a bad key, or with Resend's `onboarding@resend.dev` sender, which delivers **only to the Resend account owner**. Green there is not proof the 76 organizers can be emailed — prove it by inviting a real organizer address and watching for the amber A-26 outcome | before event |
 | G-6 | Invite via email + password | Shows a password field, unlike spec §12.17's "no password field" (accounts replaced anonymous sign-in) | accepted |
 | G-7 | PWA / share | No manifest, service worker, or share sheet; "Add to Home Screen" is browser default only | not planned for v1 |
 | G-8 | Images | No Resize Images extension; the uploaded badge is used at its uploaded size (client cap 512 KB) | accepted |

@@ -32,20 +32,46 @@ export function Select({
   const ref = useRef<HTMLDetailsElement>(null)
   const list = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
-  const [up, setUp] = useState(false)
+  const [place, setPlace] = useState({ up: false, max: 264 })
   useDismissable(ref)
 
   /*
-   * Flip above the trigger when there is not room below it. `useLayoutEffect`, not `useEffect`:
-   * measured after paint, the list would open downwards for one frame and then jump, which is
-   * worse than either placement on its own.
+   * Open on whichever side has more room, and never taller than that room.
+   *
+   * Flipping alone is not enough: on a 360x780 screen the country field sits low enough that
+   * neither side fits eleven options, and the list ran off the top of the window with no way to
+   * reach the first few. Capping the height to the space that exists means it always lands on
+   * screen and scrolls inside itself instead.
+   *
+   * `useLayoutEffect`, not `useEffect`: measured after paint, the list would open downwards for
+   * one frame and then jump, which is worse than either placement on its own.
    */
   useLayoutEffect(() => {
     if (!open) return
-    const r = ref.current?.getBoundingClientRect()
-    if (!r) return
-    const wanted = Math.min(264, options.length * 34 + 12)
-    setUp(r.bottom + wanted > window.innerHeight && r.top > wanted)
+    const measure = () => {
+      const r = ref.current?.getBoundingClientRect()
+      if (!r) return
+      const gap = 12
+      const below = window.innerHeight - r.bottom - gap
+      const above = r.top - gap
+      const wanted = Math.min(264, options.length * 34 + 12)
+      const up = below < wanted && above > below
+      const max = Math.max(132, Math.min(wanted, up ? above : below))
+      setPlace((p) => (p.up === up && p.max === max ? p : { up, max }))
+    }
+    measure()
+    /*
+     * And again whenever the field moves under the open list. Measuring once was enough until the
+     * page scrolled after opening — a field measured near the foot of the window opens upward,
+     * and if the browser then scrolls it to the middle the list is left hanging off the top of
+     * the screen. Capture phase, because the scroll may be in any ancestor rather than the window.
+     */
+    window.addEventListener('scroll', measure, { capture: true, passive: true })
+    window.addEventListener('resize', measure)
+    return () => {
+      window.removeEventListener('scroll', measure, true)
+      window.removeEventListener('resize', measure)
+    }
   }, [open, options.length])
 
   const current = options.find((o) => o.value === value)
@@ -106,7 +132,8 @@ export function Select({
 
       <div
         ref={list} role="listbox" aria-label={ariaLabel}
-        className={`pop ${up ? 'pop-up' : ''} absolute inset-x-0 z-40 max-h-64 overflow-y-auto overscroll-contain rounded-xl bg-white p-1.5 text-sm text-ink shadow-lg ring-1 ring-black/10 ${up ? 'bottom-full mb-1' : 'mt-1'}`}
+        style={{ maxHeight: place.max }}
+        className={`pop ${place.up ? 'pop-up' : ''} absolute inset-x-0 z-40 overflow-y-auto overscroll-contain rounded-xl bg-white p-1.5 text-sm text-ink shadow-lg ring-1 ring-black/10 ${place.up ? 'bottom-full mb-1' : 'mt-1'}`}
       >
         {options.map((o) => (
           <div

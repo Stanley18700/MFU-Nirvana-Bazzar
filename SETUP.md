@@ -66,7 +66,7 @@ It is deliberately not baked into `package.json`: this is one machine's network,
 
 ## 1a. The three account emails **(you)**
 
-Firebase Auth sends these itself — they do **not** go through Resend or Cloud Functions.
+Firebase Auth sends these itself — they do **not** go through EmailJS or Cloud Functions.
 **Authentication → Templates** has one editable template each:
 
 | Template | Sent when | Triggered from |
@@ -144,7 +144,11 @@ Copy `.env.local.example` to `.env.local` (gitignored) and paste the values from
 
 ```ini
 VITE_FIREBASE_API_KEY=AIza...
-VITE_FIREBASE_AUTH_DOMAIN=<project-id>.firebaseapp.com
+# The Hosting domain, and not the `.firebaseapp.com` one the console offers. Google sign-in falls
+# back to `signInWithRedirect` inside the LINE, Facebook and Instagram webviews, and a redirect
+# through `firebaseapp.com` leaves the app's own origin. Authentication -> Settings -> Authorized
+# domains has to list it.
+VITE_FIREBASE_AUTH_DOMAIN=<project-id>.web.app
 VITE_FIREBASE_PROJECT_ID=<project-id>
 VITE_FIREBASE_STORAGE_BUCKET=<project-id>.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=<project number>
@@ -160,57 +164,107 @@ Functions read their parameters from `functions/.env` (copy `functions/.env.exam
 
 ```ini
 APP_ORIGIN=https://<project-id>.web.app
-# Resend, for the booth invitation — the only mail this app sends itself. Optional: leave both
-# blank and invites fall back to a copyable link. Keep real values in functions/.env only.
-RESEND_FROM=
-RESEND_REPLY_TO=
+# EmailJS, for the booth invitation — the only mail this app sends itself. Optional: leave
+# these blank and invites fall back to a copyable link. Real values in functions/.env only.
+EMAILJS_SERVICE_ID=
+EMAILJS_PUBLIC_KEY=
+EMAILJS_TEMPLATE_INVITE=
+EMAILJS_TEMPLATE_INVITE_ADMIN=
 ```
 
 Secrets go in Secret Manager, not in files:
 
 ```bash
 firebase functions:secrets:set ADMIN_BOOTSTRAP_KEY     # invent a long random string; you use it once
-firebase functions:secrets:set RESEND_API_KEY          # only if you set Resend up; skip it otherwise
+firebase functions:secrets:set EMAILJS_PRIVATE_KEY     # only if you set EmailJS up; skip it otherwise
 ```
 
-> `RESEND_API_KEY` no longer needs a placeholder. `mailConfigured()` returns false when the key
-> or the sender is missing, and the invitation screen then hands the admin a copyable link per
-> organizer — which is the intended behaviour for a team of twelve, not a degraded one.
+> `EMAILJS_PRIVATE_KEY` does not need a placeholder. `mailConfigured()` returns false when the
+> key, the service, the public key or the organizer template is missing, and the invitation
+> screen then hands the admin a copyable link per organizer — which is the intended behaviour
+> for a team of twelve, not a degraded one.
 
-## 2a. Resend, for the booth invitations **(you, optional)**
+## 2a. EmailJS, for the booth invitations **(you, optional)**
 
 The app sends exactly one email of its own: the invitation that turns a booth organizer's
 address into an organizer account. Everything else a visitor receives comes from Firebase Auth
 (§1a). If you skip this section the app still works — **Users & invites** gives the admin a
 copyable single-use link for each organizer, which is fine for a dozen people.
 
+Unlike the rest of the app, the **wording and layout of the invitation live in the EmailJS
+dashboard, not in this repository**. That is deliberate: whoever owns the event can restyle the
+invitation without a deploy. The cost is that the email is not reviewed in a pull request, and
+that a template edit takes effect immediately for everyone.
+
 To send it for real:
 
-1. Create a free account at **resend.com**. The free tier is 3,000 emails a month, far more
-   than one festival needs.
-2. **Domains → Add domain**, and add the DNS records it gives you. A domain you control is
-   required: Resend refuses mail from an unverified one, and that refusal is the usual reason a
-   first send fails. If MFU's DNS is not available to you, `mfu-passport.web.app` cannot be used
-   — use a domain you can add records to, or stay on copyable links.
-3. **API Keys → Create**, "Sending access" is enough. Then:
+1. Create a free account at **emailjs.com** and connect a mail service under **Email Services**
+   (Gmail is the simplest — it authorises with the account that will appear as the sender).
+   Note the **Service ID** (`service_xxxxxxx`).
+
+   Free-tier limits worth knowing before you rely on it: **200 emails a month** and **two
+   templates per account**. A festival with a dozen booths fits easily; a resend-happy week of
+   testing does not.
+
+2. **Account → Security**: turn on **"Allow EmailJS API for non-browser applications"** and
+   **"Use Private Key"**. EmailJS is built for a browser posting a form; without these two the
+   Cloud Function's call is refused with 403 and every invitation falls back to a link.
+
+3. **Email Templates → Create**. The template may use exactly these variables, which is what
+   `templateParams()` in `functions/src/mailer.ts` sends:
+
+   | Variable | Contents |
+   | --- | --- |
+   | `{{to_email}}` | organizer's address — put this in the template's **To Email** field |
+   | `{{to_name}}` | their display name |
+   | `{{booth_name}}` | the booth they are running (empty for an admin invitation) |
+   | `{{event_name}}` | e.g. MFU Go Global International Festival |
+   | `{{event_dates}}` | e.g. 16 September 2026 - 18 September 2026 |
+   | `{{expires}}` | the invitation's expiry date |
+   | `{{invite_link}}` | the single-use link — the button's `href` **and** as plain text below it |
+
+   A `{{placeholder}}` with no matching key renders as **empty text**, not an error, so a
+   misspelled variable is silent. Note the template ID (`template_xxxxxxx`).
+
+   Repeat for an **admin** invitation if you have a template slot free: admins have no booth,
+   so the organizer wording leaves a gap where the booth name should be. Optional — left
+   unset, admin invitations fall back to the copyable link.
+
+4. **Account → General → Private Key**, copy it with the dashboard's copy button, then:
 
    ```bash
-   firebase functions:secrets:set RESEND_API_KEY
+   firebase functions:secrets:set EMAILJS_PRIVATE_KEY
    ```
 
-4. Put the sender in `functions/.env` — the address must be on the domain from step 2:
+   Paste once and press Enter — the input is masked, so a double paste is invisible and
+   produces a key that EmailJS rejects with 403. Check what actually landed:
+
+   ```bash
+   firebase functions:secrets:access EMAILJS_PRIVATE_KEY
+   ```
+
+   It should be one short token on one line. Treat that output as the secret it is.
+
+5. Put the rest in `functions/.env` — none of it is secret:
 
    ```ini
-   RESEND_FROM=MFU InterFest <invites@your-domain>
-   RESEND_REPLY_TO=oia@mfu.ac.th
+   EMAILJS_SERVICE_ID=service_xxxxxxx
+   EMAILJS_PUBLIC_KEY=<Account → General → Public Key>
+   EMAILJS_TEMPLATE_INVITE=template_xxxxxxx
+   EMAILJS_TEMPLATE_INVITE_ADMIN=
    ```
 
-5. Redeploy the functions: `firebase deploy --only functions`.
+   `EMAILJS_TEMPLATE_INVITE_ADMIN` may be left empty. The Firebase CLI treats an empty default
+   as "no default" and will prompt for it on deploy — press Enter to accept nothing.
 
-The wording of the invitation is **in the repository**, not in a dashboard —
-`inviteHtml` and `inviteText` in `functions/src/mailer.ts`. Editing it is a normal change with a
-normal review, and a deploy to ship. `RESEND_REPLY_TO` is worth setting: the invitation asks
-somebody to do a job, and a reply that lands in a no-reply mailbox helps nobody.
+6. Redeploy the functions: `firebase deploy --only functions`.
+
+Then invite yourself as an organizer and confirm the mail arrives. **EmailJS → Email History**
+records every attempt with its result, which is the fastest place to see a 403 or a bad
+template ID; the function's own log records `invite mail failed` with the reason EmailJS gave.
+
+Set the template's **Reply To** to a real inbox somebody reads. The invitation asks somebody to
+do a job, and a reply that lands in a no-reply mailbox helps nobody.
 
 ## 3. Deploy
 
@@ -397,7 +451,7 @@ duplicate scan is refused, redeem a prize and watch stock drop, archive the even
 create the next event, go live, and confirm a reused `booth-01` can be stamped again and
 passport numbering restarts with the new prefix. 150 checks; all should pass.
 
-> The emulator never sends invitation mail, even when the live project has a Resend key in
+> The emulator never sends invitation mail, even when the live project has an EmailJS key in
 > Secret Manager (the emulator reads those secrets). Invites come back as copyable links, which
 > the run relies on. Set `EMULATOR_SEND_MAIL=1` before `npm run emulators` to send for real.
 

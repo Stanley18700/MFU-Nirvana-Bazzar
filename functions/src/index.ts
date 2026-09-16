@@ -10,7 +10,7 @@ export { boothSession, lookupRedemption, confirmRedemption, voidRedemption } fro
 export {
   setUserRole, createUser, updateUser, deleteUser, dismissErasureRequest,
   createBooth, updateBooth, deleteBooth, rotateBoothSecret,
-  savePrizePolicy, adjustStock, runDraw, saveRefData,
+  savePrizePolicy, adjustStock, setSessionAllowance, runDraw, saveRefData,
   inviteOrganizer, resendInvite, revokeInvite, inviteInfo, acceptInvite,
   refreshRanks, bootstrapAdmin, setupStatus,
 } from './admin'
@@ -18,4 +18,6 @@ export { createEvent, updateEvent, deleteEvent, goLive, archiveEvent, purgeEvent
 export {
   saveSurvey, setSurveyActive, deleteSurvey, surveyForBooth, submitSurveyResponse,
 } from './survey'
+export { rateBooth } from './rating'
+export { requestBoothAccess, decideStaffRequest } from './staffRequest'
 export { onScanCreate, onUserWrite, rankBooths, sweepActive, purgePersonalData } from './triggers'

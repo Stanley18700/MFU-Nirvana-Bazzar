@@ -51,9 +51,10 @@ export default function Prizes() {
   const [openRows, setOpenRows] = useState<Record<string, boolean>>({})
   const [msg, setMsg] = useState<Msg | null>(null)
   const [adjust, setAdjust] = useState<{ tierId: string; delta: string; reason: string; kind: 'restock' | 'correction' }>({ tierId: '', delta: '', reason: '', kind: 'restock' })
+  const [allowance, setAllowance] = useState<{ tierId: string; perSession: string; reason: string }>({ tierId: '', perSession: '', reason: '' })
   const adjustments = useCollection<{ tierId: string; delta: number; reason: string; kind: string; createdAt: unknown }>(query(collection(db, 'stockAdjustments'), orderBy('createdAt', 'desc'), limit(30)), []).data
   const [voidForm, setVoidForm] = useState({ visitorId: '', tierId: '', reason: '' })
-  const [busy, setBusy] = useState<'preview' | 'save' | 'adjust' | 'void' | null>(null)
+  const [busy, setBusy] = useState<'preview' | 'save' | 'adjust' | 'allowance' | 'void' | null>(null)
   useUnsavedGuard(dirty)
 
   useEffect(() => {
@@ -85,6 +86,10 @@ export default function Prizes() {
 
   const deltaNum = Number(adjust.delta)
   const adjustOk = !!adjust.tierId && adjust.delta.trim() !== '' && Number.isFinite(deltaNum) && Number.isInteger(deltaNum) && deltaNum !== 0 && !!adjust.reason.trim()
+  const allowanceNum = Number(allowance.perSession)
+  // Zero is a legitimate allowance — it is how you close a prize off without deleting the tier —
+  // so the guard is on emptiness, not on truthiness.
+  const allowanceOk = !!allowance.tierId && allowance.perSession.trim() !== '' && Number.isFinite(allowanceNum) && Number.isInteger(allowanceNum) && allowanceNum >= 0 && !!allowance.reason.trim()
 
   async function doAdjust() {
     if (!adjustOk) return
@@ -93,6 +98,16 @@ export default function Prizes() {
       await api.adjustStock({ tierId: adjust.tierId, delta: deltaNum, reason: adjust.reason.trim(), kind: adjust.kind })
       setAdjust({ tierId: '', delta: '', reason: '', kind: 'restock' })
       setMsg({ tone: 'green', text: t('prizes.adjusted', { delta: `${deltaNum > 0 ? '+' : ''}${deltaNum}` }) })
+    } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(null) }
+  }
+
+  async function doAllowance() {
+    if (!allowanceOk) return
+    setMsg(null); setBusy('allowance')
+    try {
+      const r = await api.setSessionAllowance({ tierId: allowance.tierId, stockPerSession: allowanceNum, reason: allowance.reason.trim() })
+      setAllowance({ tierId: '', perSession: '', reason: '' })
+      setMsg({ tone: 'green', text: t('prizes.allowanceSet', { from: fmt(r.previousPerSession), to: fmt(r.stockPerSession) }) })
     } catch (e) { setMsg({ tone: 'red', text: errorMessage(e) }) } finally { setBusy(null) }
   }
 
@@ -156,7 +171,19 @@ export default function Prizes() {
                   <h3 className="min-w-0 flex-1 truncate text-base font-semibold">{r.name.trim() || <span className="text-ink-soft">{t('prizes.newTier')}</span>}</h3>
                   {Number.isFinite(r.thresholdPoints) && <span className="text-sm tabular-nums text-ink-soft">{t('prizes.nPoints', { n: r.thresholdPoints })}</span>}
                   {r.grantsDrawEntry && <span className="rounded-full bg-foil/25 px-2 py-0.5 text-[11px] font-medium">{t('prizes.drawEntry')}</span>}
-                  {live && <span className="text-sm"><span className="fig text-lg">{fmt(live.stockRemaining)}</span> <span className="text-ink-soft">{t('prizes.ofLeft', { total: fmt(live.stockTotal) })}</span></span>}
+                  {/* Both figures, because they answer different questions and one of them was
+                      being read as the other. `stockRemaining`/`stockTotal` are the event-wide
+                      audit pool — 300 across the festival — while the desk spends the session
+                      allowance, 50. Staff reading only the first were out by six times. */}
+                  {live && (
+                    <span className="text-sm">
+                      <span className="fig text-lg">{fmt(live.stockRemaining)}</span>{' '}
+                      <span className="text-ink-soft">{t('prizes.ofLeft', { total: fmt(live.stockTotal) })}</span>
+                      {typeof live.stockPerSession === 'number' && (
+                        <span className="text-ink-soft"> · {t('prizes.perSession', { n: fmt(live.stockPerSession) })}</span>
+                      )}
+                    </span>
+                  )}
                   <span aria-hidden className="w-4 shrink-0 text-right text-[10px] text-ink-soft transition-transform duration-150 [[open]_&]:rotate-180">▾</span>
                 </summary>
 
@@ -249,6 +276,23 @@ export default function Prizes() {
             ))}
             {adjustments.length === 0 && <li className="text-ink-soft">{t('prizes.noAdjustments')}</li>}
           </ul>
+        </section>
+
+        {/*
+          * A second card, not a mode on the one above. "A box turned up, put ten more out this
+          * morning" and "from now on a session is worth thirty" are different intentions, and
+          * NEXT.md left them conflated as one open question. Two verbs, each saying plainly which
+          * sessions it touches, is the answer.
+          */}
+        <section className="card">
+          <h2 className="stamp-text text-ink-soft">{t('prizes.allowance')}</h2>
+          <p className="mt-1 text-sm text-ink-soft">{t('prizes.allowanceLead')}</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div><L htmlFor="alw-tier">{t('prizes.tier')}</L><Select id="alw-tier" ariaLabel={t('prizes.tier')} value={allowance.tierId} onChange={(v) => setAllowance({ ...allowance, tierId: v })} placeholder={t('prizes.tierPlaceholder')} options={tiers.filter((x) => typeof x.stockPerSession === 'number').map((x) => ({ value: x.id, label: x.name }))} /></div>
+            <div><L htmlFor="alw-n">{t('prizes.allowanceField')}</L><input id="alw-n" className="field" type="number" min={0} step={1} value={allowance.perSession} onChange={(e) => setAllowance({ ...allowance, perSession: e.target.value })} /></div>
+            <div className="sm:col-span-2"><L htmlFor="alw-reason">{t('prizes.reasonLedger')}</L><input id="alw-reason" className="field" value={allowance.reason} onChange={(e) => setAllowance({ ...allowance, reason: e.target.value })} /></div>
+          </div>
+          <button className="btn-primary mt-3" disabled={!allowanceOk || busy !== null} onClick={doAllowance}>{t(busy === 'allowance' ? 'prizes.allowanceSetting' : 'prizes.allowanceApply')}</button>
         </section>
 
         <section className="card">

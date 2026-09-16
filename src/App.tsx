@@ -13,6 +13,7 @@ import Prize from './pages/visitor/Prize'
 import Scan from './pages/visitor/Scan'
 import ScanLanding from './pages/visitor/ScanLanding'
 import Invite from './pages/visitor/Invite'
+import BoothAccess from './pages/visitor/BoothAccess'
 import Survey from './pages/visitor/Survey'
 
 import SignIn from './pages/auth/SignIn'
@@ -52,6 +53,8 @@ const Booths = lazy(() => import('./pages/admin/Booths'))
 const Prizes = lazy(() => import('./pages/admin/Prizes'))
 const Draw = lazy(() => import('./pages/admin/Draw'))
 const Audit = lazy(() => import('./pages/admin/Audit'))
+const Ratings = lazy(() => import('./pages/admin/Ratings'))
+const FestivalSurvey = lazy(() => import('./pages/admin/FestivalSurvey'))
 const Wall = lazy(() => import('./pages/admin/Wall'))
 const Print = lazy(() => import('./pages/admin/Print'))
 const BoothCards = lazy(() => import('./pages/admin/BoothCards'))
@@ -106,6 +109,9 @@ export default function App() {
         <Route path="/restore" element={<Navigate to="/signin" replace />} />
 
         <Route path="/invite/:token" element={<Invite />} />
+        {/* Outside every guard, like the invitation route: the person has no role yet, and a guard */}
+        {/* would send them to /join to become a visitor, which is not what they came for. */}
+        <Route path="/booth-access" element={<BoothAccess />} />
         <Route path="/s/:token" element={<ScanLanding />} />
         <Route path="/r/:token" element={<RedeemLanding />} />
         <Route path="/setup" element={<Setup />} />
@@ -149,6 +155,8 @@ export default function App() {
             <Route path="prizes" element={<Prizes />} />
             <Route path="refdata" element={<RefData />} />
             <Route path="draw" element={<Draw />} />
+            <Route path="ratings" element={<Ratings />} />
+            <Route path="feedback" element={<FestivalSurvey />} />
             <Route path="audit" element={<Audit />} />
           </Route>
         </Route>

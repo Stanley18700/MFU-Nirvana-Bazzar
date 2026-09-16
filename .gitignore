@@ -25,6 +25,10 @@ dist/
 # app secrets and build output
 .env.local
 functions/.env
+# Per-project overrides such as functions/.env.mfu-passport, which real deploys DO load.
+# The example file is the one env file that stays tracked.
+functions/.env.*
+!functions/.env.example
 functions/.secret.local
 functions/lib/
 functions/src/shared/

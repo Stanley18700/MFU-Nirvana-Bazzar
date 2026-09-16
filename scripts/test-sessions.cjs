@@ -74,6 +74,36 @@ test('a tier with no per-session stock keeps the single-pool behaviour', () => {
   assert.equal(sessionStockRemaining({ stockRemaining: 7 }, cur('2026-09-16T10:00:00+07:00')), 7)
 })
 
+/*
+ * Changing the allowance. `setSessionAllowance` writes `stockPerSession` and deliberately does
+ * not touch `sessionRemaining`, so the whole behaviour rests on the fallback below: a session
+ * with no entry re-bases, a session with one does not. If that ever stopped being true, lowering
+ * the allowance mid-festival would silently rewrite the number under an open desk's queue.
+ */
+test('raising the allowance re-bases only the sessions nobody has spent from', () => {
+  const before = { stockPerSession: 50, sessionRemaining: { '2026-09-16#am': 37 }, stockRemaining: 287 }
+  const after = { ...before, stockPerSession: 80 }
+  // The session already under way keeps its own figure.
+  assert.equal(sessionStockRemaining(after, cur('2026-09-16T10:00:00+07:00')), 37)
+  // Every untouched one follows the new allowance, with no backfill written anywhere.
+  assert.equal(sessionStockRemaining(after, cur('2026-09-16T13:00:00+07:00')), 80)
+  assert.equal(sessionStockRemaining(after, cur('2026-09-18T10:00:00+07:00')), 80)
+})
+
+test('lowering the allowance cannot take a session below what it already has', () => {
+  const tier = { stockPerSession: 30, sessionRemaining: { '2026-09-16#am': 44 }, stockRemaining: 200 }
+  // 44 were left when the allowance was 50; dropping it to 30 does not claw back the difference.
+  assert.equal(sessionStockRemaining(tier, cur('2026-09-16T10:00:00+07:00')), 44)
+  assert.equal(sessionStockRemaining(tier, cur('2026-09-17T10:00:00+07:00')), 30)
+})
+
+test('an allowance of zero closes a prize off without deleting the tier', () => {
+  const tier = { stockPerSession: 0, sessionRemaining: {}, stockRemaining: 0 }
+  // Zero is `gone`, not `closed` — the desk is open, there is simply nothing to give out.
+  assert.equal(sessionStockRemaining(tier, cur('2026-09-16T10:00:00+07:00')), 0)
+  assert.equal(sessionStockRemaining(tier, null), null)
+})
+
 test('session times edited by an admin take effect without a redeploy', () => {
   const late = [
     { id: 'am', label: 'Morning', startMinute: 10 * 60, endMinute: 13 * 60 },

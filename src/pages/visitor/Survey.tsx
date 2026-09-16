@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, errorMessage, type SurveyOffer } from '../../lib/api'
-import { useLocale } from '../../lib/locale'
 import { useBooth } from '../../lib/data'
+import { EVENT_SURVEY_ID } from '../../../shared/model'
+import { useLocale } from '../../lib/locale'
 import { SurveyForm, useAnswers, useMissing } from '../../components/SurveyForm'
 import { BackLink, Notice, Spinner } from '../../components/ui'
+import { BoardingPass } from '../../components/BoardingPass'
 import { FestivalBackdrop } from '../auth/parts'
+import { useFestivalSurvey } from '../../lib/festivalSurvey'
 
 /**
  * The booth's questions, offered after the stamp is already in the passport.
@@ -15,10 +18,22 @@ import { FestivalBackdrop } from '../auth/parts'
  * survey that feels compulsory at a busy booth is a survey people resent answering.
  */
 export default function Survey() {
-  const { t, pick } = useLocale()
   const { boothId = '' } = useParams()
   const nav = useNavigate()
-  const { data: booth } = useBooth(boothId)
+  /*
+   * The festival survey rides on the booth machinery under a reserved id, so everything below
+   * works unchanged — but there is no booth behind it, and a page that says "Booth" in the
+   * header and sends you back to the scanner afterwards would be wrong for it. Only the chrome
+   * differs: where the visitor came from, and where they are sent next.
+   */
+  const festival = boothId === EVENT_SURVEY_ID
+  // While the gift QR is being withheld, "your prize is not affected" is no longer true: the
+  // points are safe but the hand-over is waiting on this form, and the line has to say so.
+  const fs = useFestivalSurvey()
+  const gatingGift = festival && fs.gate
+  const { t, pick } = useLocale()
+  const { data: booth } = useBooth(festival ? null : boothId)
+  const home = festival ? '/passport/prize' : '/scan'
   const { answers, setAnswers } = useAnswers()
   const [offer, setOffer] = useState<SurveyOffer | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -54,8 +69,10 @@ export default function Survey() {
   const shell = (children: React.ReactNode) => (
     <><FestivalBackdrop hills={false} /><main className="relative mx-auto flex min-h-full max-w-md flex-col text-ink">
       <header className="flex items-center justify-between gap-2 px-5 py-4">
-        <BackLink to="/passport/stamps">{t('pp.passport')}</BackLink>
-        <div className="stamp-text truncate text-ink">{pick(booth?.nameEn, booth?.nameTh) || t('vsurvey.booth')}</div>
+        <BackLink to={festival ? '/passport/prize' : '/passport/stamps'}>{festival ? t('v.back.prize') : t('v.back.passport')}</BackLink>
+        <div className="stamp-text truncate text-ink">
+          {festival ? t('v.survey.title') : booth ? pick(booth.nameEn, booth.nameTh) : t('v.survey.booth')}
+        </div>
         <span className="w-16" />
       </header>
       <div className="flex-1 px-5 pb-8">{children}</div>
@@ -63,18 +80,28 @@ export default function Survey() {
   )
 
   if (err && !offer) return shell(<Notice tone="red">{err}</Notice>)
-  if (!offer) return shell(<Spinner label={t('vsurvey.opening')} />)
+  if (!offer) return shell(<Spinner label={t('v.survey.opening')} />)
 
   if (done) {
     return shell(
       <div className="flex flex-col items-center gap-4 py-10 text-center page-in">
         <div className="text-5xl" aria-hidden>✓</div>
         <div>
-          <div className="stamp-text text-ink">{t('vsurvey.thankYou')}</div>
-          <p className="mt-1 text-ink-soft">{t('vsurvey.hasAnswers', { booth: pick(booth?.nameEn, booth?.nameTh) })}</p>
+          <div className="stamp-text text-ink">{t('v.survey.thanks')}</div>
+          <p className="mt-1 text-ink-soft">
+            {festival
+              ? t('v.survey.thanksFestival')
+              : t('v.survey.thanksBooth', { booth: booth ? pick(booth.nameEn, booth.nameTh) : t('v.survey.booth') })}
+          </p>
         </div>
-        <Link to="/scan" className="btn-primary w-full py-3.5 text-lg">{t('vsurvey.scanAnother')}</Link>
-        <Link to="/passport/stamps" className="text-sm text-ink-soft underline">{t('vsurvey.myStamps')}</Link>
+        {/* The keepsake for the festival survey, and — for someone at 100 points — the note
+            that the gift QR is now waiting on the Prize tab. */}
+        {festival && <BoardingPass className="w-full text-left" />}
+        {festival && <p className="text-sm text-ink-soft">{t('v.survey.qrReady')}</p>}
+        <Link to={home} className="btn-primary w-full py-3.5 text-lg">
+          {festival ? t('v.survey.backPrize') : t('v.survey.scanAnother')}
+        </Link>
+        <Link to="/passport/stamps" className="text-sm text-ink-soft underline">{t('v.survey.myStamps')}</Link>
       </div>,
     )
   }
@@ -84,10 +111,10 @@ export default function Survey() {
       <div className="flex flex-col gap-4 py-6 page-in">
         <Notice tone="info">
           {offer.status === 'done'
-            ? t('vsurvey.already')
-            : t('vsurvey.nothing')}
+            ? (festival ? t('v.survey.doneFestival') : t('v.survey.doneBooth'))
+            : (festival ? t('v.survey.noneFestival') : t('v.survey.noneBooth'))}
         </Notice>
-        <Link to="/scan" className="btn-primary">{t('vsurvey.scanAnother')}</Link>
+        <Link to={home} className="btn-primary">{festival ? t('v.survey.backPrize') : t('v.survey.scanAnother')}</Link>
       </div>,
     )
   }
@@ -98,7 +125,9 @@ export default function Survey() {
       <h1 className="text-2xl font-bold">{offer.title}</h1>
       {offer.description && <p className="mt-1 text-sm text-ink-soft">{offer.description}</p>}
       <p className="mt-2 text-xs text-ink-soft">
-        {questions.length} question{questions.length === 1 ? '' : 's'} · your stamp and points are already saved
+        {t('v.survey.count', { n: questions.length })}
+        {' · '}
+        {gatingGift ? t('v.survey.gateRelease') : festival ? t('v.survey.noPrizeEffect') : t('v.survey.pointsSaved')}
       </p>
 
       {/* The questions sit on a white panel, the same surface every passport card uses. */}
@@ -111,17 +140,15 @@ export default function Survey() {
 
       {err && <div className="mt-4"><Notice tone="red">{err}</Notice></div>}
       {tried && missing.length > 0 && (
-        <div className="mt-4"><Notice tone="amber">
-          {missing.length === 1 ? t('vsurvey.missingOne') : t('vsurvey.missing', { n: missing.length })}
-        </Notice></div>
+        <div className="mt-4"><Notice tone="amber">{t('v.survey.missing', { n: missing.length })}</Notice></div>
       )}
 
       <div className="mt-5 flex flex-col gap-2">
         <button className="btn-gold py-3.5 text-lg" onClick={submit} disabled={busy}>
-          {busy ? t('vsurvey.sending') : t('vsurvey.submit')}
+          {busy ? t('v.survey.sending') : t('v.survey.submit')}
         </button>
-        <button className="text-sm text-ink-soft underline" onClick={() => nav('/scan', { replace: true })}>
-          {t('vsurvey.skip')}
+        <button className="text-sm text-ink-soft underline" onClick={() => nav(home, { replace: true })}>
+          {festival ? t('v.survey.notNow') : t('v.survey.skip')}
         </button>
       </div>
     </div>,

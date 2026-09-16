@@ -85,34 +85,34 @@ export default function SurveyResults() {
     <>
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div>
-          <div className="stamp-text" style={{ color: onStage(booth.accentColor) }}>{t('sres.title')}</div>
+          <div className="stamp-text" style={{ color: onStage(booth.accentColor) }}>Survey results</div>
           <h1 className="text-2xl font-bold">{pick(booth.nameEn, booth.nameTh)}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link to={builder} className="btn-quiet btn-sm">{t('sres.editQuestions')}</Link>
-          <CsvButton rows={csv} name={`${boothId}-survey-responses`} label={t('sres.exportCsv')} />
+          <Link to={builder} className="btn-quiet btn-sm">Edit the questions</Link>
+          <CsvButton rows={csv} name={`${boothId}-survey-responses`} label="Export CSV" />
         </div>
       </div>
       <DataErrors className="mt-3" />
 
       <section className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
-        <Fig value={fmt(rows.length)} label={t('sres.responses')} accent={onStage(booth.accentColor, true)}
+        <Fig value={fmt(rows.length)} label="Responses" accent={onStage(booth.accentColor, true)}
           sub={rows.length ? `last at ${clock(ms(rows[0].submittedAt) ?? 0)}` : 'none yet'} />
-        <Fig value={rate === null ? '–' : `${rate}%`} label={t('sres.ofStamped')} sub={t('sres.collectedStamp', { n: fmt(stamped) })} />
-        <Fig value={survey.data?.active ? t('sres.live') : t('sres.draft')} label={t('sres.status')} sub={questions.length === 1 ? t('sres.questionCountOne') : t('sres.questionCount', { n: questions.length })} />
+        <Fig value={rate === null ? '–' : `${rate}%`} label="Of those stamped" sub={`${fmt(stamped)} collected the stamp`} />
+        <Fig value={survey.data?.active ? 'Live' : 'Draft'} label="Status" sub={`${questions.length} question${questions.length === 1 ? '' : 's'}`} />
       </section>
 
       {questions.length === 0 && (
         <div className="mt-4"><Notice tone="info">
-          {t('sres.noQuestions')} <Link to={builder} className="underline">{t('sres.buildSurvey')}</Link> {t('sres.andPublish')}
+          This booth has no questions yet. <Link to={builder} className="underline">Build the survey</Link> and publish it.
         </Notice></div>
       )}
 
       {questions.length > 0 && rows.length === 0 && (
         <div className="mt-4"><Notice tone="info">
           No answers yet. {survey.data?.active
-            ? t('sres.offered')
-            : t('sres.stillDraft')}
+            ? 'Visitors are offered the survey after they collect this booth\'s stamp.'
+            : 'The survey is still a draft, so nobody has been asked.'}
         </Notice></div>
       )}
 
@@ -127,7 +127,7 @@ export default function SurveyResults() {
             <h2 className="stamp-text text-ink-soft">Every response · {fmt(rows.length)}</h2>
             <div className="flex items-center gap-2">
               <button className="btn-quiet btn-sm" onClick={() => setShowAll((s) => !s)}>
-                {showAll ? t('sres.show20') : t('sres.showAll')}
+                {showAll ? 'Show 20' : 'Show all'}
               </button>
               <CsvButton rows={csv} name={`${boothId}-survey-responses`} />
             </div>
@@ -142,7 +142,7 @@ export default function SurveyResults() {
             <table className="w-full min-w-[36rem] text-sm">
               <thead>
                 <tr className="text-left text-xs text-ink-soft">
-                  <th className="py-1 pr-2">#</th><th className="pr-2">{t('sres.when')}</th>
+                  <th className="py-1 pr-2">#</th><th className="pr-2">When</th>
                   {questions.map((q, i) => <th key={q.id} className="pr-2">{q.title || `Q${i + 1}`}</th>)}
                 </tr>
               </thead>
@@ -188,7 +188,6 @@ function QuestionResult({ q, index, rows, accent, boothId, showAll }: {
   boothId: string
   showAll: boolean
 }) {
-  const { t } = useLocale()
   const answered = rows.filter((r) => r.answers?.[q.id] !== undefined)
   const skipped = rows.length - answered.length
 
@@ -280,7 +279,7 @@ function QuestionResult({ q, index, rows, accent, boothId, showAll }: {
 
       {isText(q) && (
         texts.length === 0
-          ? <p className="mt-3 text-sm text-ink-soft">{t('sres.nobodyAnswered')}</p>
+          ? <p className="mt-3 text-sm text-ink-soft">Nobody answered this one.</p>
           : <ul className="mt-3 flex flex-col gap-2">
               {(showAll ? texts : texts.slice(0, 10)).map((x) => (
                 <li key={x.id} className="rounded-lg bg-white/50 px-3 py-2 text-sm">
