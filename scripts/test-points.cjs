@@ -44,9 +44,15 @@ test('expiry boundary and ineligible booths return base points without cleanup',
   assert.equal(effectivePoints(b, now + 999), 25)
   assert.equal(effectivePoints(b, now + 1000), 20)
   assert.equal(effectivePoints(booth('legacy'), now), 20)
-  for (const extra of [{ active: false }, { activeDays: [] }, { isPrizeDesk: true }, { adjustmentExcluded: true }, { temporaryPoints: NaN }, { temporaryPoints: 101 }]) {
+  for (const extra of [{ active: false }, { activeDays: [] }, { adjustmentExcluded: true }, { temporaryPoints: NaN }, { temporaryPoints: 101 }]) {
     assert.equal(effectivePoints({ ...b, ...extra }, now), 20)
   }
+})
+test('a prize desk honours a scheduled value, though the balancer still cannot set one', () => {
+  const desk = booth('a', { isPrizeDesk: true, temporaryPoints: 27, pointsExpireAt: now + 1000 })
+  assert.equal(effectivePoints(desk, now), 27)
+  assert.equal(effectivePoints(desk, now + 1000), 20)
+  assert.equal(eligibleForAdjustment(desk, 'event', dayOf(new Date(now))), false)
 })
 test('window is exactly 30 completed minutes on a five-minute boundary', () => {
   const w = pointWindow(now)

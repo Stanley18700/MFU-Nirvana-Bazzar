@@ -4,8 +4,11 @@ export const POINT_WINDOW_MS = 30 * 60_000
 export const POINT_COOLDOWN_MS = 15 * 60_000
 export const POINT_PREVIEW_MS = 5 * 60_000
 
-export function effectivePoints(booth: Pick<BoothDoc, 'points' | 'temporaryPoints' | 'pointsExpireAt' | 'adjustmentExcluded' | 'active' | 'isPrizeDesk' | 'activeDays'>, now: number): number {
-  return booth.active && !booth.isPrizeDesk && !booth.adjustmentExcluded
+// A prize desk is excluded from the automatic balancer by `eligibleForAdjustment`, so a scheduled
+// value on one can only have been set deliberately (the planner's morning rate for ED7, say).
+// Honour it here like any other booth rather than silently falling back to the base value.
+export function effectivePoints(booth: Pick<BoothDoc, 'points' | 'temporaryPoints' | 'pointsExpireAt' | 'adjustmentExcluded' | 'active' | 'activeDays'>, now: number): number {
+  return booth.active && !booth.adjustmentExcluded
     && booth.activeDays.includes(dayOf(new Date(now)))
     && typeof booth.temporaryPoints === 'number' && Number.isFinite(booth.temporaryPoints)
     && booth.temporaryPoints >= 1 && booth.temporaryPoints <= 100
