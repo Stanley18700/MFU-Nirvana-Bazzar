@@ -12,7 +12,7 @@ const { purgeEventData } = require('../functions/lib/event')
 const { scan } = require('../functions/lib/visitor')
 const { onScanCreate, purgePersonalData } = require('../functions/lib/triggers')
 const { dayOf } = require('../functions/lib/shared/model')
-const { effectivePoints, pointWindow } = require('../functions/lib/shared/points')
+const { effectivePoints, pointWindow, boostFor } = require('../functions/lib/shared/points')
 const { computeToken, counterFor, buildPayload } = require('../functions/lib/shared/token')
 const eventId = 'points-test'
 const req = (data = {}, role = 'admin', uid = 'admin') => ({ data, auth: { uid, token: { role } }, rawRequest: { headers: {}, ip: '127.0.0.1' } })
@@ -27,7 +27,8 @@ async function seed() {
   const now = Date.now(), day = dayOf(new Date(now))
   await db.doc(`events/${eventId}`).set({ nameEn: 'Point test', nameTh: '', status: 'live', active: true, days: [day],
     zonePoints: { entrance: 10, middle: 15, far: 20 }, startsAt: Timestamp.fromMillis(now - 3600000), endsAt: Timestamp.fromMillis(now + 3600000), qrPeriodSeconds: 20 })
-  for (const [id, n] of [['quiet', 2], ['typical', 10], ['busy', 18]]) {
+  // Five comparable booths (the balancer needs four) with a median of 10: only `quiet` is below 60%.
+  for (const [id, n] of [['quiet', 2], ['typical', 10], ['busy', 18], ['steady', 10], ['even', 10]]) {
     await db.doc(`booths/${id}`).set({ eventId, nameEn: id, shortName: id, points: 20, active: true, isPrizeDesk: false, activeDays: [day], zone: 'middle', sortOrder: 1, createdAt: Timestamp.now() })
     await db.doc(`boothSecrets/${id}`).set({ secret: Buffer.alloc(32, 3).toString('base64') })
     const batch = db.batch()
@@ -36,6 +37,9 @@ async function seed() {
   }
   await db.doc('prizeTiers/top').set({ eventId, name: 'Top', thresholdPoints: 70, active: true })
 }
+
+// The boost `quiet` is offered from the seed above: 2 scans against a median of 10, on 20 points.
+const QUIET_BOOST = boostFor(20, 2, 10)
 
 test('preview is event scoped, deduplicates visits, excludes ineligible booths and warns about prizes', async () => {
   await seed()
@@ -49,12 +53,16 @@ test('preview is event scoped, deduplicates visits, excludes ineligible booths a
     await db.doc(`booths/${id}`).set({ ...base, ...extra })
   }
   const p = await call(preview)
-  assert.equal(p.totalScans, 30)
-  assert.equal(p.rows.length, 3)
-  assert.equal(p.average, 10)
-  assert.equal(p.availablePoints, 80) // includes the excluded booth's base points
+  assert.equal(p.totalScans, 50)
+  assert.equal(p.rows.length, 5)
+  assert.equal(p.groups.length, 1)
+  assert.equal(p.groups[0].median, 10)
+  assert.equal(p.offered, 1)
+  assert.equal(p.rows.find((r) => r.boothId === 'quiet').boostPoints, QUIET_BOOST)
+  assert.ok(p.rows.every((r) => r.suggestedPoints >= r.currentPoints), 'boost-only: nothing is cut')
+  assert.equal(p.availablePoints, 120 + QUIET_BOOST) // five compared booths plus the excluded booth's base points
   assert.equal(p.unreachableTiers.length, 0)
-  await db.doc('prizeTiers/top').update({ thresholdPoints: 90 })
+  await db.doc('prizeTiers/top').update({ thresholdPoints: 200 })
   assert.equal((await call(preview)).unreachableTiers[0].name, 'Top')
 })
 
@@ -65,7 +73,7 @@ test('all endpoints reject visitors and signed-out callers', async () => {
   }
 })
 
-test('apply is atomic, idempotent and subject to cooldown; reset clears only temporary values', async () => {
+test('apply is atomic, idempotent and subject to cooldown; reset clears only boosts', async () => {
   await seed()
   const historical = (await db.doc('scans/history-quiet-0').get()).data()
   await db.doc('users/earned').set({ points: 40 })
@@ -75,18 +83,24 @@ test('apply is atomic, idempotent and subject to cooldown; reset clears only tem
   const [a, retry] = await Promise.all([call(apply, { previewId: p.id }), call(apply, { previewId: p.id })])
   assert.deepEqual(a, retry)
   assert.equal(a.expiresAt - a.appliedAt, 30 * 60000)
-  for (const [id, value] of [['quiet', 25], ['typical', 20], ['busy', 15]]) {
+  assert.equal(a.boosted, 1)
+  for (const [id, value] of [['quiet', 20 + QUIET_BOOST], ['typical', 20], ['busy', 20]]) {
     const b = (await db.doc(`booths/${id}`).get()).data()
     assert.equal(b.points, 20)
+    assert.equal(b.temporaryPoints ?? null, null, 'the balancer never writes a scheduled value')
     assert.equal(effectivePoints(b, a.appliedAt), value)
     assert.equal(effectivePoints(b, a.expiresAt), 20)
   }
+  // A scheduled value set by hand survives a reset: that is the whole reason boosts have their own fields.
+  await db.doc('booths/typical').update({ temporaryPoints: 27, pointsExpireAt: Date.now() + 3600_000 })
   const next = await call(preview)
   await reject(() => call(apply, { previewId: next.id }), 'failed-precondition')
-  await call(reset)
-  assert.equal((await db.doc('booths/quiet').get()).data().temporaryPoints, null)
+  const r = await call(reset)
+  assert.equal(r.cleared, 1)
+  assert.equal((await db.doc('booths/quiet').get()).data().boostPoints, null)
+  assert.equal((await db.doc('booths/typical').get()).data().temporaryPoints, 27, 'reset left the scheduled value alone')
   assert.deepEqual(await call(apply, { previewId: p.id }), a) // retry after reset cannot reapply
-  assert.equal((await db.doc('booths/quiet').get()).data().temporaryPoints, null)
+  assert.equal((await db.doc('booths/quiet').get()).data().boostPoints, null)
   assert.deepEqual((await db.doc('scans/history-quiet-0').get()).data(), historical)
   assert.deepEqual((await db.doc('tierUnlocks/earned_top').get()).data(), unlock)
   assert.equal((await db.doc('users/earned').get()).data().points, 40)
@@ -111,21 +125,38 @@ test('expired, changed and insufficient proposals cannot apply', async () => {
   await db.recursiveDelete(db.collection('scans'))
   p = await call(preview)
   assert.equal(p.sufficient, false)
+  assert.equal(p.offered, 0)
+  assert.ok(p.rows.every((r) => r.reason === 'no-scans'), 'with no scans anywhere, every booth reads as not open')
   await reject(() => call(apply, { previewId: p.id }), 'failed-precondition')
 })
 
-test('manual base edits and exclusion clear adjustments; unrelated edits preserve them', async () => {
+test('manual base edits and exclusion clear boosts and scheduled values; unrelated edits preserve them', async () => {
   await seed()
   const p = await call(preview)
   await call(apply, { previewId: p.id })
+  await db.doc('booths/busy').update({ temporaryPoints: 27, pointsExpireAt: Date.now() + 3600_000 })
   await call(updateBooth, { id: 'quiet', location: 'New location' })
-  assert.equal((await db.doc('booths/quiet').get()).data().temporaryPoints, 25)
+  assert.equal((await db.doc('booths/quiet').get()).data().boostPoints, QUIET_BOOST)
   await call(updateBooth, { id: 'quiet', adjustmentExcluded: true })
-  assert.equal((await db.doc('booths/quiet').get()).data().temporaryPoints, null)
+  assert.equal((await db.doc('booths/quiet').get()).data().boostPoints, null)
+  await call(updateBooth, { id: 'busy', location: 'Moved' })
+  assert.equal((await db.doc('booths/busy').get()).data().temporaryPoints, 27)
   await call(updateBooth, { id: 'busy', points: 18 })
   const b = (await db.doc('booths/busy').get()).data()
   assert.equal(b.points, 18)
   assert.equal(b.temporaryPoints, null)
+  assert.equal(b.boostPoints, null)
+})
+
+test('a preview before opening + 30 minutes lists booths but offers nothing', async () => {
+  await seed()
+  await db.doc(`events/${eventId}`).update({ startsAt: Timestamp.fromMillis(Date.now() - 10 * 60000) })
+  clearEventCache()
+  const p = await call(preview)
+  assert.ok(p.createdAt < p.notBefore)
+  assert.equal(p.rows.length, 5)
+  assert.equal(p.offered, 0)
+  await reject(() => call(apply, { previewId: p.id }), 'failed-precondition')
 })
 
 async function visit(boothId) {
@@ -147,22 +178,22 @@ test('real scans preserve the awarded value through expiry and trigger updates',
   const p = await call(preview)
   await call(apply, { previewId: p.id })
   const first = await visit('quiet')
-  assert.equal(first.result.pointsAwarded, 25)
-  await db.doc('booths/quiet').update({ pointsExpireAt: Date.now() - 1 })
+  assert.equal(first.result.pointsAwarded, 20 + QUIET_BOOST)
+  await db.doc('booths/quiet').update({ boostUntil: Date.now() - 1 })
   const second = await visit('quiet')
   assert.equal(second.result.pointsAwarded, 20)
   await onScanCreate.run({ data: first.stored, params: { scanId: first.stored.id } })
-  assert.equal((await db.doc(`users/${first.uid}`).get()).data().points, 25)
-  assert.equal((await first.stored.ref.get()).data().pointsAwarded, 25)
+  assert.equal((await db.doc(`users/${first.uid}`).get()).data().points, 20 + QUIET_BOOST)
+  assert.equal((await first.stored.ref.get()).data().pointsAwarded, 20 + QUIET_BOOST)
 })
 
 test('a scan racing an application receives the value of its serialized booth state', async () => {
   await seed()
   const p = await call(preview)
   const [, visitResult] = await Promise.all([call(apply, { previewId: p.id }), visit('quiet')])
-  assert.ok([20, 25].includes(visitResult.result.pointsAwarded))
+  assert.ok([20, 20 + QUIET_BOOST].includes(visitResult.result.pointsAwarded))
   assert.equal(visitResult.stored.data().pointsAwarded, visitResult.result.pointsAwarded)
-  assert.equal((await visit('quiet')).result.pointsAwarded, 25)
+  assert.equal((await visit('quiet')).result.pointsAwarded, 20 + QUIET_BOOST)
 })
 
 const sumShards = async (field) => {

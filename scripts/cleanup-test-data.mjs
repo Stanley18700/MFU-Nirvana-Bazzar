@@ -35,8 +35,10 @@
  *
  * What is reset in place:
  *   stats/booths/items/*                             stamps 0, rank cleared, breakdowns emptied
- *   booths/* temporaryPoints, pointsExpireAt         only if a rehearsal adjustment left them set; no other
- *                                                    booth field is written
+ *   booths/* boostPoints, boostUntil                 only if a rehearsal boost left them set; no other booth
+ *                                                    field is written. NEVER temporaryPoints/pointsExpireAt:
+ *                                                    those are the planner's scheduled morning values
+ *                                                    (scripts/apply-scoring.mjs), not rehearsal residue.
  *   prizeTiers/*                                     stockRemaining = stockTotal, sessionRemaining removed
  *                                                    (an absent key is what "untouched, therefore full" is
  *                                                    written as everywhere else — see confirmRedemption)
@@ -253,10 +255,10 @@ async function main() {
   const boothStats = await db.collection('stats/booths/items').get()
   const surveys = await db.collection('surveys').get()
   const booths = await db.collection('booths').get()
-  const adjusted = booths.docs.filter((d) => d.data().temporaryPoints != null || d.data().pointsExpireAt != null)
+  const adjusted = booths.docs.filter((d) => d.data().boostPoints != null || d.data().boostUntil != null)
 
   console.log(`  ${act('reset')} ${pad(boothStats.size)}  stats/booths/items/* -> 0 stamps, rank cleared`)
-  console.log(`  ${act('reset')} ${pad(adjusted.length)}  booths/* -> temporaryPoints and pointsExpireAt cleared${adjusted.length ? '' : ' (none set)'}`)
+  console.log(`  ${act('reset')} ${pad(adjusted.length)}  booths/* -> boostPoints and boostUntil cleared${adjusted.length ? '' : ' (none set)'}; scheduled values kept`)
   for (const t of tiers.docs) {
     const d = t.data()
     console.log(`  ${act('reset')} ${pad(1)}  prizeTiers/${t.id} -> stockRemaining ${d.stockRemaining} -> ${d.stockTotal}, sessionRemaining ${JSON.stringify(d.sessionRemaining ?? {})} -> (absent)`)
@@ -271,7 +273,7 @@ async function main() {
       batch.set(t.ref, { stockRemaining: t.data().stockTotal ?? 0, sessionRemaining: FieldValue.delete() }, { merge: true })
     }
     for (const s of surveys.docs) batch.set(s.ref, { responseCount: 0 }, { merge: true })
-    for (const b of adjusted) batch.set(b.ref, { temporaryPoints: null, pointsExpireAt: null }, { merge: true })
+    for (const b of adjusted) batch.set(b.ref, { boostPoints: null, boostUntil: null }, { merge: true })
     await batch.commit()
     for (let i = 0; i < boothStats.docs.length; i += BATCH) {
       const b = db.batch()

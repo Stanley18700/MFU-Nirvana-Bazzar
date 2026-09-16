@@ -40,7 +40,7 @@ export const api = {
   // admin
   previewPointAdjustments: call<Record<string, never>, PointPreview>('previewPointAdjustments'),
   applyPointAdjustments: call<ApplyPointsInput, ApplyPointsResult>('applyPointAdjustments'),
-  resetPointAdjustments: call<Record<string, never>, { ok: true }>('resetPointAdjustments'),
+  resetPointAdjustments: call<Record<string, never>, { ok: true; cleared: number }>('resetPointAdjustments'),
   setUserRole: call<{ uid: string; role: Role; boothId?: string }, { ok: true }>('setUserRole'),
   /** `password` is optional; without one the account exists but cannot sign in. A visitor gets a passport number. */
   createUser: call<CreateUserInput, { uid: string; passportNo: string | null }>('createUser'),

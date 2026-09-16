@@ -24,9 +24,11 @@
  *   Food booths are 12 points all day — they have no morning value because they do not open
  *   until 13:00, and with the rotating QR a booth that is not running shows no code to scan.
  *
- * ⚠ DO NOT use /admin/booths "Balance booth visits" on the 18th. Applying a point adjustment
- *   writes `temporaryPoints`/`pointsExpireAt` — the very fields the morning values live in — and
- *   would drop every activity booth to its afternoon value 30 minutes later.
+ * Since 16 Sep the balancer ("Balance booth visits") writes its boosts to `boostPoints`/`boostUntil`
+ * — separate fields, added ON TOP of the value set here — and its reset clears only those. Before
+ * that it shared these fields and one press of "Reset to base points" wiped a morning's values;
+ * if you ever see the activity booths at 15/16 on the 17th or 18th before noon, re-run this
+ * script with --commit. It is idempotent.
  *
  * WHAT IT TOUCHES: booths/{id}.points, .temporaryPoints, .pointsExpireAt, .activeDays, and
  * .active (OPEN13 only); events/{live}.days/.startsAt/.endsAt; prizeTiers/{id}.thresholdPoints.
@@ -174,7 +176,7 @@ async function main() {
   })
   console.log(`\nDone. ${changed} document(s) updated.`)
   console.log('Check /admin/booths: an activity booth should read its MORNING value until Friday 12:00.')
-  console.log('Reminder: do NOT use "Balance booth visits" on the 18th — it overwrites the morning values.')
+  console.log('Boosts from "Balance booth visits" sit on top of these values in their own fields and never replace them.')
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e.message ?? e); process.exit(1) })

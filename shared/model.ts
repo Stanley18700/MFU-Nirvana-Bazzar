@@ -150,9 +150,19 @@ export interface BoothDoc {
   accentColor: string
   points: number
   zone: Zone
-  /** Temporary rewards never replace the base `points` value. Times are epoch milliseconds. */
+  /**
+   * A scheduled value, set deliberately (the planner's morning rate): the booth is worth
+   * `temporaryPoints` instead of `points` until `pointsExpireAt`. Epoch milliseconds.
+   */
   temporaryPoints?: number | null
   pointsExpireAt?: number | null
+  /**
+   * A boost, approved by an admin for a quiet booth: `boostPoints` EXTRA on top of the value
+   * above until `boostUntil`. Its own pair of fields so the balancer can never overwrite a
+   * scheduled value. Epoch milliseconds.
+   */
+  boostPoints?: number | null
+  boostUntil?: number | null
   adjustmentExcluded?: boolean
   badgeUrl?: string | null
   badgeThumbUrl?: string | null

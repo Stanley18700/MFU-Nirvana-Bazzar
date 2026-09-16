@@ -14,7 +14,7 @@ import { LangToggle } from './ui'
  * because the person who most needs this is the one who cannot yet read the screen around it.
  * "How it works" on the cover brings it back any time. An exhibitor sees the same kind of sheet
  * over their booth screen, explaining why the screen must stay on: every scan is a counted
- * visit, quiet booths can be given more points, and the passport steers visitors to the
+ * visit, a quiet booth can be given extra points (never fewer), and the passport steers visitors to the
  * highest-value booth they have not stamped. It stays until they dismiss it.
  *
  * Both are overlays rather than blocks in the page, and both hold the page still underneath

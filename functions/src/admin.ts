@@ -320,10 +320,15 @@ export const updateBooth = onCall(async (req) => {
     if (!snap.exists) throw new HttpsError('not-found', 'Booth not found')
     const before = snap.data() as BoothDoc
     const after = boothFromData(ev, req.data ?? {}, before)
+    // A booth whose terms change drops its scheduled value and any live boost: both were set
+    // against the old terms. (The scoring script re-creates scheduled values; a boost simply
+    // waits for the next round.)
     if (after.points !== before.points || after.adjustmentExcluded || !after.active || after.isPrizeDesk
       || after.eventId !== before.eventId || JSON.stringify(after.activeDays) !== JSON.stringify(before.activeDays)) {
       after.temporaryPoints = null
       after.pointsExpireAt = null
+      after.boostPoints = null
+      after.boostUntil = null
     }
     tx.set(ref, after, { merge: true })
     tx.create(db.collection('auditLog').doc(), { actorUid: actor, action: 'updateBooth', targetType: 'booth', targetId: id,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { BoothDoc } from '../../shared/model'
-import { effectivePoints } from '../../shared/points'
+import { effectivePoints, nextPointChange } from '../../shared/points'
 import { serverNow } from './serverClock'
 
 /**
@@ -32,9 +32,14 @@ export function useRewardBooths<T extends BoothDoc>(booths: T[]) {
   return booths.map((b) => ({ ...b, rewardPoints: effectivePoints(b, now) }))
 }
 
+/**
+ * "Until 10:45 · then 27 points" — the NEXT change to this booth's value, whichever layer it
+ * comes from: a boost ending (back to the scheduled value) or the scheduled value expiring
+ * (back to base). Null when the booth is simply worth its base value.
+ */
 export function rewardExpiry(booth: BoothDoc, now: number) {
-  return effectivePoints(booth, now) !== booth.points && (booth.pointsExpireAt ?? 0) > now
-    ? `Until ${pointTime(booth.pointsExpireAt!)} · then ${booth.points} points` : null
+  const next = nextPointChange(booth, now)
+  return next ? `Until ${pointTime(next.at)} · then ${next.points} points` : null
 }
 
 export function pointTime(ms: number) {

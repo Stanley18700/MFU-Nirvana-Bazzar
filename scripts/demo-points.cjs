@@ -1,5 +1,5 @@
 /**
- * A rehearsal for the quiet/busy point adjustment, against a disposable emulator.
+ * A rehearsal for the quiet-booth boost, against a disposable emulator.
  *
  *   npm run demo:points
  *
@@ -19,7 +19,7 @@ const { db, Timestamp, clearEventCache } = require('../functions/lib/lib')
 const { previewPointAdjustments, applyPointAdjustments } = require('../functions/lib/points')
 const { SEED_BOOTHS } = require('../functions/lib/booths.data')
 const { dayOf, DEFAULT_PRIZE_SESSIONS, BOOTH_BASE_POINTS } = require('../functions/lib/shared/model')
-const { pointWindow } = require('../functions/lib/shared/points')
+const { pointWindow, boostFor, MAX_BOOSTS_PER_GROUP } = require('../functions/lib/shared/points')
 
 const EVENT = 'demo-event'
 const req = (data = {}) => ({ data, auth: { uid: 'admin', token: { role: 'admin' } }, rawRequest: { headers: {}, ip: '127.0.0.1' } })
@@ -77,9 +77,9 @@ async function main() {
 
   const preview = await previewPointAdjustments.run(req({}))
   console.log(`Window            ${clock(windowStart)} - ${clock(windowEnd)}`)
-  console.log(`Visits counted    ${preview.totalScans} across ${preview.rows.length} booths`)
-  console.log(`Average per booth ${preview.average.toFixed(2)}   (needs ${preview.minimumScans} visits in total to act)`)
-  console.log(`Enough to act?    ${preview.sufficient ? 'yes' : 'NO — it will leave every booth alone'}`)
+  console.log(`Visits counted    ${preview.totalScans} across ${preview.rows.length} booths in ${preview.groups.length} group(s)`)
+  for (const g of preview.groups) console.log(`Group ${g.label.padEnd(12)} ${g.comparable}/${g.size} open, median ${g.median} visits, ${g.sufficient ? 'judged' : 'too small to judge'}, ${g.offered} boost(s) offered`)
+  console.log(`Anything to do?   ${preview.sufficient ? `yes — ${preview.offered} booth(s) offered a boost` : 'NO — it will leave every booth alone'}`)
   console.log(`Points on offer   ${preview.availablePoints} if a visitor walked the whole hall`)
   if (preview.unreachableTiers.length) console.log(`Warning           ${preview.unreachableTiers.map((t) => `${t.name} needs ${t.thresholdPoints}`).join(', ')}`)
 
@@ -90,24 +90,27 @@ async function main() {
     for (const s of sample) console.log(`   ${s}`)
     if (rows.length > 3) console.log(`   … and ${rows.length - 3} more`)
   }
-  show('quiet'); show('typical'); show('busy')
+  show('quiet'); show('capped'); show('typical'); show('no-scans')
 
   const applied = await applyPointAdjustments.run(req({ previewId: preview.id }))
   console.log(`\nApplied. The boost lasts until ${clock(applied.expiresAt)}; another pass allowed from ${clock(applied.nextApplyAt)}.`)
 
   const check = async (id) => (await db.doc(`booths/${id}`).get()).data()
   const quiet = preview.rows.find((r) => r.reason === 'quiet')
-  const busy = preview.rows.find((r) => r.reason === 'busy')
+  const busy = preview.rows.reduce((m, r) => (r.scans > m.scans ? r : m), preview.rows[0])
   const q = await check(quiet.boothId); const b = await check(busy.boothId)
   console.log(`\nWhat a visitor now sees`)
-  console.log(`  ${quiet.boothId} (quiet, ${quiet.scans} visits)  base ${q.points}, worth ${q.temporaryPoints} until ${clock(q.pointsExpireAt)}`)
-  console.log(`  ${busy.boothId} (busy, ${busy.scans} visits)   base ${b.points}, worth ${b.temporaryPoints} until ${clock(b.pointsExpireAt)}`)
+  console.log(`  ${quiet.boothId} (quiet, ${quiet.scans} visits)  base ${q.points}, worth ${q.points + q.boostPoints} (+${q.boostPoints}) until ${clock(q.boostUntil)}`)
+  console.log(`  ${busy.boothId} (busiest, ${busy.scans} visits) base ${b.points}, still worth ${b.points} — nothing is ever cut`)
 
-  assert.equal(q.temporaryPoints, Math.round(BOOTH_BASE_POINTS * 1.25), 'a quiet booth should be worth 125%')
-  assert.equal(b.temporaryPoints, Math.round(BOOTH_BASE_POINTS * 0.75), 'a busy booth should be worth 75%')
+  const median = preview.groups[0].median
+  assert.equal(q.boostPoints, boostFor(BOOTH_BASE_POINTS, quiet.scans, median), 'the boost follows the 25–35% scale')
+  assert.equal(b.boostPoints ?? null, null, 'a busy booth is left alone')
   assert.equal(q.points, BOOTH_BASE_POINTS, 'the base value must not move')
-  console.log(`\nChecks passed: quiet 125%, busy 75%, base untouched (so the next pass cannot compound).`)
-  console.log(`Booths whose visits were near the average: left exactly as they were.\n`)
+  assert.equal(q.temporaryPoints ?? null, null, 'the balancer never writes a scheduled value')
+  assert.equal(preview.rows.filter((r) => r.reason === 'quiet').length, Math.min(MAX_BOOSTS_PER_GROUP, 10), 'at most three boosts per group')
+  console.log(`\nChecks passed: quiet boosted on the 25–35% scale, busy untouched, base and scheduled values untouched.`)
+  console.log(`Booths near their group's median: left exactly as they were.\n`)
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1) })
