@@ -3,6 +3,12 @@
  *
  *   node scripts/apply-scoring.mjs            # dry run: prints every change, writes nothing
  *   node scripts/apply-scoring.mjs --commit   # apply (idempotent — safe to re-run)
+ *   node scripts/apply-scoring.mjs --commit --days   # …and also set the event's day list
+ *
+ * WHICH DAYS SCORE IS NOT THIS SCRIPT'S BUSINESS unless you pass --days. A booth only pays its
+ * morning value on a day the event covers, so a run that silently reset the day list would undo
+ * whatever `set-event-days.mjs` was last told — it nearly did on 16 Sep, while the 16th was
+ * added for a rehearsal demo. Without --days the booths inherit the event's current days.
  *
  * Needs `npm --prefix functions run build` first (firebase-admin lives under functions/) and
  * application-default credentials, like the seed, cleanup and reconcile scripts.
@@ -40,6 +46,8 @@ import { fileURLToPath } from 'node:url'
 
 const args = process.argv.slice(2)
 const COMMIT = args.includes('--commit')
+/** Only with --days does this script decide which days the event runs on (see the note above). */
+const WRITE_DAYS = args.includes('--days')
 if (args.includes('--emulator')) process.env.FIRESTORE_EMULATOR_HOST ??= '127.0.0.1:8080'
 const here = dirname(fileURLToPath(import.meta.url))
 const projectId = process.env.GCLOUD_PROJECT
@@ -109,6 +117,14 @@ async function main() {
   const extra = [...booths.keys()].filter((id) => !PLAN.has(id) && id !== NOT_SCORING)
   if (extra.length) console.log(`\nnote: ${extra.length} booth(s) not in the planner's tables are left alone: ${extra.join(', ')}`)
 
+  // Read the live event first: without --days the booths keep the days the event already
+  // runs on, so repairing point values never changes which days score.
+  const evSnap = await db.collection('events').where('status', '==', 'live').limit(1).get()
+  if (evSnap.empty) throw new Error('no live event')
+  const evRef = evSnap.docs[0].ref
+  const ev = evSnap.docs[0].data()
+  const ACTIVE_DAYS = WRITE_DAYS || !Array.isArray(ev.days) || !ev.days.length ? DAYS : ev.days
+
   const batch = db.batch()
   let changed = 0
 
@@ -119,7 +135,7 @@ async function main() {
       points: plan.afternoon,
       temporaryPoints: plan.morning,
       pointsExpireAt: plan.morning === null ? null : SWITCH_TO_AFTERNOON,
-      activeDays: DAYS,
+      activeDays: ACTIVE_DAYS,
       // A booth the planner scores must be scannable, whatever it was before.
       active: true,
     }
@@ -139,17 +155,14 @@ async function main() {
     batch.set(db.doc(`booths/${NOT_SCORING}`), { active: false }, { merge: true })
   }
 
-  // ---- event days ----
-  const evSnap = await db.collection('events').where('status', '==', 'live').limit(1).get()
-  if (evSnap.empty) throw new Error('no live event')
-  const evRef = evSnap.docs[0].ref
-  const ev = evSnap.docs[0].data()
+  // ---- event ----
   console.log('\nevent')
-  console.log(`  days        ${JSON.stringify(ev.days)} → ${JSON.stringify(DAYS)}   (${REHEARSAL_DAY} = rehearsal)`)
+  if (WRITE_DAYS) console.log(`  days        ${JSON.stringify(ev.days)} → ${JSON.stringify(DAYS)}   (${REHEARSAL_DAY} = rehearsal)`)
+  else console.log(`  days        ${JSON.stringify(ev.days)} left alone; booths get these   (--days to set ${JSON.stringify(DAYS)})`)
   console.log(`  startsAt    → ${new Date(EVENT_STARTS).toISOString()}  (cover reads "18 September 2026 · 09:00–19:00")`)
   console.log(`  endsAt      → ${new Date(EVENT_ENDS).toISOString()}`)
   batch.set(evRef, {
-    days: DAYS,
+    ...(WRITE_DAYS ? { days: DAYS } : {}),
     startsAt: new Date(EVENT_STARTS),
     endsAt: new Date(EVENT_ENDS),
   }, { merge: true })
