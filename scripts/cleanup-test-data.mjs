@@ -203,7 +203,12 @@ async function main() {
   if (kept.length) {
     console.log(`\nvisitors spared by --keep (${kept.length}): ${kept.map((d) => d.data().passportNo ?? d.id.slice(0, 6)).join(', ')}`)
     console.log('  note: their scans, unlocks and survey answers are still deleted below, and the shards')
-    console.log('  are zeroed, so they will read 0 points until they scan again.')
+    console.log('  are zeroed — but their OWN totals are not. `points`, `stampCount`, `stampedBoothIds`')
+    console.log('  and `daysAttended` live on the user document and nothing here resets them, so a spared')
+    console.log('  passport reads its old points with no stamps behind them. Zero those four fields by')
+    console.log('  hand for anyone you spare (purgeEventData\'s soft `visitors` scope, functions/src/event.ts,')
+    console.log('  is the reference), or let them be deleted and register again.')
+    console.log(`  affected: ${kept.map((d) => `${d.data().passportNo ?? d.id.slice(0, 6)}=${d.data().points ?? 0}pts/${d.data().stampCount ?? 0}stamps`).join(', ')}`)
   }
   console.log(`\nstaff accounts kept (${staff.length}): ${staff.map((d) => `${(d.data().displayName ?? d.id.slice(0, 6))}(${d.data().role})`).join(', ')}`)
 
