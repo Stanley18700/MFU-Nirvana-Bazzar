@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { collection, doc, query, where } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
@@ -164,12 +164,75 @@ export default function FestivalSurvey() {
   )
 }
 
+/** How many free-text answers are drawn before the rest go behind "show all". */
+const TEXT_PAGE = 50
+
+type QStat =
+  | { kind: 'num'; counts: Map<number, number>; sum: number; total: number }
+  | { kind: 'opt'; counts: Map<string, number>; total: number }
+  | { kind: 'text'; texts: string[] }
+
+/**
+ * Every tally for every question, in ONE pass over the responses.
+ *
+ * It used to be worked out inside the render: each of the fourteen blocks walked the whole list,
+ * and a closed question walked it again per option — so a five-option question read every
+ * response five times. That is fine for the twenty answers it was written against and quietly
+ * quadratic at festival scale: the page re-renders on every submission, because the responses
+ * are live, so a thousand answers meant tens of thousands of comparisons between one visitor
+ * pressing Send and the next.
+ *
+ * Keyed on the responses, so it is recomputed when an answer actually arrives and not merely
+ * because something else on the page changed.
+ */
+function useQuestionStats(questions: SurveyQuestion[], responses: Array<SurveyResponseDoc & { id: string }>) {
+  return useMemo(() => {
+    const out = new Map<string, QStat>()
+    for (const q of questions) {
+      if (q.kind === 'scale' || q.kind === 'rating') {
+        const lo = q.kind === 'scale' ? q.scaleMin ?? 1 : 1
+        const hi = q.kind === 'scale' ? q.scaleMax ?? 5 : q.stars ?? 5
+        const counts = new Map<number, number>()
+        // Seeded so a value nobody picked still gets its bar, rather than the row vanishing.
+        for (let n = lo; n <= hi; n++) counts.set(n, 0)
+        out.set(q.id, { kind: 'num', counts, sum: 0, total: 0 })
+      } else if (q.kind === 'choice' || q.kind === 'dropdown' || q.kind === 'checkboxes') {
+        const counts = new Map<string, number>()
+        for (const o of q.options ?? []) counts.set(o, 0)
+        out.set(q.id, { kind: 'opt', counts, total: 0 })
+      } else {
+        out.set(q.id, { kind: 'text', texts: [] })
+      }
+    }
+    for (const r of responses) {
+      for (const q of questions) {
+        const v = r.answers?.[q.id]
+        if (v === undefined || v === '') continue
+        const s = out.get(q.id)
+        if (!s) continue
+        if (s.kind === 'num') {
+          if (typeof v === 'number') { s.sum += v; s.total++; s.counts.set(v, (s.counts.get(v) ?? 0) + 1) }
+        } else if (s.kind === 'opt') {
+          for (const p of Array.isArray(v) ? v : [v as string]) {
+            if (typeof p !== 'string') continue
+            s.counts.set(p, (s.counts.get(p) ?? 0) + 1)
+            s.total++
+          }
+        } else if (typeof v === 'string') {
+          s.texts.push(v)
+        }
+      }
+    }
+    return out
+  }, [questions, responses])
+}
+
 /**
  * One block per question. Closed questions get counts and a bar; open ones get the text.
  *
- * Everything is computed here from the responses already loaded rather than from a counter,
- * because this is read a handful of times after the festival, not once a second during it —
- * and a few hundred documents is a smaller thing to maintain than another aggregate.
+ * Everything is computed from the responses already loaded rather than from a counter: the
+ * answers carry no visitor id, so there is nothing to aggregate them by, and one pass over the
+ * list (above) is cheaper than another set of counters to keep honest.
  */
 function Results({ questions, responses, answered }: {
   questions: SurveyQuestion[]
@@ -177,6 +240,7 @@ function Results({ questions, responses, answered }: {
   answered: number
 }) {
   const { t } = useLocale()
+  const stats = useQuestionStats(questions, responses)
 
   /*
    * Shaped like a Google Forms export, which is what the organisers know how to read: one row
@@ -190,14 +254,19 @@ function Results({ questions, responses, answered }: {
     return questions.some((o) => o.id !== q.id && o.title.trim() === title) ? `${title} [${q.id}]` : title
   }
   const csvColumns = ['Timestamp', ...questions.map(header), 'Survey version']
-  const csvRows = responses
+  // Memoised for the same reason as the tallies: this builds one row per response with a column
+  // per question, and it was being rebuilt on every render of the page rather than when the
+  // answers changed. Nothing reads it until the button is pressed.
+  const csvRows = useMemo(() => responses
     .slice()
     .sort((a, b) => (ms(a.submittedAt) ?? 0) - (ms(b.submittedAt) ?? 0))
     .map((r) => {
       const row: Record<string, string | number> = { Timestamp: ts(r.submittedAt), 'Survey version': r.surveyVersion ?? 1 }
       for (const q of questions) row[header(q)] = flat(r.answers?.[q.id])
       return row
-    })
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  [responses, questions])
 
   return (
     <section className="mt-6">
@@ -213,7 +282,7 @@ function Results({ questions, responses, answered }: {
             {questions.map((q) => (
               <div key={q.id} className="card card-static p-4">
                 <div className="text-sm font-semibold leading-snug">{q.title}</div>
-                <QuestionResult q={q} responses={responses} />
+                <QuestionResult q={q} stat={stats.get(q.id)} />
               </div>
             ))}
           </div>
@@ -222,47 +291,65 @@ function Results({ questions, responses, answered }: {
   )
 }
 
-function QuestionResult({ q, responses }: { q: SurveyQuestion; responses: Array<SurveyResponseDoc & { id: string }> }) {
+/** Draws one question's precomputed tally. Does no counting of its own. */
+function QuestionResult({ q, stat }: { q: SurveyQuestion; stat?: QStat }) {
   const { t } = useLocale()
-  const values = responses.map((r) => r.answers?.[q.id]).filter((v) => v !== undefined && v !== '')
+  if (!stat) return null
 
-  if (q.kind === 'scale' || q.kind === 'rating') {
-    const nums = values.filter((v): v is number => typeof v === 'number')
-    const lo = q.kind === 'scale' ? q.scaleMin ?? 1 : 1
-    const hi = q.kind === 'scale' ? q.scaleMax ?? 5 : q.stars ?? 5
-    const mean = nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null
-    const buckets: Array<[number, number]> = []
-    for (let n = lo; n <= hi; n++) buckets.push([n, nums.filter((v) => v === n).length])
+  if (stat.kind === 'num') {
+    const mean = stat.total ? stat.sum / stat.total : null
     return (
       <div className="mt-2">
         <div className="fig text-2xl">{mean == null ? '–' : mean.toFixed(2)}</div>
         <div className="mt-2 space-y-1">
-          {buckets.map(([n, c]) => <Bar key={n} label={String(n)} count={c} total={nums.length} />)}
+          {[...stat.counts.entries()].map(([n, c]) => (
+            <Bar key={n} label={String(n)} count={c} total={stat.total} />
+          ))}
         </div>
       </div>
     )
   }
 
-  if (q.kind === 'choice' || q.kind === 'dropdown' || q.kind === 'checkboxes') {
-    const picked = values.flatMap((v) => (Array.isArray(v) ? v : [v as string]))
+  if (stat.kind === 'opt') {
     return (
       <div className="mt-2 space-y-1">
         {(q.options ?? []).map((o) => (
-          <Bar key={o} label={o} count={picked.filter((p) => p === o).length} total={picked.length} />
+          <Bar key={o} label={o} count={stat.counts.get(o) ?? 0} total={stat.total} />
         ))}
       </div>
     )
   }
 
-  // short | paragraph | date — the words themselves, newest first as they came back.
-  const texts = values.filter((v): v is string => typeof v === 'string')
-  if (!texts.length) return <p className="mt-2 text-sm text-ink-soft">{t('admin.fsurvey.noAnswers')}</p>
+  if (!stat.texts.length) return <p className="mt-2 text-sm text-ink-soft">{t('admin.fsurvey.noAnswers')}</p>
+  return <TextAnswers texts={stat.texts} />
+}
+
+/**
+ * The words themselves — but not all of them at once.
+ *
+ * Three of the fourteen questions are free text, so drawing every answer meant three list items
+ * per visitor: at a thousand answers, three thousand paragraphs of arbitrary length in the DOM,
+ * rebuilt every time somebody pressed Send. The page stopped scrolling long before the numbers
+ * above it stopped being readable. The first fifty are enough to get the sense of it, the rest
+ * are one press away, and the CSV has had every one of them all along.
+ */
+function TextAnswers({ texts }: { texts: string[] }) {
+  const { t } = useLocale()
+  const [all, setAll] = useState(false)
+  const shown = all ? texts : texts.slice(0, TEXT_PAGE)
   return (
-    <ul className="mt-2 space-y-1">
-      {texts.map((v, i) => (
-        <li key={i} className="whitespace-pre-wrap border-l-2 rule pl-3 text-sm">{v}</li>
-      ))}
-    </ul>
+    <>
+      <ul className="mt-2 space-y-1">
+        {shown.map((v, i) => (
+          <li key={i} className="whitespace-pre-wrap border-l-2 rule pl-3 text-sm">{v}</li>
+        ))}
+      </ul>
+      {texts.length > TEXT_PAGE && (
+        <button type="button" className="btn-quiet btn-sm mt-2" onClick={() => setAll((v) => !v)}>
+          {all ? t('admin.fsurvey.showFewer') : t('admin.fsurvey.showAll', { n: fmt(texts.length) })}
+        </button>
+      )}
+    </>
   )
 }
 

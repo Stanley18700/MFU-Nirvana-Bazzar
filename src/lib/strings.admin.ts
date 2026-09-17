@@ -650,6 +650,8 @@ export const adminEn = {
   'admin.fsurvey.results': 'Results · {n} responses',
   'admin.fsurvey.noneYet': 'Nobody has answered yet.',
   'admin.fsurvey.noAnswers': 'No answers to this one yet.',
+  'admin.fsurvey.showAll': 'Show all {n}',
+  'admin.fsurvey.showFewer': 'Show fewer',
 } as const
 
 export const adminTh: Record<keyof typeof adminEn, string> = {
@@ -1282,4 +1284,6 @@ export const adminTh: Record<keyof typeof adminEn, string> = {
   'admin.fsurvey.results': 'ผลลัพธ์ · {n} คำตอบ',
   'admin.fsurvey.noneYet': 'ยังไม่มีผู้ตอบ',
   'admin.fsurvey.noAnswers': 'ยังไม่มีคำตอบสำหรับข้อนี้',
+  'admin.fsurvey.showAll': 'ดูทั้งหมด {n} คำตอบ',
+  'admin.fsurvey.showFewer': 'ย่อลง',
 }
