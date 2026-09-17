@@ -8,6 +8,7 @@ import { api } from '../../lib/api'
 import { useBooths, useDoc, useEvent } from '../../lib/data'
 import { RATING_COMMENT_MAX } from '../../../shared/model'
 import { useLocale } from '../../lib/locale'
+import { useBodyScrollLock } from '../../lib/useBodyScrollLock'
 import { Stamp } from '../../components/Stamp'
 import { Notice } from '../../components/ui'
 import type { ScanResult } from '../../../shared/model'
@@ -111,6 +112,18 @@ function RatingCard({ boothId, accent, onDone }: { boothId: string; accent?: str
   const skip = !!rated || !!error || !user
   useEffect(() => { if (skip) onDone() }, [skip, onDone])
 
+  /*
+   * The sheet waits for the stamp to land. It covers the visa and the "+27 points" — the one
+   * moment of the whole app that is purely a reward — so it comes up just after the stamp has
+   * animated in and the figure has been read, not on top of it. Long enough to see it, short
+   * enough that nobody starts walking away first.
+   */
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    const id = setTimeout(() => setReady(true), 1400)
+    return () => clearTimeout(id)
+  }, [])
+
   const send = async () => {
     if (inFlight.current || stars === 0) return
     inFlight.current = true
@@ -130,7 +143,7 @@ function RatingCard({ boothId, accent, onDone }: { boothId: string; accent?: str
     }
   }
 
-  if (skip || loading) return null
+  if (skip || loading || !ready) return null
 
   if (failed) {
     return <div className="w-full"><Notice tone="amber">{t('v.rate.failed')}</Notice></div>
@@ -147,53 +160,100 @@ function RatingCard({ boothId, accent, onDone }: { boothId: string; accent?: str
     )
   }
 
+  /*
+   * Asked in a sheet over the screen rather than in the column, where it sat between the stamp
+   * and the two buttons it gates and read as one more thing to scroll past. It is the same
+   * question and the same gate — the buttons were already locked until it was answered — but in
+   * front of the visitor, where a question that must be answered belongs. The thanks and the
+   * failure above stay inline: once there is nothing left to ask, an overlay is just in the way.
+   */
+  return <RatingSheet {...{ accent, stars, setStars, hover, setHover, comment, setComment, busy, send }} />
+}
+
+function RatingSheet({
+  accent, stars, setStars, hover, setHover, comment, setComment, busy, send,
+}: {
+  accent?: string
+  stars: number; setStars: (n: number) => void
+  hover: number; setHover: (n: number) => void
+  comment: string; setComment: (s: string) => void
+  busy: boolean; send: () => Promise<void>
+}) {
+  const { t } = useLocale()
+  useBodyScrollLock(true)
+  const shown = hover || stars
   return (
-    <div className="w-full rounded-xl border border-ink/10 bg-sky-100 p-4 text-left">
-      <div className="stamp-text" style={{ color: accent }}>{t('v.rate.title')}</div>
-      <p className="mt-1 text-sm text-ink-soft">{t('v.rate.lead')}</p>
-
+    <div className="scrim-in fixed inset-0 z-40 flex items-end justify-center bg-ink/50 p-4">
       <div
-        className="mt-3 flex justify-center gap-1"
-        role="radiogroup"
-        aria-label={t('v.rate.aria')}
-        onMouseLeave={() => setHover(0)}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('v.rate.title')}
+        className="card card-static sheet-in max-h-[90dvh] w-full max-w-md overflow-y-auto bg-white p-5 text-left"
+        style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
       >
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            key={n}
-            type="button"
-            role="radio"
-            aria-checked={stars === n}
-            aria-label={n === 1 ? t('v.rate.star', { n }) : t('v.rate.stars', { n })}
+        <div className="stamp-text" style={{ color: accent }}>{t('v.rate.title')}</div>
+        <p className="mt-1 text-sm text-ink-soft">{t('v.rate.lead')}</p>
+
+        <div
+          className="mt-4 flex justify-center gap-1.5"
+          role="radiogroup"
+          aria-label={t('v.rate.aria')}
+          onMouseLeave={() => setHover(0)}
+        >
+          {[1, 2, 3, 4, 5].map((n) => {
+            const on = n <= shown
+            return (
+              <button
+                key={n}
+                type="button"
+                role="radio"
+                aria-checked={stars === n}
+                aria-label={n === 1 ? t('v.rate.star', { n }) : t('v.rate.stars', { n })}
+                disabled={busy}
+                onMouseEnter={() => setHover(n)}
+                onFocus={() => setHover(n)}
+                onClick={() => setStars(n)}
+                // A big target and a big glyph: a phone held one-handed, outdoors, in a queue.
+                className="grid h-14 w-14 place-items-center rounded-xl transition-transform active:scale-90 disabled:opacity-50"
+                style={{
+                  // Always the SOLID star. Outline-against-filled is the distinction that
+                  // disappears in sunlight; a gold star against a flat grey one does not.
+                  // The unlit star still has to look tappable — it IS the call to action here,
+                  // so it is a solid grey rather than a ghost.
+                  color: on ? '#E8A81B' : 'var(--color-ink-line)',
+                  opacity: on ? 1 : 0.6,
+                  transform: on ? 'scale(1.06)' : undefined,
+                }}
+              >
+                {/*
+                  * The size lives on the SPAN, not the button. `input, select, textarea, button
+                  * { font: inherit }` (index.css) is unlayered, so it beats every layered
+                  * `text-*` utility and silently resets a button's font-size to 16px — which is
+                  * why these stars were tiny however large the class said they were.
+                  */}
+                <span aria-hidden className="text-5xl leading-none">★</span>
+              </button>
+            )
+          })}
+        </div>
+
+        <label className="mt-4 block">
+          <span className="text-xs text-ink-soft">{t('v.rate.comment')}</span>
+          <textarea
+            className="field mt-1 w-full"
+            rows={2}
+            maxLength={RATING_COMMENT_MAX}
+            value={comment}
             disabled={busy}
-            onMouseEnter={() => setHover(n)}
-            onFocus={() => setHover(n)}
-            onClick={() => setStars(n)}
-            // 44px of target: a phone held one-handed in a crowded hall.
-            className="grid h-11 w-11 place-items-center rounded-lg text-3xl leading-none transition-transform active:scale-90 disabled:opacity-50"
-            style={{ color: n <= (hover || stars) ? '#C9A227' : undefined }}
-          >
-            <span aria-hidden>{n <= (hover || stars) ? '★' : '☆'}</span>
-          </button>
-        ))}
+            onChange={(e) => setComment(e.target.value.slice(0, RATING_COMMENT_MAX))}
+            placeholder={t('v.rate.placeholder')}
+          />
+        </label>
+
+        <button className="btn-primary mt-4 w-full py-3.5 text-lg" onClick={() => void send()} disabled={busy || stars === 0}>
+          {busy ? t('v.rate.sending') : stars === 0 ? t('v.rate.pick') : t('v.rate.send')}
+        </button>
       </div>
-
-      <label className="mt-3 block">
-        <span className="text-xs text-ink-soft">{t('v.rate.comment')}</span>
-        <textarea
-          className="field mt-1 w-full"
-          rows={2}
-          maxLength={RATING_COMMENT_MAX}
-          value={comment}
-          disabled={busy}
-          onChange={(e) => setComment(e.target.value.slice(0, RATING_COMMENT_MAX))}
-          placeholder={t('v.rate.placeholder')}
-        />
-      </label>
-
-      <button className="btn-primary mt-3 w-full" onClick={() => void send()} disabled={busy || stars === 0}>
-        {busy ? t('v.rate.sending') : stars === 0 ? t('v.rate.pick') : t('v.rate.send')}
-      </button>
     </div>
   )
 }
