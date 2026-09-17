@@ -1,14 +1,29 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, errorMessage, type SurveyOffer } from '../../lib/api'
 import { useBooth } from '../../lib/data'
 import { EVENT_SURVEY_ID } from '../../../shared/model'
 import { useLocale } from '../../lib/locale'
+import { useCooldown } from '../../lib/useCooldown'
 import { SurveyForm, useAnswers, useMissing } from '../../components/SurveyForm'
 import { BackLink, Notice, Spinner } from '../../components/ui'
 import { BoardingPass } from '../../components/BoardingPass'
+import { SurveyReward } from '../../components/SurveyReward'
 import { FestivalBackdrop } from '../auth/parts'
 import { useFestivalSurvey } from '../../lib/festivalSurvey'
+
+/**
+ * How long the two in-page ways out are held when the visitor arrived by tapping "Take it" on
+ * the gift offer, rather than by choosing the survey themselves.
+ *
+ * **This is a soft hold and nothing more.** The tab bar, the browser's own back gesture and a
+ * reload all still work, and none of them are worth fighting — a form you genuinely cannot leave
+ * is how you lose the whole session, not just the answers. What it buys is the second or two in
+ * which somebody actually reads the first question instead of reflexively tapping past. The
+ * countdown is always visible for the same reason: a button that is dead with no explanation
+ * reads as a broken app, which costs more than it gains.
+ */
+const GIFT_HOLD_SECONDS = 10
 
 /**
  * The booth's questions, offered after the stamp is already in the passport.
@@ -40,6 +55,17 @@ export default function Survey() {
   const [busy, setBusy] = useState(false)
   const [tried, setTried] = useState(false)
   const [done, setDone] = useState(false)
+  const [rewardIndex, setRewardIndex] = useState<number | null>(null)
+
+  /*
+   * `?from=gift` is set by the gift offer's CTA and by nothing else, so choosing the survey from
+   * the cover row or the Prize card is never held. A query param rather than router state so it
+   * is obvious in the address bar what put the hold there.
+   */
+  const [params] = useSearchParams()
+  const fromGift = festival && params.get('from') === 'gift'
+  const { left: holdLeft } = useCooldown(GIFT_HOLD_SECONDS, fromGift)
+  const holding = fromGift && !done && holdLeft > 0
 
   useEffect(() => {
     let live = true
@@ -61,7 +87,8 @@ export default function Survey() {
     }
     setBusy(true); setErr(null)
     try {
-      await api.submitSurveyResponse({ boothId, answers })
+      const res = await api.submitSurveyResponse({ boothId, answers })
+      setRewardIndex(res.rewardIndex)
       setDone(true)
     } catch (e) { setErr(errorMessage(e)) } finally { setBusy(false) }
   }
@@ -69,7 +96,9 @@ export default function Survey() {
   const shell = (children: React.ReactNode) => (
     <><FestivalBackdrop hills={false} /><main className="relative mx-auto flex min-h-full max-w-md flex-col text-ink">
       <header className="flex items-center justify-between gap-2 px-5 py-4">
-        <BackLink to={festival ? '/passport/prize' : '/passport/stamps'}>{festival ? t('v.back.prize') : t('v.back.passport')}</BackLink>
+        {holding
+          ? <span className="w-16 text-sm text-ink-soft/70" aria-live="off">{t('v.survey.holdBack', { s: holdLeft })}</span>
+          : <BackLink to={festival ? '/passport/prize' : '/passport/stamps'}>{festival ? t('v.back.prize') : t('v.back.passport')}</BackLink>}
         <div className="stamp-text truncate text-ink">
           {festival ? t('v.survey.title') : booth ? pick(booth.nameEn, booth.nameTh) : t('v.survey.booth')}
         </div>
@@ -94,9 +123,13 @@ export default function Survey() {
               : t('v.survey.thanksBooth', { booth: booth ? pick(booth.nameEn, booth.nameTh) : t('v.survey.booth') })}
           </p>
         </div>
-        {/* The keepsake for the festival survey, and — for someone at 100 points — the note
-            that the gift QR is now waiting on the Prize tab. */}
-        {festival && <BoardingPass className="w-full text-left" />}
+        {/* The wheel, which renders the boarding pass itself when that is what came up. The bare
+            pass is the fallback for a submission that carried no prize — a booth survey, or a
+            festival answer given before the wheel shipped. */}
+        {festival && (rewardIndex === null
+          ? <BoardingPass className="w-full text-left" />
+          : <SurveyReward rewardIndex={rewardIndex} className="w-full" />)}
+        {/* For someone already past the threshold: the gift QR is now waiting on the Prize tab. */}
         {festival && <p className="text-sm text-ink-soft">{t('v.survey.qrReady')}</p>}
         <Link to={home} className="btn-primary w-full py-3.5 text-lg">
           {festival ? t('v.survey.backPrize') : t('v.survey.scanAnother')}
@@ -147,8 +180,11 @@ export default function Survey() {
         <button className="btn-gold py-3.5 text-lg" onClick={submit} disabled={busy}>
           {busy ? t('v.survey.sending') : t('v.survey.submit')}
         </button>
-        <button className="text-sm text-ink-soft underline" onClick={() => nav(home, { replace: true })}>
-          {festival ? t('v.survey.notNow') : t('v.survey.skip')}
+        <button className="text-sm text-ink-soft underline disabled:no-underline disabled:opacity-60"
+          onClick={() => nav(home, { replace: true })} disabled={holding}>
+          {holding
+            ? t('v.survey.holdSkip', { s: holdLeft })
+            : festival ? t('v.survey.notNow') : t('v.survey.skip')}
         </button>
       </div>
     </div>,

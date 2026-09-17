@@ -31,7 +31,7 @@ import { createRequire } from 'node:module'
  * first, which is also what refreshes functions/src/shared from shared/.
  */
 const require = createRequire(import.meta.url)
-const { EVENT_SURVEY_ID, FESTIVAL_SURVEY } = require('../functions/lib/shared/model.js')
+const { EVENT_SURVEY_ID, FESTIVAL_SURVEY, SURVEY_REWARDS, STATS_SHARDS } = require('../functions/lib/shared/model.js')
 
 const app = initializeApp({ projectId: 'mfu-passport', apiKey: 'demo-key', authDomain: 'localhost' })
 const auth = getAuth(app)
@@ -184,6 +184,18 @@ async function main() {
   )
   ok('the scan\'s own points have landed before we start', before.points === scan.points, `${before.points} of ${scan.points}`)
   const scanBefore = (await getDoc(doc(db, 'scans', `${visitorUid}_${b1}`))).data()
+  /**
+   * Points across every event shard — the figure the admin dashboard adds up. Only an admin may
+   * read these (firestore.rules), so this is called from the admin section further down rather
+   * than here, where we are signed in as the visitor.
+   */
+  const shardPoints = async () => {
+    let n = 0
+    for (let i = 0; i < STATS_SHARDS; i++) {
+      n += (await getDoc(doc(db, 'stats', 'event', 'shards', String(i)))).data()?.points ?? 0
+    }
+    return n
+  }
 
   const offer = await call('surveyForBooth')({ boothId: EVENT_SURVEY_ID })
   ok('now offered', offer.status === 'ok', offer.status)
@@ -204,10 +216,31 @@ async function main() {
   ok('the visitor can read their own marker',
     (await getDoc(doc(db, 'surveyTaken', `${visitorUid}_${EVENT_SURVEY_ID}`))).exists())
 
-  section('The passport is untouched')
+  /*
+   * Until 2026-09-17 this section asserted the passport was untouched. The festival survey now
+   * pays a prize — a wheel rolled on the server — so what has to hold instead is that it pays
+   * EXACTLY what it said it did, exactly once, and that the dashboard moves with it. A booth
+   * survey still touches nothing; e2e-survey.mjs is where that is pinned.
+   */
+  section('The wheel pays out, once, for what it says')
   await new Promise((r) => setTimeout(r, 600))
+  const rewardIndex = accepted[0].value.rewardIndex
+  ok('the accepted submission came back with a wheel result',
+    Number.isInteger(rewardIndex) && rewardIndex >= 0 && rewardIndex < SURVEY_REWARDS.length, String(rewardIndex))
+  const reward = SURVEY_REWARDS[rewardIndex]
+  const awarded = reward.kind === 'points' ? reward.points : 0
+
+  // The prize is stored, so reopening the success screen re-reads it instead of spinning again.
+  const marker = (await getDoc(doc(db, 'surveyTaken', `${visitorUid}_${EVENT_SURVEY_ID}`))).data()
+  ok('the marker records the same result the caller was given', marker.rewardIndex === rewardIndex,
+    `${marker.rewardIndex} vs ${rewardIndex}`)
+
   const after = (await getDoc(doc(db, 'users', visitorUid))).data()
-  ok('points unchanged', after.points === before.points, `${before.points} -> ${after.points}`)
+  ok(`points moved by exactly the prize (${reward.kind}${awarded ? ` ${awarded}` : ''})`,
+    after.points === before.points + awarded, `${before.points} -> ${after.points}, expected +${awarded}`)
+  // Five of the six simultaneous submissions were rejected; none of them may have paid.
+  ok('the five rejected submissions paid nothing',
+    after.points - before.points === awarded, `+${after.points - before.points}`)
   ok('stamp count unchanged', after.stampCount === before.stampCount, `${before.stampCount} -> ${after.stampCount}`)
   ok('the stamp document is unchanged',
     JSON.stringify((await getDoc(doc(db, 'scans', `${visitorUid}_${b1}`))).data()) === JSON.stringify(scanBefore))
@@ -241,6 +274,18 @@ async function main() {
     `${Object.keys(row.data().answers ?? {}).length} answers`)
   ok('the response count is 1',
     (await getDoc(doc(db, 'surveys', EVENT_SURVEY_ID))).data()?.responseCount === 1)
+
+  /*
+   * The dashboard's headline points figure is the sum of the event shards, never a pass over
+   * `users`. The survey's prize is the one thing that adds points outside `onScanCreate`, so if
+   * it ever skipped the shard write the dashboard would read lower than the visitors' own
+   * passports — with nothing in the data to say which of the two was wrong.
+   */
+  section('The dashboard still agrees with the passports')
+  const everyone = await getDocs(query(collection(db, 'users'), where('role', '==', 'visitor')))
+  const sumOfPassports = everyone.docs.reduce((n, d) => n + (d.data().points ?? 0), 0)
+  ok('the shard total equals the sum of every visitor\'s points',
+    (await shardPoints()) === sumOfPassports, `shards ${await shardPoints()} vs passports ${sumOfPassports}`)
 
   console.log(`\n${pass} passed, ${fail} failed`)
   process.exit(fail ? 1 : 0)

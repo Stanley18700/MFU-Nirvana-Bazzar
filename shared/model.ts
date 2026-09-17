@@ -500,7 +500,43 @@ export interface SurveyResponseDoc {
 export interface SurveyTakenDoc {
   boothId: string
   takenAt: unknown
+  /**
+   * Which segment of the wheel came up, as an index into `SURVEY_REWARDS`. Festival survey
+   * only — a booth survey awards nothing, so its marker has no reward. Also absent on festival
+   * markers written before the wheel shipped (2026-09-17); the client shows those as a plain
+   * thank-you rather than inventing a prize after the fact.
+   */
+  rewardIndex?: number
 }
+
+/**
+ * The wheel a visitor spins after answering the festival survey.
+ *
+ * **The roll happens on the server.** `submitSurveyResponse` picks the index and writes it into
+ * `surveyTaken` in the same batch that stores the answers; the browser only animates to a result
+ * it was handed. That is what stops a reload — or a second tab — from spinning again for a better
+ * prize, and it is why the segments live here rather than in the component: both sides have to
+ * agree on what index 2 means.
+ *
+ * Order is load-bearing twice. It is the clockwise order of the segments the visitor sees, and
+ * every stored `rewardIndex` is a position in it — so **re-ordering this array relabels prizes
+ * already handed out.** Append, never reorder. The boarding pass sits between point values so no
+ * two adjacent segments read the same.
+ */
+export type SurveyRewardKind = 'points' | 'pass'
+
+export interface SurveyReward {
+  kind: SurveyRewardKind
+  /** Points awarded. Zero for the boarding pass, which is a keepsake rather than a score. */
+  points: number
+}
+
+export const SURVEY_REWARDS: readonly SurveyReward[] = [
+  { kind: 'points', points: 30 },
+  { kind: 'pass', points: 0 },
+  { kind: 'points', points: 15 },
+  { kind: 'points', points: 50 },
+]
 
 export const QUESTION_KINDS: Array<{ kind: QuestionKind; label: string; hasOptions: boolean }> = [
   { kind: 'short', label: 'Short answer', hasOptions: false },

@@ -4,9 +4,16 @@
  *
  * Two rules shape everything here:
  *
- * 1. **Answering never affects the passport.** The stamp and the points are already awarded by
- *    `scan` before a visitor ever sees a survey, and nothing in this file writes to `users`,
- *    `scans` or the counters. A booth with a broken or endless form cannot cost anyone points.
+ * 1. **A booth survey never affects the passport.** The stamp and the points are already awarded
+ *    by `scan` before a visitor ever sees a booth's survey, and nothing here writes to `users`,
+ *    `scans` or the counters for one. A booth with a broken or endless form cannot cost anyone
+ *    points.
+ *
+ *    **The festival survey is the deliberate exception, since 2026-09-17.** Answering it spins a
+ *    wheel (`SURVEY_REWARDS`) that pays points or a boarding pass, so `submitSurveyResponse`
+ *    does write `users/{uid}.points`, the event shard and — if the award crosses a threshold —
+ *    `tierUnlocks`. It can only ever ADD, it runs once per visitor, and it is gated on the same
+ *    `surveyTaken` create as everything else below. Rule 1 still holds for every booth survey.
  *
  * 2. **A response carries no identity.** `surveyResponses` is readable by the booth's organizer,
  *    so the visitor's uid appears neither in a field nor in the document id (§10 — sensitive
@@ -15,11 +22,12 @@
  */
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import {
-  db, FieldValue, requireRole, requireAuth, str, num, audit, getActiveEvent,
+  db, FieldValue, requireRole, requireAuth, str, num, audit, getActiveEvent, shardRef,
 } from './lib'
 import {
-  EVENT_SURVEY_ID, OPTION_LIMIT, QUESTION_KINDS, QUESTION_LIMIT, QuestionKind, SurveyAnswer, SurveyDoc,
-  SurveyQuestion, SurveyResponseDoc, UserDoc, answerIsEmpty, hasOptions, surveyProblems,
+  EVENT_SURVEY_ID, OPTION_LIMIT, QUESTION_KINDS, QUESTION_LIMIT, QuestionKind, SURVEY_REWARDS,
+  PrizeTierDoc, SurveyAnswer, SurveyDoc, SurveyQuestion, SurveyResponseDoc, UserDoc,
+  answerIsEmpty, hasOptions, surveyProblems,
 } from './shared/model'
 
 const KINDS = QUESTION_KINDS.map((k) => k.kind)
@@ -169,7 +177,14 @@ export const setSurveyActive = onCall(async (req) => {
     if (problems.length) throw new HttpsError('failed-precondition', problems[0])
   }
   await ref.set(gateGift === undefined ? { active } : { active, gateGift }, { merge: true })
-  await audit(actor, 'setSurveyActive', 'survey', boothId, null, { active, gateGift })
+  /*
+   * The same shape as the write above, and for a harder reason than tidiness: Firestore rejects
+   * an explicit `undefined`, so `{ active, gateGift }` with no gate passed threw INTERNAL out of
+   * the audit write and took the whole call with it — publishing and unpublishing a survey, which
+   * deliberately leave `gateGift` alone, could not be done at all. Found by the survey e2e run on
+   * the eve of the festival.
+   */
+  await audit(actor, 'setSurveyActive', 'survey', boothId, null, gateGift === undefined ? { active } : { active, gateGift })
   return { ok: true, active, gateGift }
 })
 
@@ -285,16 +300,87 @@ export const submitSurveyResponse = onCall(async (req) => {
    * an auto-id and nothing linking it to its author, which is deliberate (§10) and means a
    * duplicate cannot be told from a second visitor's answers once it is in.
    */
+  /**
+   * The wheel, rolled here and not in the browser (see `SURVEY_REWARDS`). It rides in the same
+   * batch as the `surveyTaken` create below, so the prize is decided exactly once: if the create
+   * loses a race the points are rolled back with it, and a reload re-reads `rewardIndex` rather
+   * than spinning again.
+   */
+  const rewardIndex = boothId === EVENT_SURVEY_ID
+    ? Math.floor(Math.random() * SURVEY_REWARDS.length)
+    : null
+  const reward = rewardIndex === null ? null : SURVEY_REWARDS[rewardIndex]
+  const awarded = reward?.kind === 'points' ? reward.points : 0
+
   const batch = db.batch()
   // Auto-id, so nothing about the document's address hints at who wrote it.
   batch.set(db.collection('surveyResponses').doc(), doc)
-  batch.create(takenRef, { boothId, takenAt: FieldValue.serverTimestamp() })
+  batch.create(takenRef, {
+    boothId,
+    takenAt: FieldValue.serverTimestamp(),
+    // Only the festival survey pays, so only its marker carries a prize.
+    ...(rewardIndex === null ? {} : { rewardIndex }),
+  })
   batch.set(db.doc(`surveys/${boothId}`), { responseCount: FieldValue.increment(1) }, { merge: true })
+  if (awarded > 0) {
+    batch.set(db.doc(`users/${uid}`), { points: FieldValue.increment(awarded) }, { merge: true })
+    // The dashboard totals are the sum of the shards, never a pass over `users`. Award points
+    // without this and the headline total drifts below the points visitors can see on their own
+    // passports — with nothing in the data to say which figure is wrong.
+    batch.set(shardRef(), { points: FieldValue.increment(awarded) }, { merge: true })
+  }
   try {
     await batch.commit()
   } catch (e) {
     if ((e as { code?: number }).code === 6) throw new HttpsError('already-exists', 'You have already answered this one')
     throw e
   }
-  return { ok: true }
+
+  /**
+   * Points from the wheel can carry a visitor over a tier threshold, and the trigger that
+   * normally records that (`onScanCreate`, triggers.ts) does not run for a survey. Without this
+   * the passport would show the tier as reached while the desk — which reads `tierUnlocks` —
+   * turned them away. Same rule and same fields as the trigger's unlock block, kept in step by
+   * hand: the trigger's copy is the canonical one.
+   *
+   * After the commit and best-effort: the answers are safely stored by now, and a visitor whose
+   * unlock row is missing is recoverable (`savePrizePolicy` rebuilds them), whereas failing the
+   * call here would tell them their survey did not go through when it did.
+   */
+  if (awarded > 0) {
+    try {
+      const [userSnap, tiers] = await Promise.all([
+        db.doc(`users/${uid}`).get(),
+        db.collection('prizeTiers').where('active', '==', true).get(),
+      ])
+      const u = userSnap.data() as UserDoc | undefined
+      if (u && tiers.size) {
+        const lowest = Math.min(...tiers.docs.map((t) => (t.data() as PrizeTierDoc).thresholdPoints))
+        const unlockBatch = db.batch()
+        const funnel: Record<string, unknown> = {}
+        let any = false
+        for (const t of tiers.docs) {
+          const tier = t.data() as PrizeTierDoc
+          if ((u.points ?? 0) < tier.thresholdPoints) continue
+          const ref = db.doc(`tierUnlocks/${uid}_${t.id}`)
+          if ((await ref.get()).exists) continue
+          if (tier.thresholdPoints === lowest) funnel.tierReached = FieldValue.increment(1)
+          unlockBatch.set(ref, {
+            visitorId: uid, tierId: t.id,
+            unlockedAt: FieldValue.serverTimestamp(),
+            pointsAtUnlock: u.points ?? 0, stampCountAtUnlock: u.stampCount ?? 0,
+            redeemedAt: null, redeemedBy: null, redemptionNote: null,
+            voidedAt: null, voidedBy: null, voidReason: null,
+          })
+          any = true
+        }
+        if (Object.keys(funnel).length) unlockBatch.set(shardRef(), funnel, { merge: true })
+        if (any || Object.keys(funnel).length) await unlockBatch.commit()
+      }
+    } catch (e) {
+      console.error(`submitSurveyResponse: reward unlocks failed for ${uid}`, e)
+    }
+  }
+
+  return { ok: true, rewardIndex }
 })

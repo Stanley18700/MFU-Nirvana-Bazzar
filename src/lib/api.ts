@@ -90,7 +90,9 @@ export const api = {
   deleteSurvey: call<{ boothId?: string }, { ok: true }>('deleteSurvey'),
   /** What the visitor is offered after a stamp. 'none' when the booth has no live survey. */
   surveyForBooth: call<{ boothId: string }, SurveyOffer>('surveyForBooth'),
-  submitSurveyResponse: call<{ boothId: string; answers: Record<string, SurveyAnswer> }, { ok: true }>('submitSurveyResponse'),
+  // `rewardIndex` points into SURVEY_REWARDS — the festival survey's wheel, rolled server-side.
+  // Null for a booth survey, which awards nothing.
+  submitSurveyResponse: call<{ boothId: string; answers: Record<string, SurveyAnswer> }, { ok: true; rewardIndex: number | null }>('submitSurveyResponse'),
 }
 
 export interface CreateUserInput {

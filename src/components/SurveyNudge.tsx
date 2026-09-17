@@ -9,8 +9,13 @@ import { EVENT_SURVEY_ID, dayOf, minuteOfDay } from '../../shared/model'
 import { welcomePending } from './Welcome'
 
 /**
- * Three moments when a visitor is asked for the festival survey, each once.
+ * Four moments when a visitor is asked for the festival survey, each once.
  *
+ *   `gift`      — the surprise offer, at GIFT_AFTER_STAMPS stamps. This is the one aimed at the
+ *                 majority who will never reach the gift threshold and so have no other reason
+ *                 to answer: it leads with what they get (a spin of the wheel) rather than with
+ *                 what we want. Early on purpose — nearly every visitor reaches two stamps,
+ *                 where only a fraction reach five and fewer still reach the threshold.
  *   `stamps`    — the first time the passport holds NUDGE_AFTER_STAMPS stamps: they have seen
  *                 enough to have an opinion and are not yet at the prize desk.
  *   `unlock`    — the moment the gift threshold is reached: the survey now stands between them
@@ -29,8 +34,10 @@ import { welcomePending } from './Welcome'
 export const NUDGE_AFTER_STAMPS = 5
 /** 15:00 Bangkok — after the lunch gap, when the afternoon crowd has settled in. */
 export const NUDGE_AT_MINUTE = 15 * 60
+/** Two stamps: past the first-scan novelty, still early enough that almost everyone gets here. */
+export const GIFT_AFTER_STAMPS = 2
 
-type Moment = 'unlock' | 'stamps' | 'afternoon'
+type Moment = 'unlock' | 'gift' | 'stamps' | 'afternoon'
 
 export function SurveyNudge() {
   const { t } = useLocale()
@@ -62,6 +69,7 @@ export function SurveyNudge() {
     if (open || onPrize || !uid || fs.loading || !fs.live || fs.taken || stamps < 1) return
     if (welcomePending(uid)) return
     const due: Moment | null = points >= threshold ? 'unlock'
+      : stamps >= GIFT_AFTER_STAMPS && !seen(uid, 'gift') ? 'gift'
       : stamps >= NUDGE_AFTER_STAMPS ? 'stamps'
       : afternoon ? 'afternoon'
       : null
@@ -81,20 +89,36 @@ export function SurveyNudge() {
   useEffect(() => { if (open && (fs.taken || !fs.live)) setOpen(null) }, [open, fs.taken, fs.live])
 
   if (!open) return null
+  const gift = open === 'gift'
   const lead = open === 'unlock' ? t('v.nudge.unlock')
+    : gift ? t('v.nudge.gift', { q: fs.count })
     : open === 'stamps' ? t('v.nudge.stamps', { n: stamps, q: fs.count })
     : t('v.nudge.afternoon', { q: fs.count })
+  const title = gift ? t('v.nudge.giftTitle') : t('v.nudge.title')
 
   return (
     <div className="scrim-in fixed inset-0 z-40 flex items-end justify-center bg-ink/50 p-4" onClick={() => setOpen(null)}>
-      <div role="dialog" aria-label={t('v.nudge.title')}
-        className="card card-static sheet-in w-full max-w-md bg-white p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="stamp-text text-sky-900">{t('v.prize.feedbackEyebrow')}</div>
-        <h2 className="mt-1 text-lg font-semibold leading-snug">{t('v.nudge.title')}</h2>
-        <p className="mt-2 text-sm text-ink-soft">{lead}</p>
+      <div role="dialog" aria-label={title}
+        className="card card-static sheet-in max-h-[90dvh] w-full max-w-md overflow-y-auto bg-white p-5"
+        style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+        onClick={(e) => e.stopPropagation()}>
+        {gift && <div className="text-center text-4xl" aria-hidden>🎁</div>}
+        <div className={`stamp-text text-sky-900 ${gift ? 'mt-2 text-center' : ''}`}>
+          {gift ? t('v.nudge.giftEyebrow') : t('v.prize.feedbackEyebrow')}
+        </div>
+        <h2 className={`mt-1 text-lg font-semibold leading-snug ${gift ? 'text-center' : ''}`}>{title}</h2>
+        <p className={`mt-2 text-sm text-ink-soft ${gift ? 'text-center' : ''}`}>{lead}</p>
         <div className="mt-4 flex gap-2">
           <button type="button" className="btn-ghost flex-1" onClick={() => setOpen(null)}>{t('v.nudge.later')}</button>
-          <Link to={`/survey/${EVENT_SURVEY_ID}`} className="btn-primary flex-1" onClick={() => setOpen(null)}>{t('v.nudge.answer')}</Link>
+          {/*
+            * `?from=gift` is what arms the short hold on the survey's own way out. Only this CTA
+            * sets it: someone who chooses the survey from the cover row or the Prize card asked
+            * for it themselves and is never held.
+            */}
+          <Link to={gift ? `/survey/${EVENT_SURVEY_ID}?from=gift` : `/survey/${EVENT_SURVEY_ID}`}
+            className={`${gift ? 'btn-gold' : 'btn-primary'} flex-1`} onClick={() => setOpen(null)}>
+            {gift ? t('v.nudge.giftTake') : t('v.nudge.answer')}
+          </Link>
         </div>
       </div>
     </div>
